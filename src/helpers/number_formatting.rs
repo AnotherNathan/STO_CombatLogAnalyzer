@@ -14,18 +14,36 @@ impl NumberFormatter {
     pub fn format(&mut self, number: f64, precision: usize) -> String {
         let mut result = String::new();
 
-        let number = number.abs();
+        let mut number = number.abs();
+        let fract = number.fract();
 
-        write!(&mut result, "{:.*}", precision, number % 1000.0).unwrap();
+        if precision == 0 {
+            number = number.round();
+        }
 
-        let mut number = number as u64 / 1000;
+        let mut number = number as u64;
 
-        while number > 0 {
+        loop {
             self.buffer.clear();
-            write!(&mut self.buffer, "{}'", number % 1000).unwrap();
+            if number < 1000 {
+                write!(&mut self.buffer, "{}", number).unwrap();
+                result.insert_str(0, &self.buffer);
+                break;
+            }
+
+            write!(&mut self.buffer, "'{:03}", number % 1000).unwrap();
             result.insert_str(0, &self.buffer);
             number /= 1000;
         }
+
+        if precision == 0 {
+            return result;
+        }
+
+        self.buffer.clear();
+        write!(&mut self.buffer, "{:.*}", precision, fract).unwrap();
+        self.buffer.remove(0);
+        result.push_str(&self.buffer);
 
         result
     }
@@ -45,5 +63,12 @@ mod tests {
         assert_eq!(formatter.format(123456789.0, 2), "123'456'789.00");
 
         assert_eq!(formatter.format(-123456789.0, 2), "123'456'789.00");
+
+        assert_eq!(formatter.format(12012.0, 2), "12'012.00");
+        assert_eq!(formatter.format(12012012.0, 2), "12'012'012.00");
+
+        assert_eq!(formatter.format(12012012.0, 0), "12'012'012");
+
+        assert_eq!(formatter.format(1.567, 2), "1.57");
     }
 }
