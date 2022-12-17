@@ -113,13 +113,13 @@ impl DamageTable {
 }
 
 impl TablePart {
-    fn new(source: &DamageSource, number_formatter: &mut NumberFormatter) -> Self {
+    fn new(source: &DamageGroup, number_formatter: &mut NumberFormatter) -> Self {
         let max_one_hit = MaxOneHit {
             damage: TextValue::new(source.max_one_hit.hit.damage, 2, number_formatter),
             source: source.max_one_hit.source.clone(),
         };
         let sub_parts = source
-            .sub_sources
+            .sub_groups
             .values()
             .map(|s| TablePart::new(s, number_formatter))
             .collect();
@@ -164,7 +164,7 @@ impl TablePart {
 
     fn sort_by_key(&mut self, mut key: impl FnMut(&Self) -> f64 + Copy) {
         self.sub_parts
-            .sort_unstable_by(|p1, p2| key(p1).total_cmp(&key(p2)));
+            .sort_unstable_by(|p1, p2| key(p1).total_cmp(&key(p2)).reverse());
 
         self.sub_parts.iter_mut().for_each(|p| p.sort_by_key(key));
     }

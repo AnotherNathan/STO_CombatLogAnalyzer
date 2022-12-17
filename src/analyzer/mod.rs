@@ -24,11 +24,11 @@ pub struct Combat {
 pub struct Player {
     start_time: NaiveDateTime,
     end_time: NaiveDateTime,
-    pub damage_source: DamageSource,
+    pub damage_source: DamageGroup,
 }
 
 #[derive(Clone, Debug)]
-pub struct DamageSource {
+pub struct DamageGroup {
     pub name: String,
     pub total_damage: f64,
     pub max_one_hit: MaxOneHit,
@@ -37,13 +37,13 @@ pub struct DamageSource {
     pub flanking: f64,
     pub dps: f64,
     hits: Vec<Hit>,
-    pub sub_sources: FxHashMap<String, DamageSource>,
+    pub sub_groups: FxHashMap<String, DamageGroup>,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Hit {
     pub damage: f64,
-    pub flags: HitFlags,
+    pub flags: ValueFlags,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -73,9 +73,13 @@ impl Analyzer {
                 }
             };
 
-            if record.player_handle.is_none() {
+            if !record.source.is_player() {
                 continue;
             }
+
+            let Entity::Player { full_name, .. } = &record.source else{
+                continue;
+            };
 
             let combat = match self.combats.last_mut() {
                 Some(combat)
@@ -93,23 +97,18 @@ impl Analyzer {
             };
             combat.update(record.time);
 
-            let player = match combat.players.get_mut(record.entity) {
+            let player = match combat.players.get_mut(*full_name) {
                 Some(player) => player,
                 None => {
                     let player = Player::new(&record);
                     combat
                         .players
                         .insert(player.damage_source.name.to_string(), player);
-                    combat.players.get_mut(record.entity).unwrap()
+                    combat.players.get_mut(*full_name).unwrap()
                 }
             };
 
-            match record.pet_name {
-                Some(_) => {
-                    // todo pet damage
-                }
-                None => player.add_hit(&record),
-            }
+            player.add_value(&record);
         }
 
         self.combats[before_update_combat_count..]
@@ -152,30 +151,45 @@ impl Combat {
 
 impl Player {
     fn new(record: &Record) -> Self {
+        let Entity::Player{full_name,..} = record.source 
+            else{ 
+                panic!("record source is not a player")
+            };
         Self {
             start_time: record.time,
             end_time: record.time,
-            damage_source: DamageSource::new(record.entity),
+            damage_source: DamageGroup::new(full_name),
         }
     }
 
-    fn add_hit(&mut self, record: &Record) {
-        self.end_time = record.time;
-        self.damage_source.add_sub_source_source_hit(
-            record.damage_source,
-            record.damage,
-            record.hit_flags,
-        );
+    fn add_value(&mut self, record: &Record) {
+        match record.sub_source {
+            Entity::EntitySelf => {
+                match record.value{
+                    RecordValue::ShieldDamage(damage) | RecordValue::HullDamage(damage) => {
+                        self.add_damage_out(record.value_source, damage as _, record.value_flags);
+                        self.end_time = record.time;
+                    },
+                    RecordValue::ShieldHeal(_) | RecordValue::HullHeal(_) => (),
+                }
+            },
+            Entity::NonPlayer { .. } => (),
+            Entity::Player { .. } => (),
+        }
+    }
+
+    fn add_damage_out(&mut self, sub_source:&str, damage:f32, flags:ValueFlags){
+        self.damage_source.add_sub_group_value(sub_source, damage, flags);
     }
 
     fn recalculate_values(&mut self) {
         let combat_duration = self.end_time.signed_duration_since(self.start_time);
         let combat_duration = combat_duration.to_std().unwrap().as_secs_f64();
-        self.damage_source.recalculate_values(combat_duration);
+        self.damage_source.recalculate_metrics(combat_duration);
     }
 }
 
-impl DamageSource {
+impl DamageGroup {
     fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -186,25 +200,25 @@ impl DamageSource {
             flanking: 0.0,
             hits: Vec::new(),
             dps: 0.0,
-            sub_sources: Default::default(),
+            sub_groups: Default::default(),
         }
     }
 
-    fn recalculate_values(&mut self, combat_duration: f64) {
+    fn recalculate_metrics(&mut self, combat_duration: f64) {
         self.max_one_hit.reset();
 
         self.total_damage = 0.0;
         let mut crits_count = 0;
         let mut flanks_count = 0;
 
-        if self.sub_sources.len() > 0 {
+        if self.sub_groups.len() > 0 {
             self.hits.clear();
 
-            for sub_source in self.sub_sources.values_mut() {
-                sub_source.recalculate_values(combat_duration);
-                self.hits.extend_from_slice(&sub_source.hits);
+            for sub_group in self.sub_groups.values_mut() {
+                sub_group.recalculate_metrics(combat_duration);
+                self.hits.extend_from_slice(&sub_group.hits);
                 self.max_one_hit
-                    .update(&sub_source.max_one_hit.source, &sub_source.max_one_hit.hit);
+                    .update(&sub_group.max_one_hit.source, &sub_group.max_one_hit.hit);
             }
         }
 
@@ -212,11 +226,11 @@ impl DamageSource {
             self.max_one_hit.update(&self.name, hit);
             self.total_damage += hit.damage as f64;
 
-            if hit.flags.contains(HitFlags::CRITICAL) {
+            if hit.flags.contains(ValueFlags::CRITICAL) {
                 crits_count += 1;
             }
 
-            if hit.flags.contains(HitFlags::FLANK) {
+            if hit.flags.contains(ValueFlags::FLANK) {
                 flanks_count += 1;
             }
         }
@@ -231,21 +245,21 @@ impl DamageSource {
         self.dps = self.total_damage / combat_duration;
     }
 
-    fn add_sub_source_source_hit(&mut self, sub_source: &str, damage: f32, flags: HitFlags) {
-        let sub_source = self.get_or_create_sub_source(sub_source);
-        sub_source.hits.push(Hit {
+    fn add_sub_group_value(&mut self, sub_group: &str, damage: f32, flags: ValueFlags) {
+        let sub_group = self.get_or_create_sub_group(sub_group);
+        sub_group.hits.push(Hit {
             damage: damage as _,
             flags,
         });
     }
 
-    fn get_or_create_sub_source(&mut self, sub_source: &str) -> &mut Self {
-        if !self.sub_sources.contains_key(sub_source) {
-            self.sub_sources
-                .insert(sub_source.to_string(), Self::new(sub_source));
+    fn get_or_create_sub_group(&mut self, sub_group: &str) -> &mut Self {
+        if !self.sub_groups.contains_key(sub_group) {
+            self.sub_groups
+                .insert(sub_group.to_string(), Self::new(sub_group));
         }
 
-        self.sub_sources.get_mut(sub_source).unwrap()
+        self.sub_groups.get_mut(sub_group).unwrap()
     }
 }
 
@@ -261,10 +275,6 @@ impl MaxOneHit {
     fn reset(&mut self) {
         self.source.clear();
         self.hit = Default::default();
-    }
-
-    pub fn to_string(&self) -> String {
-        format!("{} ({})", self.hit.damage, self.source)
     }
 }
 
