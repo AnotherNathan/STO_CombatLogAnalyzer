@@ -210,21 +210,21 @@ impl RecordValue {
         damage_or_heal: &str,
         damage_or_heal_pre_modifiers: &str,
     ) -> Option<Self> {
-        let damage_or_heal = str::parse::<f64>(damage_or_heal).ok()?.abs();
+        let damage_or_heal = str::parse::<f64>(damage_or_heal).ok()?;
 
-        if value_type == "HitPoints" {
-            return Some(Self::HullHeal(damage_or_heal));
+        if damage_or_heal < 0.0 && value_type == "HitPoints" {
+            return Some(Self::HullHeal(damage_or_heal.abs()));
         }
 
         if value_type == "Shield" {
-            if damage_or_heal_pre_modifiers == "0" {
-                return Some(Self::ShieldHeal(damage_or_heal));
+            if damage_or_heal < 0.0 && damage_or_heal_pre_modifiers == "0" {
+                return Some(Self::ShieldHeal(damage_or_heal.abs()));
             }
 
-            return Some(Self::ShieldDamage(damage_or_heal));
+            return Some(Self::ShieldDamage(damage_or_heal.abs()));
         }
 
-        return Some(Self::HullDamage(damage_or_heal));
+        return Some(Self::HullDamage(damage_or_heal.abs()));
     }
 }
 
