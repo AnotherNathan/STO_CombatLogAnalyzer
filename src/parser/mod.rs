@@ -98,31 +98,31 @@ impl Parser {
     fn parse_from_line<'a>(line: &'a str, scratch_pad: &mut String) -> Option<Record<'a>> {
         let mut parts = line.split(',');
 
-        let time_and_source_name = parts.next()?;
+        let time_and_source_name = parts.next()?.trim();
         let (time, source_name) =
             Self::parse_time_and_source_name(time_and_source_name, scratch_pad)?;
 
-        let source_id_and_unique_name = parts.next()?;
+        let source_id_and_unique_name = parts.next()?.trim();
         let source = Entity::parse(source_name, source_id_and_unique_name)?;
 
-        let sub_source_name = parts.next()?;
-        let sub_source_id_and_unique_name = parts.next()?;
+        let sub_source_name = parts.next()?.trim();
+        let sub_source_id_and_unique_name = parts.next()?.trim();
         let sub_source = Entity::parse(sub_source_name, sub_source_id_and_unique_name)?;
 
-        let target_name = parts.next()?;
-        let target_id_and_unique_name = parts.next()?;
+        let target_name = parts.next()?.trim();
+        let target_id_and_unique_name = parts.next()?.trim();
         let target = Entity::parse(target_name, target_id_and_unique_name)?;
 
-        let value_source = parts.next()?;
+        let value_source = parts.next()?.trim();
 
         // don't know what these are (e.g. Pn.Rfd0cd)
         parts.next()?;
 
-        let value_type = parts.next()?;
-        let value_flags = parts.next()?;
+        let value_type = parts.next()?.trim();
+        let value_flags = parts.next()?.trim();
         let value_flags = ValueFlags::parse(value_flags);
-        let damage_or_heal = parts.next()?;
-        let damage_or_heal_pre_modifiers = parts.next()?;
+        let damage_or_heal = parts.next()?.trim();
+        let damage_or_heal_pre_modifiers = parts.next()?.trim();
 
         let value = RecordValue::new(value_type, damage_or_heal, damage_or_heal_pre_modifiers)?;
 
@@ -200,13 +200,6 @@ impl<'a> Entity<'a> {
             }
             "C" => Some(Self::NonPlayer { name, id }),
             _ => None,
-        }
-    }
-
-    pub fn is_player(&self) -> bool {
-        match self {
-            Entity::Player { .. } => true,
-            _ => false,
         }
     }
 }
