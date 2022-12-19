@@ -5,7 +5,6 @@ mod analyzer;
 mod app;
 mod custom_widgets;
 mod helpers;
-mod parser;
 
 fn main() {
     let native_options = eframe::NativeOptions::default();

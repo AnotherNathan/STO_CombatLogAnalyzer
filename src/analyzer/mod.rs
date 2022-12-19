@@ -4,7 +4,9 @@ use chrono::{Duration, NaiveDateTime};
 use log::warn;
 use rustc_hash::FxHashMap;
 
-use crate::parser::*;
+mod parser;
+
+use self::parser::*;
 
 pub struct Analyzer {
     parser: Parser,
