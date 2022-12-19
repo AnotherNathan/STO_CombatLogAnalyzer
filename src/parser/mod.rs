@@ -24,7 +24,7 @@ pub struct Record<'a> {
 
 #[derive(Debug)]
 pub enum Entity<'a> {
-    EntitySelf,
+    None,
     Player {
         full_name: &'a str, // -> name@handle
         id: (u64, u64),
@@ -179,7 +179,7 @@ lazy_static! {
 impl<'a> Entity<'a> {
     fn parse(name: &'a str, id_and_unique_name: &'a str) -> Option<Self> {
         if name.is_empty() && (id_and_unique_name.is_empty() || id_and_unique_name == "*") {
-            return Some(Self::EntitySelf);
+            return Some(Self::None);
         }
 
         let captures = ID_AND_UNIQUE_NAME_REGEX.captures(id_and_unique_name)?;

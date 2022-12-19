@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Write, path::Path};
+use std::{collections::HashMap, fmt::Write, ops::Range, path::Path};
 
 use chrono::{Duration, NaiveDateTime};
 use log::warn;
@@ -15,15 +15,13 @@ pub struct Analyzer {
 #[derive(Clone, Debug)]
 pub struct Combat {
     pub identifier: String,
-    pub start_time: NaiveDateTime,
-    pub end_time: NaiveDateTime,
+    pub time: Range<NaiveDateTime>,
     pub players: FxHashMap<String, Player>,
 }
 
 #[derive(Clone, Debug)]
 pub struct Player {
-    start_time: NaiveDateTime,
-    end_time: NaiveDateTime,
+    combat_time: Option<Range<NaiveDateTime>>,
     pub damage_source: DamageGroup,
 }
 
@@ -37,6 +35,9 @@ pub struct DamageGroup {
     pub flanking: f64,
     pub dps: f64,
     hits: Vec<Hit>,
+
+    is_pool: bool,
+
     pub sub_groups: FxHashMap<String, DamageGroup>,
 }
 
@@ -73,17 +74,13 @@ impl Analyzer {
                 }
             };
 
-            if !record.source.is_player() {
-                continue;
-            }
-
             let Entity::Player { full_name, .. } = &record.source else{
                 continue;
             };
 
             let combat = match self.combats.last_mut() {
                 Some(combat)
-                    if record.time.signed_duration_since(combat.end_time)
+                    if record.time.signed_duration_since(combat.time.end)
                         > self.combat_separation_time =>
                 {
                     self.combats.push(Combat::new(record.time));
@@ -95,7 +92,7 @@ impl Analyzer {
                     self.combats.last_mut().unwrap()
                 }
             };
-            combat.update(record.time);
+            combat.update_time(record.time);
 
             let player = match combat.players.get_mut(*full_name) {
                 Some(player) => player,
@@ -124,8 +121,7 @@ impl Analyzer {
 impl Combat {
     fn new(start_time: NaiveDateTime) -> Self {
         Self {
-            start_time,
-            end_time: start_time,
+            time: start_time..start_time,
             identifier: String::new(),
             players: Default::default(),
         }
@@ -136,7 +132,7 @@ impl Combat {
         write!(
             &mut self.identifier,
             "{} - {}",
-            self.start_time, self.end_time
+            self.time.start, self.time.end
         )
         .unwrap();
         self.players
@@ -144,53 +140,92 @@ impl Combat {
             .for_each(|p| p.recalculate_values());
     }
 
-    fn update(&mut self, end_time: NaiveDateTime) {
-        self.end_time = end_time;
+    fn update_time(&mut self, end_time: NaiveDateTime) {
+        self.time.end = end_time;
     }
 }
 
 impl Player {
     fn new(record: &Record) -> Self {
-        let Entity::Player{full_name,..} = record.source 
-            else{ 
-                panic!("record source is not a player")
-            };
+        let Entity::Player{full_name,..} = record.source else{
+            panic!("record source is not a player")
+        };
         Self {
-            start_time: record.time,
-            end_time: record.time,
-            damage_source: DamageGroup::new(full_name),
+            combat_time: None,
+            damage_source: DamageGroup::new(full_name, true),
         }
     }
 
     fn add_value(&mut self, record: &Record) {
-        match record.sub_source {
-            Entity::EntitySelf => {
-                match record.value{
-                    RecordValue::ShieldDamage(damage) | RecordValue::HullDamage(damage) => {
-                        self.add_damage_out(record.value_source, damage as _, record.value_flags);
-                        self.end_time = record.time;
-                    },
-                    RecordValue::ShieldHeal(_) | RecordValue::HullHeal(_) => (),
+        match record.value {
+            RecordValue::ShieldDamage(damage) | RecordValue::HullDamage(damage) => {
+                match (&record.sub_source, &record.target) {
+                    (Entity::None, _) | (_, Entity::None) => {
+                        self.add_damage(record.value_source, damage as _, record.value_flags);
+                    }
+                    (Entity::NonPlayer { name, .. }, _) => {
+                        self.add_sub_source_damage(
+                            name,
+                            record.value_source,
+                            damage as _,
+                            record.value_flags,
+                        );
+                    }
+                    _ => warn!(
+                        "encountered unexpected sub source + target combo: {:?}; {:?}",
+                        record.sub_source, record.target
+                    ),
                 }
-            },
-            Entity::NonPlayer { .. } => (),
-            Entity::Player { .. } => (),
+
+                self.update_combat_time(record);
+            }
+            RecordValue::ShieldHeal(_) | RecordValue::HullHeal(_) => (),
         }
     }
 
-    fn add_damage_out(&mut self, sub_source:&str, damage:f32, flags:ValueFlags){
-        self.damage_source.add_sub_group_value(sub_source, damage, flags);
+    fn update_combat_time(&mut self, record: &Record) {
+        let combat_time = self
+            .combat_time
+            .get_or_insert_with(|| record.time..record.time);
+        combat_time.end = record.time;
+    }
+
+    fn add_damage(&mut self, value_source: &str, damage: f32, flags: ValueFlags) {
+        let sub_group = self.damage_source.get_non_pool_sub_group(value_source);
+        sub_group.hits.push(Hit {
+            damage: damage as _,
+            flags,
+        });
+    }
+
+    fn add_sub_source_damage(
+        &mut self,
+        sub_source: &str,
+        value_source: &str,
+        damage: f32,
+        flags: ValueFlags,
+    ) {
+        let pool_sub_group = self.damage_source.get_pool_sub_group(sub_source);
+        let sub_group = pool_sub_group.get_non_pool_sub_group(value_source);
+        sub_group.hits.push(Hit {
+            damage: damage as _,
+            flags,
+        });
     }
 
     fn recalculate_values(&mut self) {
-        let combat_duration = self.end_time.signed_duration_since(self.start_time);
+        let combat_duration = self
+            .combat_time
+            .as_ref()
+            .map(|t| t.end.signed_duration_since(t.start))
+            .unwrap_or(Duration::max_value());
         let combat_duration = combat_duration.to_std().unwrap().as_secs_f64();
         self.damage_source.recalculate_metrics(combat_duration);
     }
 }
 
 impl DamageGroup {
-    fn new(name: &str) -> Self {
+    fn new(name: &str, is_pool: bool) -> Self {
         Self {
             name: name.to_string(),
             total_damage: 0.0,
@@ -201,6 +236,7 @@ impl DamageGroup {
             hits: Vec::new(),
             dps: 0.0,
             sub_groups: Default::default(),
+            is_pool,
         }
     }
 
@@ -245,18 +281,35 @@ impl DamageGroup {
         self.dps = self.total_damage / combat_duration;
     }
 
-    fn add_sub_group_value(&mut self, sub_group: &str, damage: f32, flags: ValueFlags) {
-        let sub_group = self.get_or_create_sub_group(sub_group);
-        sub_group.hits.push(Hit {
-            damage: damage as _,
-            flags,
-        });
+    fn get_non_pool_sub_group(&mut self, sub_group: &str) -> &mut Self {
+        let candidate = self.get_sub_group_or_create_non_pool(sub_group);
+        if !candidate.is_pool {
+            return candidate;
+        }
+
+        candidate.get_non_pool_sub_group(sub_group)
     }
 
-    fn get_or_create_sub_group(&mut self, sub_group: &str) -> &mut Self {
+    fn get_pool_sub_group(&mut self, sub_group: &str) -> &mut Self {
+        let candidate = self.sub_groups.get(sub_group);
+        if candidate.map(|c| c.is_pool).unwrap_or(false) {
+            return self.get_sub_group_or_create_non_pool(sub_group);
+        }
+
+        // make a new pool and move the non pool sub group on there
+        let mut pool = Self::new(sub_group, true);
+        if let Some(non_pool_sub_group) = self.sub_groups.remove(sub_group) {
+            pool.sub_groups
+                .insert(sub_group.to_string(), non_pool_sub_group);
+        }
+        self.sub_groups.insert(sub_group.to_string(), pool);
+        self.get_pool_sub_group(sub_group)
+    }
+
+    fn get_sub_group_or_create_non_pool(&mut self, sub_group: &str) -> &mut Self {
         if !self.sub_groups.contains_key(sub_group) {
             self.sub_groups
-                .insert(sub_group.to_string(), Self::new(sub_group));
+                .insert(sub_group.to_string(), Self::new(sub_group, false));
         }
 
         self.sub_groups.get_mut(sub_group).unwrap()

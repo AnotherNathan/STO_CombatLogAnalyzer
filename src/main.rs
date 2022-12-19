@@ -1,3 +1,6 @@
+#![windows_subsystem = "windows"]
+#![allow(non_snake_case)]
+
 mod analyzer;
 mod app;
 mod custom_widgets;

@@ -138,9 +138,13 @@ impl TablePart {
 
     fn show(&mut self, ui: &mut Ui, indent: f32) {
         ui.horizontal(|ui| {
-            ui.add_space(indent * 50.0);
+            ui.add_space(indent * 30.0);
             let symbol = if self.open { "⏷" } else { "⏵" };
-            if self.sub_parts.len() > 0 && ui.selectable_label(false, symbol).clicked() {
+            let can_open = self.sub_parts.len() > 0;
+            if ui
+                .add_visible(can_open, SelectableLabel::new(false, symbol))
+                .clicked()
+            {
                 self.open = !self.open;
             }
             ui.label(&self.name);
