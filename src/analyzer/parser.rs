@@ -16,7 +16,7 @@ pub struct Record<'a> {
     pub source: Entity<'a>,
     pub target: Entity<'a>,
     pub sub_source: Entity<'a>, // e.g. a pet
-    pub value_source: &'a str,
+    pub value_name: &'a str,
     pub value_type: &'a str,
     pub value_flags: ValueFlags,
     pub value: RecordValue,
@@ -113,7 +113,7 @@ impl Parser {
         let target_id_and_unique_name = parts.next()?.trim();
         let target = Entity::parse(target_name, target_id_and_unique_name)?;
 
-        let value_source = parts.next()?.trim();
+        let value_name = parts.next()?.trim();
 
         // don't know what these are (e.g. Pn.Rfd0cd)
         parts.next()?;
@@ -131,7 +131,7 @@ impl Parser {
             source,
             target,
             sub_source,
-            value_source,
+            value_name,
             value_type,
             value_flags,
             value,

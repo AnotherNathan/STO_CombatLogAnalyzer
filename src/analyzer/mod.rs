@@ -1,16 +1,24 @@
-use std::{collections::HashMap, fmt::Write, ops::Range, path::Path};
+use std::{
+    collections::HashMap,
+    fmt::Write,
+    ops::{Add, Range},
+    path::{Path, PathBuf},
+};
 
+use arrayvec::ArrayVec;
 use chrono::{Duration, NaiveDateTime};
 use log::warn;
 use rustc_hash::FxHashMap;
 
 mod parser;
+pub mod settings;
 
-use self::parser::*;
+use self::{parser::*, settings::*};
 
 pub struct Analyzer {
     parser: Parser,
     combat_separation_time: Duration,
+    settings: AnalysisSettings,
     combats: Vec<Combat>,
 }
 
@@ -56,10 +64,11 @@ pub struct MaxOneHit {
 }
 
 impl Analyzer {
-    pub fn new(file_name: &Path, combat_separation_time: Duration) -> Option<Self> {
+    pub fn new(settings: AnalysisSettings) -> Option<Self> {
         Some(Self {
-            parser: Parser::new(file_name)?,
-            combat_separation_time,
+            parser: Parser::new(&PathBuf::from(&settings.combatlog_file))?,
+            combat_separation_time: Duration::seconds(settings.combat_separation_time_seconds as _),
+            settings,
             combats: Default::default(),
         })
     }
@@ -107,7 +116,7 @@ impl Analyzer {
                 }
             };
 
-            player.add_value(&record);
+            player.add_value(&record, &self.settings);
         }
 
         self.combats[before_update_combat_count..]
@@ -158,20 +167,20 @@ impl Player {
         }
     }
 
-    fn add_value(&mut self, record: &Record) {
+    fn add_value(&mut self, record: &Record, settings: &AnalysisSettings) {
         match record.value {
             RecordValue::ShieldDamage(damage) | RecordValue::HullDamage(damage) => {
                 match (&record.sub_source, &record.target) {
                     (Entity::None, _) | (_, Entity::None) => {
-                        self.add_damage(record.value_source, damage as _, record.value_flags);
+                        self.add_and_group_up_damage(
+                            &[record.value_name],
+                            record,
+                            damage,
+                            settings,
+                        );
                     }
                     (Entity::NonPlayer { name, .. }, _) => {
-                        self.add_sub_source_damage(
-                            name,
-                            record.value_source,
-                            damage as _,
-                            record.value_flags,
-                        );
+                        self.add_and_group_up_pet_or_summon_damage(name, record, damage, settings);
                     }
                     _ => warn!(
                         "encountered unexpected sub source + target combo: {:?}; {:?}",
@@ -185,34 +194,62 @@ impl Player {
         }
     }
 
+    fn add_and_group_up_pet_or_summon_damage(
+        &mut self,
+        pet_or_summon_name: &str,
+        record: &Record,
+        damage: f64,
+        settings: &AnalysisSettings,
+    ) {
+        if settings
+            .summon_and_pet_grouping_revers_rules
+            .iter()
+            .any(|r| r.enabled && r.matches(record))
+        {
+            self.add_and_group_up_damage(
+                &[record.value_name, pet_or_summon_name],
+                record,
+                damage,
+                settings,
+            );
+        } else {
+            self.add_and_group_up_damage(
+                &[pet_or_summon_name, record.value_name],
+                record,
+                damage,
+                settings,
+            );
+        }
+    }
+
+    fn add_and_group_up_damage(
+        &mut self,
+        path: &[&str],
+        record: &Record,
+        damage: f64,
+        settings: &AnalysisSettings,
+    ) {
+        if let Some(rule) = settings
+            .custom_group_rules
+            .iter()
+            .find(|r| r.enabled && r.match_rule.matches(record))
+        {
+            let mut grouped_path = ArrayVec::<_, 3>::new();
+            grouped_path.push(rule.group_name.as_str());
+            grouped_path.try_extend_from_slice(path).unwrap();
+            self.damage_source
+                .add_damage(&grouped_path, damage, record.value_flags);
+        } else {
+            self.damage_source
+                .add_damage(path, damage, record.value_flags);
+        }
+    }
+
     fn update_combat_time(&mut self, record: &Record) {
         let combat_time = self
             .combat_time
             .get_or_insert_with(|| record.time..record.time);
         combat_time.end = record.time;
-    }
-
-    fn add_damage(&mut self, value_source: &str, damage: f32, flags: ValueFlags) {
-        let sub_group = self.damage_source.get_non_pool_sub_group(value_source);
-        sub_group.hits.push(Hit {
-            damage: damage as _,
-            flags,
-        });
-    }
-
-    fn add_sub_source_damage(
-        &mut self,
-        sub_source: &str,
-        value_source: &str,
-        damage: f32,
-        flags: ValueFlags,
-    ) {
-        let pool_sub_group = self.damage_source.get_pool_sub_group(sub_source);
-        let sub_group = pool_sub_group.get_non_pool_sub_group(value_source);
-        sub_group.hits.push(Hit {
-            damage: damage as _,
-            flags,
-        });
     }
 
     fn recalculate_values(&mut self) {
@@ -283,6 +320,17 @@ impl DamageGroup {
         self.dps = self.total_damage / combat_duration;
     }
 
+    fn add_damage(&mut self, path: &[&str], damage: f64, flags: ValueFlags) {
+        if path.len() == 1 {
+            let sub_source = self.get_non_pool_sub_group(path[0]);
+            sub_source.hits.push(Hit { damage, flags });
+            return;
+        }
+
+        let sub_source = self.get_pool_sub_group(path.first().unwrap());
+        sub_source.add_damage(&path[1..], damage, flags);
+    }
+
     fn get_non_pool_sub_group(&mut self, sub_group: &str) -> &mut Self {
         let candidate = self.get_sub_group_or_create_non_pool(sub_group);
         if !candidate.is_pool {
@@ -333,20 +381,19 @@ impl MaxOneHit {
     }
 }
 
+#[cfg(test)]
 mod tests {
-    use std::{ops::Add, path::PathBuf};
-
     use super::*;
 
     #[test]
     #[ignore = "manual test"]
     fn analyze_log() {
-        let mut analyzer = Analyzer::new(
-            &PathBuf::from(
-                r"D:\Games\Star Trek Online_en\Star Trek Online\Live\logs\GameClient\combatlog.log",
-            ),
-            Duration::minutes(1).add(Duration::seconds(30)),
-        )
+        let mut analyzer = Analyzer::new(AnalysisSettings {
+            combatlog_file:
+                r"D:\Games\Star Trek Online_en\Star Trek Online\Live\logs\GameClient\combatlog.log"
+                    .to_string(),
+            ..Default::default()
+        })
         .unwrap();
 
         analyzer.update();

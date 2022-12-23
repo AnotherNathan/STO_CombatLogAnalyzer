@@ -28,7 +28,10 @@ impl App {
         let mut style = Style::clone(&cc.egui_ctx.style());
         style.override_font_id = Some(FontId::monospace(12.0));
         cc.egui_ctx.set_style(Arc::new(style));
-        Default::default()
+        Self {
+            settings: Settings::load_or_default(),
+            ..Default::default()
+        }
     }
 }
 
@@ -38,10 +41,7 @@ impl eframe::App for App {
             match self.settings_window.show(ctx, ui, &mut self.settings) {
                 SettingsResult::NoChanges => (),
                 SettingsResult::ReloadLog => {
-                    self.analyzer = Analyzer::new(
-                        &PathBuf::from(&self.settings.combatlog_file),
-                        Duration::minutes(1).add(Duration::seconds(30)),
-                    );
+                    self.analyzer = Analyzer::new(self.settings.analysis.clone());
                     self.update_analysis();
                 }
             }
@@ -89,10 +89,7 @@ impl App {
         // TODO run it in the background and then update
 
         if self.analyzer.is_none() {
-            self.analyzer = Analyzer::new(
-                &PathBuf::from(&self.settings.combatlog_file),
-                Duration::minutes(1).add(Duration::seconds(40)),
-            );
+            self.analyzer = Analyzer::new(self.settings.analysis.clone());
         }
 
         let analyzer = match self.analyzer.as_mut() {
