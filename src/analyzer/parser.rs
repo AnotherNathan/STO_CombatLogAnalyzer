@@ -35,12 +35,16 @@ pub enum Entity<'a> {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum RecordValue {
-    ShieldDamage(f64),
-    HullDamage(f64),
-    ShieldHeal(f64),
-    HullHeal(f64),
+    Damage(Value),
+    Heal(Value),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Value {
+    Shield(f64),
+    Hull(f64),
 }
 
 bitflags! {
@@ -213,18 +217,18 @@ impl RecordValue {
         let damage_or_heal = str::parse::<f64>(damage_or_heal).ok()?;
 
         if damage_or_heal < 0.0 && value_type == "HitPoints" {
-            return Some(Self::HullHeal(damage_or_heal.abs()));
+            return Some(Self::Heal(Value::Hull(damage_or_heal.abs())));
         }
 
         if value_type == "Shield" {
             if damage_or_heal < 0.0 && damage_or_heal_pre_modifiers == "0" {
-                return Some(Self::ShieldHeal(damage_or_heal.abs()));
+                return Some(Self::Heal(Value::Shield(damage_or_heal.abs())));
             }
 
-            return Some(Self::ShieldDamage(damage_or_heal.abs()));
+            return Some(Self::Damage(Value::Shield(damage_or_heal.abs())));
         }
 
-        return Some(Self::HullDamage(damage_or_heal.abs()));
+        return Some(Self::Damage(Value::Hull(damage_or_heal.abs())));
     }
 }
 

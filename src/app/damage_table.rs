@@ -116,7 +116,7 @@ impl DamageTable {
 impl TablePart {
     fn new(source: &DamageGroup, number_formatter: &mut NumberFormatter) -> Self {
         let max_one_hit = MaxOneHit {
-            damage: TextValue::new(source.max_one_hit.hit.damage, 2, number_formatter),
+            damage: TextValue::new(source.max_one_hit.damage, 2, number_formatter),
             source: source.max_one_hit.source.clone(),
         };
         let sub_parts = source
