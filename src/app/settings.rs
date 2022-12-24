@@ -1,3 +1,4 @@
+use std::fmt::Write;
 use std::path::PathBuf;
 
 use eframe::egui::*;
@@ -21,6 +22,7 @@ pub struct SettingsWindow {
     modified_settings: Settings,
     result: SettingsResult,
     selected_tab: SettingsTab,
+    combat_separation_time: String,
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
@@ -43,6 +45,7 @@ impl SettingsWindow {
         if ui.selectable_label(self.is_open, "Settings").clicked() && !self.is_open {
             self.is_open = true;
             self.modified_settings = settings.clone();
+            self.update_combat_separation_time_display();
         }
 
         if self.is_open {
@@ -115,6 +118,38 @@ impl SettingsWindow {
         TextEdit::singleline(&mut self.modified_settings.analysis.combatlog_file)
             .desired_width(f32::MAX)
             .show(ui);
+
+        ui.label("combat separation time in seconds");
+        ui.horizontal(|ui| {
+            if Slider::new(
+                &mut self
+                    .modified_settings
+                    .analysis
+                    .combat_separation_time_seconds,
+                15.0..=240.0,
+            )
+            .clamp_to_range(false)
+            .show_value(false)
+            .step_by(15.0)
+            .ui(ui)
+            .changed()
+            {
+                self.update_combat_separation_time_display();
+            }
+
+            if TextEdit::singleline(&mut self.combat_separation_time)
+                .desired_width(40.0)
+                .show(ui)
+                .response
+                .changed()
+            {
+                if let Ok(combat_separation_time) = self.combat_separation_time.parse::<f64>() {
+                    self.modified_settings
+                        .analysis
+                        .combat_separation_time_seconds = combat_separation_time.max(0.0);
+                }
+            }
+        });
 
         ui.add_space(100.0);
     }
@@ -324,6 +359,18 @@ impl SettingsWindow {
                 .desired_width(desired_expression_width)
                 .show(ui);
         });
+    }
+
+    fn update_combat_separation_time_display(&mut self) {
+        self.combat_separation_time.clear();
+        write!(
+            &mut self.combat_separation_time,
+            "{}",
+            self.modified_settings
+                .analysis
+                .combat_separation_time_seconds
+        )
+        .unwrap();
     }
 }
 
