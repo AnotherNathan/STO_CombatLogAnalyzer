@@ -82,7 +82,7 @@ impl Parser {
             .ok()?;
 
         Some(Self {
-            file: BufReader::new(file),
+            file: BufReader::with_capacity(1 << 20, file), // 1MB
             buffer: String::new(),
             scratch_pad: String::new(),
         })
