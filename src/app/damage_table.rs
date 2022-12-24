@@ -1,3 +1,4 @@
+use arboard::Clipboard;
 use bitflags::bitflags;
 use eframe::egui::*;
 
@@ -147,7 +148,16 @@ impl TablePart {
             {
                 self.open = !self.open;
             }
-            ui.label(&self.name);
+            ui.label(&self.name).context_menu(|ui| {
+                if ui
+                    .selectable_label(false, "copy name to clipboard")
+                    .clicked()
+                {
+                    if let Ok(mut clipboard) = Clipboard::new() {
+                        _ = clipboard.set_text(&self.name);
+                    }
+                }
+            });
         });
 
         self.total_damage.show(ui);
