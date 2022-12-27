@@ -184,7 +184,13 @@ impl Player {
                             settings,
                         );
                     }
-                    (Entity::NonPlayer { name, .. }, _) => {
+                    (
+                        Entity::NonPlayer { name, .. }
+                        | Entity::Player {
+                            full_name: name, ..
+                        },
+                        _,
+                    ) => {
                         self.add_and_group_up_pet_or_summon_damage(name, record, damage, settings);
                     }
                     _ => warn!(
