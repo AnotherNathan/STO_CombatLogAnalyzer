@@ -1,7 +1,7 @@
 use std::{
     fmt::Write,
     fs::File,
-    io::{BufRead, BufReader},
+    io::{BufRead, BufReader, Seek},
     path::Path,
 };
 
@@ -20,6 +20,7 @@ pub struct Record<'a> {
     pub value_type: &'a str,
     pub value_flags: ValueFlags,
     pub value: RecordValue,
+    pub raw: &'a str,
 }
 
 #[derive(Debug)]
@@ -75,7 +76,7 @@ pub enum RecordError<'a> {
 
 impl Parser {
     pub fn new(file_name: &Path) -> Option<Self> {
-        let file = File::options()
+        let mut file = File::options()
             .read(true)
             .write(false)
             .open(file_name)
@@ -86,6 +87,10 @@ impl Parser {
             buffer: String::new(),
             scratch_pad: String::new(),
         })
+    }
+
+    pub fn pos(&mut self) -> Option<u64> {
+        self.file.stream_position().ok()
     }
 
     pub fn parse_next(&mut self) -> Result<Record, RecordError> {
@@ -139,6 +144,7 @@ impl Parser {
             value_type,
             value_flags,
             value,
+            raw: line,
         };
         Some(record)
     }

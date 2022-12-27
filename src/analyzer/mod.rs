@@ -7,7 +7,7 @@ use std::{
 
 use arrayvec::ArrayVec;
 use chrono::{Duration, NaiveDateTime};
-use log::warn;
+use log::{info, warn};
 use rustc_hash::FxHashMap;
 
 mod parser;
@@ -75,7 +75,7 @@ impl Analyzer {
     }
 
     pub fn update(&mut self) {
-        let before_update_combat_count = self.combats.len();
+        let mut first_modified_combat = None;
         loop {
             let record = match self.parser.parse_next() {
                 Ok(record) => record,
@@ -104,6 +104,7 @@ impl Analyzer {
                     self.combats.last_mut().unwrap()
                 }
             };
+
             combat.update_time(record.time);
 
             let player = match combat.players.get_mut(*full_name) {
@@ -118,15 +119,18 @@ impl Analyzer {
             };
 
             player.add_value(&record, &self.settings);
+            first_modified_combat.get_or_insert(self.combats.len() - 1);
         }
 
-        self.combats[before_update_combat_count..]
-            .iter_mut()
-            .for_each(|p| p.recalculate_values());
+        if let Some(first_modified_combat) = first_modified_combat {
+            self.combats[first_modified_combat..]
+                .iter_mut()
+                .for_each(|p| p.recalculate_values());
+        }
     }
 
-    pub fn build_result(&self) -> Vec<Combat> {
-        self.combats.clone()
+    pub fn result(&self) -> &Vec<Combat> {
+        &self.combats
     }
 }
 
@@ -184,8 +188,8 @@ impl Player {
                         self.add_and_group_up_pet_or_summon_damage(name, record, damage, settings);
                     }
                     _ => warn!(
-                        "encountered unexpected sub source + target combo: {:?}; {:?}",
-                        record.sub_source, record.target
+                        "encountered unexpected sub source + target combo: {}",
+                        record.raw
                     ),
                 }
 
@@ -414,7 +418,7 @@ mod tests {
         .unwrap();
 
         analyzer.update();
-        let result = analyzer.build_result();
+        let result = analyzer.result();
         let combats: Vec<_> = result.iter().map(|c| &c.identifier).collect();
         println!("combats: {:?}", combats);
     }

@@ -46,6 +46,13 @@ struct TextValue {
 }
 
 impl DamageTable {
+    pub fn empty() -> Self {
+        Self {
+            identifier: "<no data loaded>".to_string(),
+            players: Vec::new(),
+        }
+    }
+
     pub fn new(combat: &Combat) -> Self {
         let mut number_formatter = NumberFormatter::new();
         let mut table = Self {
