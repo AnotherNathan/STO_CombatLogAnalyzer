@@ -21,6 +21,7 @@ bitflags! {
         const CRITICAL_CHANCE = 1<<4;
         const FLANKING = 1<<5;
         const HITS = 1<<6;
+        const DAMAGE_PERCENTAGE = 1<<7;
     }
 }
 
@@ -28,6 +29,7 @@ struct TablePart {
     name: String,
     total_damage: TotalDamage,
     dps: TextValue,
+    damage_percentage: TextValue,
     max_one_hit: MaxOneHit,
     average_hit: TextValue,
     critical_chance: TextValue,
@@ -86,7 +88,7 @@ impl DamageTable {
 
     pub fn show(&mut self, ui: &mut Ui) {
         TableBuilder::new(ui)
-            .columns(Column::auto(), 8)
+            .columns(Column::auto(), 9)
             .striped(true)
             .header(0.0, |mut r| {
                 r.col(|ui| {
@@ -94,6 +96,7 @@ impl DamageTable {
                 });
                 self.show_column_header(&mut r, "Total Damage", TableColumns::TOTAL_DAMAGE);
                 self.show_column_header(&mut r, "DPS", TableColumns::DPS);
+                self.show_column_header(&mut r, "Damage %", TableColumns::DPS);
                 self.show_column_header(&mut r, "Max One-Hit", TableColumns::MAX_ONE_HIT);
                 self.show_column_header(&mut r, "Average Hit", TableColumns::AVERAGE_HIT);
                 self.show_column_header(&mut r, "Critical Chance %", TableColumns::CRITICAL_CHANCE);
@@ -132,6 +135,8 @@ impl DamageTable {
             self.sort_by(|p| p.flanking.value);
         } else if by_column.contains(TableColumns::HITS) {
             self.sort_by_key(|p| p.hits.all);
+        } else if by_column.contains(TableColumns::DAMAGE_PERCENTAGE) {
+            self.sort_by(|p| p.damage_percentage.value);
         }
     }
 
@@ -160,6 +165,7 @@ impl TablePart {
             name: source.name.clone(),
             total_damage: TotalDamage::new(source, number_formatter),
             dps: TextValue::new(source.dps, 2, number_formatter),
+            damage_percentage: TextValue::new(source.damage_percentage, 3, number_formatter),
             average_hit: TextValue::new(source.average_hit, 2, number_formatter),
             critical_chance: TextValue::new(source.critical_chance, 3, number_formatter),
             flanking: TextValue::new(source.flanking, 3, number_formatter),
@@ -198,6 +204,7 @@ impl TablePart {
 
             self.total_damage.show(&mut r);
             self.dps.show(&mut r);
+            self.damage_percentage.show(&mut r);
             self.max_one_hit.show(&mut r);
             self.average_hit.show(&mut r);
             self.critical_chance.show(&mut r);

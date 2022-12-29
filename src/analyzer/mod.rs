@@ -46,6 +46,7 @@ pub struct DamageGroup {
     pub critical_chance: f64,
     pub flanking: f64,
     pub dps: f64,
+    pub damage_percentage: f64,
     hull_hits: Vec<Hit>,
     shield_hits: Vec<f64>,
 
@@ -155,7 +156,16 @@ impl Combat {
         .unwrap();
         self.players
             .values_mut()
-            .for_each(|p| p.recalculate_values());
+            .for_each(|p| p.recalculate_metrics());
+
+        let total_damage = self
+            .players
+            .values()
+            .map(|p| p.damage_source.total_damage)
+            .sum();
+        self.players
+            .values_mut()
+            .for_each(|p| p.recalculate_damage_percentage(total_damage));
     }
 
     fn update_time(&mut self, end_time: NaiveDateTime) {
@@ -265,7 +275,7 @@ impl Player {
         combat_time.end = record.time;
     }
 
-    fn recalculate_values(&mut self) {
+    fn recalculate_metrics(&mut self) {
         let combat_duration = self
             .combat_time
             .as_ref()
@@ -273,6 +283,11 @@ impl Player {
             .unwrap_or(Duration::max_value());
         let combat_duration = combat_duration.to_std().unwrap().as_secs_f64();
         self.damage_source.recalculate_metrics(combat_duration);
+    }
+
+    fn recalculate_damage_percentage(&mut self, parent_total_damage: f64) {
+        self.damage_source
+            .recalculate_damage_percentage(parent_total_damage);
     }
 }
 
@@ -290,6 +305,7 @@ impl DamageGroup {
             hull_hits: Vec::new(),
             shield_hits: Vec::new(),
             dps: 0.0,
+            damage_percentage: 0.0,
             sub_groups: Default::default(),
             is_pool,
         }
@@ -348,15 +364,37 @@ impl DamageGroup {
 
         self.total_damage = self.total_hull_damage + self.total_shield_damage;
 
-        let average_hit =
-            self.total_damage / (self.hull_hits.len() + self.shield_hits.len()) as f64;
-        let critical_chance = crits_count as f64 / self.hull_hits.len() as f64;
-        let flanking = flanks_count as f64 / self.hull_hits.len() as f64;
+        let average_hit = if self.hits() == 0 {
+            0.0
+        } else {
+            self.total_damage / self.hits() as f64
+        };
+        let critical_chance = if crits_count == 0 {
+            0.0
+        } else {
+            crits_count as f64 / self.hull_hits() as f64
+        };
+        let flanking = if flanks_count == 0 {
+            0.0
+        } else {
+            flanks_count as f64 / self.hull_hits() as f64
+        };
 
         self.average_hit = average_hit;
         self.critical_chance = critical_chance * 100.0;
-        self.flanking = flanking;
-        self.dps = self.total_damage / combat_duration;
+        self.flanking = flanking * 100.0;
+        self.dps = self.total_damage / combat_duration.max(1.0); // avoid absurd high numbers
+    }
+
+    fn recalculate_damage_percentage(&mut self, parent_total_damage: f64) {
+        self.damage_percentage = if self.total_damage == 0.0 {
+            0.0
+        } else {
+            self.total_damage / parent_total_damage * 100.0
+        };
+        self.sub_groups
+            .values_mut()
+            .for_each(|s| s.recalculate_damage_percentage(self.total_damage));
     }
 
     fn add_damage(&mut self, path: &[&str], damage: Value, flags: ValueFlags) {
