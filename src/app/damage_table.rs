@@ -37,7 +37,7 @@ struct TablePart {
 
 struct MaxOneHit {
     damage: TextValue,
-    source: String,
+    name: String,
 }
 
 struct TextValue {
@@ -124,7 +124,7 @@ impl TablePart {
     fn new(source: &DamageGroup, number_formatter: &mut NumberFormatter) -> Self {
         let max_one_hit = MaxOneHit {
             damage: TextValue::new(source.max_one_hit.damage, 2, number_formatter),
-            source: source.max_one_hit.source.clone(),
+            name: source.max_one_hit.name.clone(),
         };
         let sub_parts = source
             .sub_groups
@@ -169,7 +169,10 @@ impl TablePart {
 
         self.total_damage.show(ui);
         self.dps.show(ui);
-        self.max_one_hit.damage.show(ui);
+        self.max_one_hit
+            .damage
+            .show(ui)
+            .on_hover_text(&self.max_one_hit.name);
         self.average_hit.show(ui);
         self.critical_chance.show(ui);
         self.flanking.show(ui);

@@ -60,7 +60,7 @@ pub struct Hit {
 
 #[derive(Clone, Debug, Default)]
 pub struct MaxOneHit {
-    pub source: String,
+    pub name: String,
     pub damage: f64,
 }
 
@@ -307,7 +307,7 @@ impl DamageGroup {
                 self.shield_hits.extend_from_slice(&sub_group.shield_hits);
                 self.hull_hits.extend_from_slice(&sub_group.hull_hits);
                 self.max_one_hit
-                    .update(&sub_group.max_one_hit.source, sub_group.max_one_hit.damage);
+                    .update(&sub_group.max_one_hit.name, sub_group.max_one_hit.damage);
             }
         }
 
@@ -394,16 +394,16 @@ impl DamageGroup {
 }
 
 impl MaxOneHit {
-    fn update(&mut self, source: &str, damage: f64) {
+    fn update(&mut self, name: &str, damage: f64) {
         if self.damage < damage {
             self.damage = damage;
-            self.source.clear();
-            self.source.write_str(source).unwrap();
+            self.name.clear();
+            self.name.write_str(name).unwrap();
         }
     }
 
     fn reset(&mut self) {
-        self.source.clear();
+        self.name.clear();
         self.damage = Default::default();
     }
 }
