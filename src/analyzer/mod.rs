@@ -346,12 +346,13 @@ impl DamageGroup {
             self.total_shield_damage += hit;
         }
 
+        self.total_damage = self.total_hull_damage + self.total_shield_damage;
+
         let average_hit =
             self.total_damage / (self.hull_hits.len() + self.shield_hits.len()) as f64;
         let critical_chance = crits_count as f64 / self.hull_hits.len() as f64;
         let flanking = flanks_count as f64 / self.hull_hits.len() as f64;
 
-        self.total_damage = self.total_hull_damage + self.total_shield_damage;
         self.average_hit = average_hit;
         self.critical_chance = critical_chance * 100.0;
         self.flanking = flanking;
