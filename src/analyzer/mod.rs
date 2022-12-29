@@ -295,6 +295,18 @@ impl DamageGroup {
         }
     }
 
+    pub fn shield_hits(&self) -> usize {
+        self.shield_hits.len()
+    }
+
+    pub fn hull_hits(&self) -> usize {
+        self.hull_hits.len()
+    }
+
+    pub fn hits(&self) -> usize {
+        self.shield_hits() + self.hull_hits()
+    }
+
     fn recalculate_metrics(&mut self, combat_duration: f64) {
         self.max_one_hit.reset();
         self.total_hull_damage = 0.0;

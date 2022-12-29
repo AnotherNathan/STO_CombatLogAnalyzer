@@ -20,6 +20,7 @@ bitflags! {
         const AVERAGE_HIT = 1<<3;
         const CRITICAL_CHANCE = 1<<4;
         const FLANKING = 1<<5;
+        const HITS = 1<<6;
     }
 }
 
@@ -31,6 +32,7 @@ struct TablePart {
     average_hit: TextValue,
     critical_chance: TextValue,
     flanking: TextValue,
+    hits: Hits,
     sub_parts: Vec<TablePart>,
 
     open: bool,
@@ -43,6 +45,13 @@ struct MaxOneHit {
 
 struct TotalDamage {
     all: TextValue,
+    shield: String,
+    hull: String,
+}
+
+struct Hits {
+    all: usize,
+    all_text: String,
     shield: String,
     hull: String,
 }
@@ -77,7 +86,7 @@ impl DamageTable {
 
     pub fn show(&mut self, ui: &mut Ui) {
         TableBuilder::new(ui)
-            .columns(Column::auto(), 7)
+            .columns(Column::auto(), 8)
             .striped(true)
             .header(0.0, |mut r| {
                 r.col(|ui| {
@@ -89,6 +98,7 @@ impl DamageTable {
                 self.show_column_header(&mut r, "Average Hit", TableColumns::AVERAGE_HIT);
                 self.show_column_header(&mut r, "Critical Chance %", TableColumns::CRITICAL_CHANCE);
                 self.show_column_header(&mut r, "Flanking %", TableColumns::FLANKING);
+                self.show_column_header(&mut r, "Hits", TableColumns::HITS);
             })
             .body(|mut t| {
                 for player in self.players.iter_mut() {
@@ -109,23 +119,31 @@ impl DamageTable {
 
     pub fn sort(&mut self, by_column: TableColumns) {
         if by_column.contains(TableColumns::TOTAL_DAMAGE) {
-            self.sort_by_key(|p| p.total_damage.all.value);
+            self.sort_by(|p| p.total_damage.all.value);
         } else if by_column.contains(TableColumns::DPS) {
-            self.sort_by_key(|p| p.dps.value);
+            self.sort_by(|p| p.dps.value);
         } else if by_column.contains(TableColumns::MAX_ONE_HIT) {
-            self.sort_by_key(|p| p.max_one_hit.damage.value);
+            self.sort_by(|p| p.max_one_hit.damage.value);
         } else if by_column.contains(TableColumns::AVERAGE_HIT) {
-            self.sort_by_key(|p| p.average_hit.value);
+            self.sort_by(|p| p.average_hit.value);
         } else if by_column.contains(TableColumns::CRITICAL_CHANCE) {
-            self.sort_by_key(|p| p.critical_chance.value);
+            self.sort_by(|p| p.critical_chance.value);
         } else if by_column.contains(TableColumns::FLANKING) {
-            self.sort_by_key(|p| p.flanking.value);
+            self.sort_by(|p| p.flanking.value);
+        } else if by_column.contains(TableColumns::HITS) {
+            self.sort_by_key(|p| p.hits.all);
         }
     }
 
-    fn sort_by_key(&mut self, mut key: impl FnMut(&TablePart) -> f64 + Copy) {
+    fn sort_by(&mut self, mut key: impl FnMut(&TablePart) -> f64 + Copy) {
         self.players
             .sort_unstable_by(|p1, p2| key(p1).total_cmp(&key(p2)).reverse());
+
+        self.players.iter_mut().for_each(|p| p.sort_by(key));
+    }
+
+    fn sort_by_key<K: Ord>(&mut self, mut key: impl FnMut(&TablePart) -> K + Copy) {
+        self.players.sort_unstable_by_key(|p| key(p));
 
         self.players.iter_mut().for_each(|p| p.sort_by_key(key));
     }
@@ -146,6 +164,7 @@ impl TablePart {
             critical_chance: TextValue::new(source.critical_chance, 3, number_formatter),
             flanking: TextValue::new(source.flanking, 3, number_formatter),
             max_one_hit: MaxOneHit::new(source, number_formatter),
+            hits: Hits::new(source),
             sub_parts,
             open: false,
         }
@@ -183,6 +202,7 @@ impl TablePart {
             self.average_hit.show(&mut r);
             self.critical_chance.show(&mut r);
             self.flanking.show(&mut r);
+            self.hits.show(&mut r);
         });
 
         if self.open {
@@ -192,9 +212,15 @@ impl TablePart {
         }
     }
 
-    fn sort_by_key(&mut self, mut key: impl FnMut(&Self) -> f64 + Copy) {
+    fn sort_by(&mut self, mut key: impl FnMut(&Self) -> f64 + Copy) {
         self.sub_parts
             .sort_unstable_by(|p1, p2| key(p1).total_cmp(&key(p2)).reverse());
+
+        self.sub_parts.iter_mut().for_each(|p| p.sort_by(key));
+    }
+
+    fn sort_by_key<K: Ord>(&mut self, mut key: impl FnMut(&TablePart) -> K + Copy) {
+        self.sub_parts.sort_unstable_by_key(|p| key(p));
 
         self.sub_parts.iter_mut().for_each(|p| p.sort_by_key(key));
     }
@@ -241,31 +267,59 @@ impl TotalDamage {
     }
 
     fn show(&self, row: &mut TableRow) {
-        self.all.show(row).on_hover_ui(|ui| {
-            TableBuilder::new(ui)
-                .columns(Column::auto(), 2)
-                .header(0.0, |mut r| {
-                    r.col(|ui| {
-                        ui.label("Shield");
-                    });
-                    r.col(|ui| {
-                        ui.label("Hull");
-                    });
-                })
-                .body(|mut t| {
-                    t.row(20.0, |mut r| {
-                        r.col(|ui| {
-                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                ui.label(&self.shield);
-                            });
-                        });
-                        r.col(|ui| {
-                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                ui.label(&self.hull);
-                            });
-                        });
-                    })
-                });
-        });
+        let response = self.all.show(row);
+        show_shield_hull_values_tool_tip(response, &self.shield, &self.hull);
     }
+}
+
+impl Hits {
+    fn new(source: &DamageGroup) -> Self {
+        Self {
+            all: source.hits(),
+            all_text: source.hits().to_string(),
+            shield: source.shield_hits().to_string(),
+            hull: source.hull_hits().to_string(),
+        }
+    }
+
+    fn show(&self, row: &mut TableRow) {
+        let response = row
+            .col(|ui| {
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    ui.label(&self.all_text);
+                });
+            })
+            .1;
+
+        show_shield_hull_values_tool_tip(response, &self.shield, &self.hull);
+    }
+}
+
+fn show_shield_hull_values_tool_tip(response: Response, shield_value: &str, hull_value: &str) {
+    response.on_hover_ui(|ui| {
+        TableBuilder::new(ui)
+            .columns(Column::auto(), 2)
+            .header(0.0, |mut r| {
+                r.col(|ui| {
+                    ui.label("Shield");
+                });
+                r.col(|ui| {
+                    ui.label("Hull");
+                });
+            })
+            .body(|mut t| {
+                t.row(20.0, |mut r| {
+                    r.col(|ui| {
+                        ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                            ui.label(shield_value);
+                        });
+                    });
+                    r.col(|ui| {
+                        ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                            ui.label(hull_value);
+                        });
+                    });
+                });
+            });
+    });
 }
