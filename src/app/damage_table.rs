@@ -1,6 +1,7 @@
 use arboard::Clipboard;
 use bitflags::bitflags;
 use eframe::egui::*;
+use egui_extras::{Column, TableBody, TableBuilder, TableRow};
 
 use crate::{analyzer::*, helpers::number_formatting::NumberFormatter};
 use std::fmt::Write;
@@ -69,30 +70,34 @@ impl DamageTable {
     }
 
     pub fn show(&mut self, ui: &mut Ui) {
-        Grid::new(&self.identifier)
+        TableBuilder::new(ui)
+            .columns(Column::auto(), 7)
             .striped(true)
-            .spacing([20.0, 4.0])
-            .show(ui, |ui| {
-                ui.label("Name");
-                self.show_column_header(ui, "Total Damage", TableColumns::TOTAL_DAMAGE);
-                self.show_column_header(ui, "DPS", TableColumns::DPS);
-                self.show_column_header(ui, "Max One-Hit", TableColumns::MAX_ONE_HIT);
-                self.show_column_header(ui, "Average Hit", TableColumns::AVERAGE_HIT);
-                self.show_column_header(ui, "Critical Chance %", TableColumns::CRITICAL_CHANCE);
-                self.show_column_header(ui, "Flanking %", TableColumns::FLANKING);
-                ui.end_row();
-
+            .header(0.0, |mut r| {
+                r.col(|ui| {
+                    ui.label("Name");
+                });
+                self.show_column_header(&mut r, "Total Damage", TableColumns::TOTAL_DAMAGE);
+                self.show_column_header(&mut r, "DPS", TableColumns::DPS);
+                self.show_column_header(&mut r, "Max One-Hit", TableColumns::MAX_ONE_HIT);
+                self.show_column_header(&mut r, "Average Hit", TableColumns::AVERAGE_HIT);
+                self.show_column_header(&mut r, "Critical Chance %", TableColumns::CRITICAL_CHANCE);
+                self.show_column_header(&mut r, "Flanking %", TableColumns::FLANKING);
+            })
+            .body(|mut t| {
                 for player in self.players.iter_mut() {
-                    player.show(ui, 0.0);
+                    player.show(&mut t, 0.0);
                 }
             });
     }
 
-    fn show_column_header(&mut self, ui: &mut Ui, column_name: &str, column: TableColumns) {
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            if ui.selectable_label(false, column_name).clicked() {
-                self.sort(column);
-            }
+    fn show_column_header(&mut self, row: &mut TableRow, column_name: &str, column: TableColumns) {
+        row.col(|ui| {
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if ui.selectable_label(false, column_name).clicked() {
+                    self.sort(column);
+                }
+            });
         });
     }
 
@@ -144,44 +149,46 @@ impl TablePart {
         }
     }
 
-    fn show(&mut self, ui: &mut Ui, indent: f32) {
-        ui.horizontal(|ui| {
-            ui.add_space(indent * 30.0);
-            let symbol = if self.open { "⏷" } else { "⏵" };
-            let can_open = self.sub_parts.len() > 0;
-            if ui
-                .add_visible(can_open, SelectableLabel::new(false, symbol))
-                .clicked()
-            {
-                self.open = !self.open;
-            }
-            ui.label(&self.name).context_menu(|ui| {
-                if ui
-                    .selectable_label(false, "copy name to clipboard")
-                    .clicked()
-                {
-                    if let Ok(mut clipboard) = Clipboard::new() {
-                        _ = clipboard.set_text(&self.name);
+    fn show(&mut self, table: &mut TableBody, indent: f32) {
+        table.row(20.0, |mut r| {
+            r.col(|ui| {
+                ui.horizontal(|ui| {
+                    ui.add_space(indent * 30.0);
+                    let symbol = if self.open { "⏷" } else { "⏵" };
+                    let can_open = self.sub_parts.len() > 0;
+                    if ui
+                        .add_visible(can_open, SelectableLabel::new(false, symbol))
+                        .clicked()
+                    {
+                        self.open = !self.open;
                     }
-                }
+                    ui.label(&self.name).context_menu(|ui| {
+                        if ui
+                            .selectable_label(false, "copy name to clipboard")
+                            .clicked()
+                        {
+                            if let Ok(mut clipboard) = Clipboard::new() {
+                                _ = clipboard.set_text(&self.name);
+                            }
+                        }
+                    });
+                });
             });
+
+            self.total_damage.show(&mut r);
+            self.dps.show(&mut r);
+            self.max_one_hit
+                .damage
+                .show(&mut r)
+                .on_hover_text(&self.max_one_hit.name);
+            self.average_hit.show(&mut r);
+            self.critical_chance.show(&mut r);
+            self.flanking.show(&mut r);
         });
-
-        self.total_damage.show(ui);
-        self.dps.show(ui);
-        self.max_one_hit
-            .damage
-            .show(ui)
-            .on_hover_text(&self.max_one_hit.name);
-        self.average_hit.show(ui);
-        self.critical_chance.show(ui);
-        self.flanking.show(ui);
-
-        ui.end_row();
 
         if self.open {
             for sub_part in self.sub_parts.iter_mut() {
-                sub_part.show(ui, indent + 1.0);
+                sub_part.show(table, indent + 1.0);
             }
         }
     }
@@ -202,10 +209,12 @@ impl TextValue {
         }
     }
 
-    fn show(&self, ui: &mut Ui) -> Response {
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            ui.label(&self.text)
+    fn show(&self, row: &mut TableRow) -> Response {
+        row.col(|ui| {
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                ui.label(&self.text)
+            });
         })
-        .inner
+        .1
     }
 }

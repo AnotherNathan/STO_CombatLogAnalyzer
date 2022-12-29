@@ -94,9 +94,7 @@ impl eframe::App for App {
                 }
             });
 
-            containers::scroll_area::ScrollArea::new([true, true]).show(ui, |ui| {
-                self.table.show(ui);
-            })
+            self.table.show(ui);
         });
     }
 }
