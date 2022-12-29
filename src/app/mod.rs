@@ -31,7 +31,11 @@ impl App {
         style.override_font_id = Some(FontId::monospace(12.0));
         cc.egui_ctx.set_style(Arc::new(style));
         let settings = Settings::load_or_default();
-        let analysis_handler = AnalysisHandler::new(settings.analysis.clone(), cc.egui_ctx.clone());
+        let analysis_handler = AnalysisHandler::new(
+            settings.analysis.clone(),
+            cc.egui_ctx.clone(),
+            settings.auto_refresh.interval_seconds(),
+        );
         Self {
             settings,
             settings_window: Default::default(),
@@ -51,8 +55,12 @@ impl eframe::App for App {
             match self.settings_window.show(ctx, ui, &mut self.settings) {
                 SettingsResult::NoChanges => (),
                 SettingsResult::ReloadLog => {
-                    self.analysis_handler
-                        .update_settings_and_refresh(self.settings.analysis.clone());
+                    self.analysis_handler = AnalysisHandler::new(
+                        self.settings.analysis.clone(),
+                        ctx.clone(),
+                        self.settings.auto_refresh.interval_seconds(),
+                    );
+                    self.analysis_handler.refresh();
                 }
             }
 

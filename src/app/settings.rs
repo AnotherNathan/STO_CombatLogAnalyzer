@@ -7,13 +7,18 @@ use rfd::FileDialog;
 use serde::*;
 use serde_json::*;
 
-use crate::analyzer::settings::{
-    self, AnalysisSettings, CustomGroupingRule, MatchAspect, MatchMethod, MatchRule,
-};
+use crate::analyzer::settings::{self, AnalysisSettings, MatchAspect, MatchMethod, MatchRule};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Settings {
     pub analysis: AnalysisSettings,
+    pub auto_refresh: AutoRefresh,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AutoRefresh {
+    pub enable: bool,
+    pub interval_seconds: f64,
 }
 
 #[derive(Default)]
@@ -23,6 +28,7 @@ pub struct SettingsWindow {
     result: SettingsResult,
     selected_tab: SettingsTab,
     combat_separation_time: String,
+    auto_refresh_interval: String,
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
@@ -45,7 +51,7 @@ impl SettingsWindow {
         if ui.selectable_label(self.is_open, "Settings").clicked() && !self.is_open {
             self.is_open = true;
             self.modified_settings = settings.clone();
-            self.update_combat_separation_time_display();
+            self.update_slider_displays();
         }
 
         if self.is_open {
@@ -83,7 +89,7 @@ impl SettingsWindow {
 
                     ui.horizontal(|ui| {
                         if ui.button("Ok").clicked() {
-                            if self.modified_settings.analysis != settings.analysis {
+                            if self.modified_settings != *settings {
                                 self.modified_settings.save();
                                 self.result = SettingsResult::ReloadLog;
                             }
@@ -147,6 +153,37 @@ impl SettingsWindow {
                     self.modified_settings
                         .analysis
                         .combat_separation_time_seconds = combat_separation_time.max(0.0);
+                }
+            }
+        });
+
+        ui.checkbox(
+            &mut self.modified_settings.auto_refresh.enable,
+            "auto refresh",
+        );
+        ui.horizontal(|ui| {
+            if Slider::new(
+                &mut self.modified_settings.auto_refresh.interval_seconds,
+                1.0..=10.0,
+            )
+            .clamp_to_range(false)
+            .show_value(false)
+            .step_by(1.0)
+            .ui(ui)
+            .changed()
+            {
+                self.update_auto_refresh_interval_display();
+            }
+
+            if TextEdit::singleline(&mut self.auto_refresh_interval)
+                .desired_width(40.0)
+                .show(ui)
+                .response
+                .changed()
+            {
+                if let Ok(auto_refresh_interval) = self.auto_refresh_interval.parse::<f64>() {
+                    self.modified_settings.auto_refresh.interval_seconds =
+                        auto_refresh_interval.max(0.0);
                 }
             }
         });
@@ -361,16 +398,30 @@ impl SettingsWindow {
         });
     }
 
+    fn update_slider_displays(&mut self) {
+        self.update_combat_separation_time_display();
+        self.update_auto_refresh_interval_display();
+    }
+
     fn update_combat_separation_time_display(&mut self) {
-        self.combat_separation_time.clear();
-        write!(
+        Self::update_slider_display(
             &mut self.combat_separation_time,
-            "{}",
             self.modified_settings
                 .analysis
-                .combat_separation_time_seconds
-        )
-        .unwrap();
+                .combat_separation_time_seconds,
+        );
+    }
+
+    fn update_auto_refresh_interval_display(&mut self) {
+        Self::update_slider_display(
+            &mut self.auto_refresh_interval,
+            self.modified_settings.auto_refresh.interval_seconds,
+        );
+    }
+
+    fn update_slider_display(display: &mut String, value: f64) {
+        display.clear();
+        write!(display, "{}", value).unwrap();
     }
 }
 
@@ -405,5 +456,24 @@ impl Settings {
         };
 
         let _ = std::fs::write(&file_path, data);
+    }
+}
+
+impl AutoRefresh {
+    pub fn interval_seconds(&self) -> Option<f64> {
+        if self.enable {
+            Some(self.interval_seconds)
+        } else {
+            None
+        }
+    }
+}
+
+impl Default for AutoRefresh {
+    fn default() -> Self {
+        Self {
+            enable: false,
+            interval_seconds: 3.0,
+        }
     }
 }
