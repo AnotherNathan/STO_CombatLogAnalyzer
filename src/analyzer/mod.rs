@@ -39,6 +39,8 @@ pub struct Player {
 pub struct DamageGroup {
     pub name: String,
     pub total_damage: f64,
+    pub total_shield_damage: f64,
+    pub total_hull_damage: f64,
     pub max_one_hit: MaxOneHit,
     pub average_hit: f64,
     pub critical_chance: f64,
@@ -279,6 +281,8 @@ impl DamageGroup {
         Self {
             name: name.to_string(),
             total_damage: 0.0,
+            total_shield_damage: 0.0,
+            total_hull_damage: 0.0,
             max_one_hit: MaxOneHit::default(),
             average_hit: 0.0,
             critical_chance: 0.0,
@@ -293,8 +297,9 @@ impl DamageGroup {
 
     fn recalculate_metrics(&mut self, combat_duration: f64) {
         self.max_one_hit.reset();
+        self.total_hull_damage = 0.0;
+        self.total_shield_damage = 0.0;
 
-        self.total_damage = 0.0;
         let mut crits_count = 0;
         let mut flanks_count = 0;
 
@@ -313,7 +318,7 @@ impl DamageGroup {
 
         for hit in self.hull_hits.iter() {
             self.max_one_hit.update(&self.name, hit.damage);
-            self.total_damage += hit.damage;
+            self.total_hull_damage += hit.damage;
 
             if hit.flags.contains(ValueFlags::CRITICAL) {
                 crits_count += 1;
@@ -326,7 +331,7 @@ impl DamageGroup {
 
         for hit in self.shield_hits.iter().copied() {
             self.max_one_hit.update(&self.name, hit);
-            self.total_damage += hit;
+            self.total_shield_damage += hit;
         }
 
         let average_hit =
@@ -334,6 +339,7 @@ impl DamageGroup {
         let critical_chance = crits_count as f64 / self.hull_hits.len() as f64;
         let flanking = flanks_count as f64 / self.hull_hits.len() as f64;
 
+        self.total_damage = self.total_hull_damage + self.total_shield_damage;
         self.average_hit = average_hit;
         self.critical_chance = critical_chance * 100.0;
         self.flanking = flanking;

@@ -25,7 +25,7 @@ bitflags! {
 
 struct TablePart {
     name: String,
-    total_damage: TextValue,
+    total_damage: TotalDamage,
     dps: TextValue,
     max_one_hit: MaxOneHit,
     average_hit: TextValue,
@@ -39,6 +39,12 @@ struct TablePart {
 struct MaxOneHit {
     damage: TextValue,
     name: String,
+}
+
+struct TotalDamage {
+    all: TextValue,
+    shield: String,
+    hull: String,
 }
 
 struct TextValue {
@@ -103,7 +109,7 @@ impl DamageTable {
 
     pub fn sort(&mut self, by_column: TableColumns) {
         if by_column.contains(TableColumns::TOTAL_DAMAGE) {
-            self.sort_by_key(|p| p.total_damage.value);
+            self.sort_by_key(|p| p.total_damage.all.value);
         } else if by_column.contains(TableColumns::DPS) {
             self.sort_by_key(|p| p.dps.value);
         } else if by_column.contains(TableColumns::MAX_ONE_HIT) {
@@ -127,10 +133,6 @@ impl DamageTable {
 
 impl TablePart {
     fn new(source: &DamageGroup, number_formatter: &mut NumberFormatter) -> Self {
-        let max_one_hit = MaxOneHit {
-            damage: TextValue::new(source.max_one_hit.damage, 2, number_formatter),
-            name: source.max_one_hit.name.clone(),
-        };
         let sub_parts = source
             .sub_groups
             .values()
@@ -138,12 +140,12 @@ impl TablePart {
             .collect();
         Self {
             name: source.name.clone(),
-            total_damage: TextValue::new(source.total_damage, 2, number_formatter),
+            total_damage: TotalDamage::new(source, number_formatter),
             dps: TextValue::new(source.dps, 2, number_formatter),
             average_hit: TextValue::new(source.average_hit, 2, number_formatter),
             critical_chance: TextValue::new(source.critical_chance, 3, number_formatter),
             flanking: TextValue::new(source.flanking, 3, number_formatter),
-            max_one_hit,
+            max_one_hit: MaxOneHit::new(source, number_formatter),
             sub_parts,
             open: false,
         }
@@ -177,10 +179,7 @@ impl TablePart {
 
             self.total_damage.show(&mut r);
             self.dps.show(&mut r);
-            self.max_one_hit
-                .damage
-                .show(&mut r)
-                .on_hover_text(&self.max_one_hit.name);
+            self.max_one_hit.show(&mut r);
             self.average_hit.show(&mut r);
             self.critical_chance.show(&mut r);
             self.flanking.show(&mut r);
@@ -216,5 +215,57 @@ impl TextValue {
             });
         })
         .1
+    }
+}
+
+impl MaxOneHit {
+    fn new(source: &DamageGroup, number_formatter: &mut NumberFormatter) -> Self {
+        Self {
+            damage: TextValue::new(source.max_one_hit.damage, 2, number_formatter),
+            name: source.max_one_hit.name.clone(),
+        }
+    }
+
+    fn show(&self, row: &mut TableRow) {
+        self.damage.show(row).on_hover_text(&self.name);
+    }
+}
+
+impl TotalDamage {
+    fn new(source: &DamageGroup, number_formatter: &mut NumberFormatter) -> Self {
+        Self {
+            all: TextValue::new(source.total_damage, 2, number_formatter),
+            shield: number_formatter.format(source.total_shield_damage, 2),
+            hull: number_formatter.format(source.total_hull_damage, 2),
+        }
+    }
+
+    fn show(&self, row: &mut TableRow) {
+        self.all.show(row).on_hover_ui(|ui| {
+            TableBuilder::new(ui)
+                .columns(Column::auto(), 2)
+                .header(0.0, |mut r| {
+                    r.col(|ui| {
+                        ui.label("Shield");
+                    });
+                    r.col(|ui| {
+                        ui.label("Hull");
+                    });
+                })
+                .body(|mut t| {
+                    t.row(20.0, |mut r| {
+                        r.col(|ui| {
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                ui.label(&self.shield);
+                            });
+                        });
+                        r.col(|ui| {
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                ui.label(&self.hull);
+                            });
+                        });
+                    })
+                });
+        });
     }
 }
