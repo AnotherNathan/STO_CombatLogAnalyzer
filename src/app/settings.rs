@@ -125,6 +125,8 @@ impl SettingsWindow {
             .desired_width(f32::MAX)
             .show(ui);
 
+        ui.separator();
+
         ui.label("combat separation time in seconds");
         ui.horizontal(|ui| {
             if Slider::new(
@@ -157,10 +159,13 @@ impl SettingsWindow {
             }
         });
 
+        ui.separator();
+
         ui.checkbox(
             &mut self.modified_settings.auto_refresh.enable,
-            "auto refresh",
+            "auto refresh when log changes",
         );
+        ui.label("auto refresh interval in seconds");
         ui.horizontal(|ui| {
             if Slider::new(
                 &mut self.modified_settings.auto_refresh.interval_seconds,
