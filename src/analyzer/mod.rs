@@ -188,10 +188,10 @@ impl Combat {
         settings
             .combat_name_rules
             .iter()
-            .filter(|r| r.enabled && r.match_rule.matches(record))
+            .filter(|r| r.matches(record))
             .for_each(|r| {
-                if !self.names.contains(&r.combat_name) {
-                    self.names.insert(r.combat_name.clone());
+                if !self.names.contains(&r.name) {
+                    self.names.insert(r.name.clone());
                 }
             });
     }
@@ -287,10 +287,10 @@ impl Player {
         if let Some(rule) = settings
             .custom_group_rules
             .iter()
-            .find(|r| r.enabled && r.match_rule.matches(record))
+            .find(|r| r.matches(record))
         {
             let mut grouped_path = ArrayVec::<_, 3>::new();
-            grouped_path.push(rule.group_name.as_str());
+            grouped_path.push(rule.name.as_str());
             grouped_path.try_extend_from_slice(path).unwrap();
             self.damage_source
                 .add_damage(&grouped_path, damage, record.value_flags);

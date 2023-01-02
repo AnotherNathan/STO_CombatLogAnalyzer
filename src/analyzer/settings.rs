@@ -11,22 +11,17 @@ use super::parser::*;
 pub struct AnalysisSettings {
     pub combatlog_file: String,
     pub combat_separation_time_seconds: f64,
-    pub summon_and_pet_grouping_revers_rules: Vec<Rule<MatchRule>>,
-    pub custom_group_rules: Vec<Rule<CustomGroupingRule>>,
-    pub combat_name_rules: Vec<Rule<CombatNameRule>>,
+    pub summon_and_pet_grouping_revers_rules: Vec<MatchRule>,
+    pub custom_group_rules: Vec<RulesGroup>,
+    pub combat_name_rules: Vec<RulesGroup>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Rule<T> {
-    pub enabled: bool,
-    pub rule: T,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MatchRule {
     pub aspect: MatchAspect,
     pub expression: String,
     pub method: MatchMethod,
+    pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -60,8 +55,29 @@ pub struct CombatNameRule {
     pub match_rule: MatchRule,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RulesGroup {
+    pub name: String,
+    pub rules: Vec<MatchRule>,
+    pub enabled: bool,
+}
+
+impl RulesGroup {
+    pub fn matches(&self, record: &Record) -> bool {
+        if !self.enabled {
+            return false;
+        }
+
+        self.rules.iter().any(|r| r.matches(record))
+    }
+}
+
 impl MatchRule {
     pub fn matches(&self, record: &Record) -> bool {
+        if !self.enabled {
+            return false;
+        }
+
         match self.aspect {
             MatchAspect::SourceOrTargetName => {
                 self.method
@@ -139,25 +155,23 @@ impl Default for AnalysisSettings {
     }
 }
 
-impl<T: Default> Default for Rule<T> {
+impl Default for MatchRule {
     fn default() -> Self {
         Self {
             enabled: true,
-            rule: Default::default(),
+            aspect: Default::default(),
+            expression: Default::default(),
+            method: Default::default(),
         }
     }
 }
 
-impl<T> Deref for Rule<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.rule
-    }
-}
-
-impl<T> DerefMut for Rule<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.rule
+impl Default for RulesGroup {
+    fn default() -> Self {
+        Self {
+            name: Default::default(),
+            rules: Default::default(),
+            enabled: true,
+        }
     }
 }

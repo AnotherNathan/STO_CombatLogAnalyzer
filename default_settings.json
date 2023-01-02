@@ -4,82 +4,68 @@
     "combat_separation_time_seconds": 90.0,
     "summon_and_pet_grouping_revers_rules": [
       {
-        "enabled": false,
-        "rule": {
-          "aspect": "DamageName",
-          "expression": "Spore-Infused Anomalies",
-          "method": "Equals"
-        }
+        "aspect": "DamageName",
+        "expression": "Spore-Infused Anomalies",
+        "method": "Equals",
+        "enabled": false
       }
     ],
     "custom_group_rules": [
       {
-        "enabled": false,
-        "rule": {
-          "group_name": "Dark Matter Laced Quantum Torpedo",
-          "match_rule": {
+        "name": "Dark Matter Laced Quantum Torpedo",
+        "rules": [
+          {
             "aspect": "DamageName",
             "expression": "Dark Matter Laced Quantum Torpedo",
-            "method": "StartsWith"
-          }
-        }
-      },
-      {
-        "enabled": false,
-        "rule": {
-          "group_name": "Dark Matter Laced Quantum Torpedo",
-          "match_rule": {
+            "method": "StartsWith",
+            "enabled": true
+          },
+          {
             "aspect": "DamageName",
             "expression": "Dark Matter Dissolution",
-            "method": "Equals"
+            "method": "Equals",
+            "enabled": true
           }
-        }
+        ],
+        "enabled": false
       }
     ],
     "combat_name_rules": [
       {
-        "enabled": true,
-        "rule": {
-          "combat_name": "Infected Conduit",
-          "match_rule": {
+        "name": "Infected Conduit",
+        "rules": [
+          {
             "aspect": "SourceOrTargetUniqueName",
             "expression": "Mission_Infected_Healer_Probe_Scaling",
-            "method": "Equals"
-          }
-        }
-      },
-      {
-        "enabled": true,
-        "rule": {
-          "combat_name": "Infected Conduit",
-          "match_rule": {
+            "method": "Equals",
+            "enabled": true
+          },
+          {
             "aspect": "SourceOrTargetUniqueName",
             "expression": "Space_Borg_Dreadnought_Raidisode_Sibrian_Final_Boss",
-            "method": "Equals"
+            "method": "Equals",
+            "enabled": true
           }
-        }
+        ],
+        "enabled": true
       },
       {
-        "enabled": true,
-        "rule": {
-          "combat_name": "Hive",
-          "match_rule": {
+        "name": "Hive",
+        "rules": [
+          {
             "aspect": "SourceOrTargetUniqueName",
             "expression": "Hive_Intro",
-            "method": "EndsWith"
-          }
-        }
-      },
-      {
-        "enabled": true,
-        "rule": {
-          "combat_name": "Hive",
-          "match_rule": {
+            "method": "EndsWith",
+            "enabled": true
+          },
+          {
             "aspect": "SourceOrTargetUniqueName",
             "expression": "Hive_Intro1",
-            "method": "EndsWith"
+            "method": "EndsWith",
+            "enabled": true
           }
-        }
+        ],
+        "enabled": true
       }
     ]
   },

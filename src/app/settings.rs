@@ -1,14 +1,15 @@
 use std::fmt::Write;
 use std::path::PathBuf;
 
-use eframe::egui::*;
+use eframe::egui::{collapsing_header::CollapsingState, *};
 use egui_extras::{Column, Table, TableBuilder, TableRow};
 use rfd::FileDialog;
 use serde::*;
 use serde_json::*;
 
-use crate::analyzer::settings::{
-    self, AnalysisSettings, MatchAspect, MatchMethod, MatchRule, Rule,
+use crate::{
+    analyzer::settings::{self, AnalysisSettings, MatchAspect, MatchMethod, MatchRule, RulesGroup},
+    custom_widgets::popup_button::PopupButton,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -214,186 +215,162 @@ impl SettingsWindow {
     }
 
     fn show_sub_source_grouping_reversal_rules(&mut self, ui: &mut Ui) {
-        ui.horizontal(|ui| {
-            ui.label("sub source (e.g. pets or summons) grouping reversal rules");
-            if ui.button("✚").clicked() {
-                self.modified_settings
-                    .analysis
-                    .summon_and_pet_grouping_revers_rules
-                    .push(Default::default());
-            }
-        });
-
-        TableBuilder::new(ui)
-            .striped(true)
-            .column(Column::auto())
-            .column(Column::auto())
-            .column(Column::auto())
-            .column(Column::auto().at_least(400.0).resizable(true))
-            .column(Column::auto())
-            .cell_layout(Layout::left_to_right(Align::Center))
-            .max_scroll_height(200.0)
-            .header(0.0, |mut r| {
-                r.col(|ui| {
-                    ui.label("on");
-                });
-                r.col(|ui| {
-                    ui.label("aspect to match");
-                });
-                r.col(|ui| {
-                    ui.label("match method");
-                });
-                r.col(|ui| {
-                    ui.label("text to match");
-                });
-            })
-            .body(|mut t| {
-                let mut to_remove = Vec::new();
-                for (id, rule) in self
-                    .modified_settings
-                    .analysis
-                    .summon_and_pet_grouping_revers_rules
-                    .iter_mut()
-                    .enumerate()
-                {
-                    t.row(25.0, |mut r| {
-                        r.col(|ui| {
-                            ui.checkbox(&mut rule.enabled, "");
-                        });
-
-                        Self::show_match_rule(
-                            &mut r,
-                            rule,
-                            id + line!() as usize,
-                            600.0,
-                            [
-                                MatchAspect::DamageName,
-                                MatchAspect::SubSourceName,
-                                MatchAspect::SubUniqueSourceName,
-                            ],
-                        );
-
-                        r.col(|ui| {
-                            if ui.selectable_label(false, "🗑").clicked() {
-                                to_remove.push(id);
-                            }
-                        });
-                    });
-                }
-
-                to_remove.into_iter().rev().for_each(|i| {
-                    self.modified_settings.analysis.custom_group_rules.remove(i);
-                });
-            });
+        Self::show_rules_table(
+            &mut self
+                .modified_settings
+                .analysis
+                .summon_and_pet_grouping_revers_rules,
+            "sub source (e.g. pets or summons) grouping reversal rules",
+            ui,
+            39048765,
+            [
+                MatchAspect::DamageName,
+                MatchAspect::SubSourceName,
+                MatchAspect::SubUniqueSourceName,
+            ],
+        );
     }
 
     fn show_grouping_rules(&mut self, ui: &mut Ui) {
-        ui.horizontal(|ui| {
-            ui.label("custom grouping rules");
-            if ui.button("✚").clicked() {
-                self.modified_settings
-                    .analysis
-                    .custom_group_rules
-                    .push(Default::default());
-            }
-        });
-
-        TableBuilder::new(ui)
-            .column(Column::auto())
-            .column(Column::auto().at_least(200.0).resizable(true))
-            .column(Column::auto())
-            .column(Column::auto())
-            .column(Column::auto().at_least(200.0).resizable(true))
-            .column(Column::auto())
-            .cell_layout(Layout::left_to_right(Align::Center))
-            .max_scroll_height(200.0)
-            .header(0.0, |mut r| {
-                r.col(|ui| {
-                    ui.label("on");
-                });
-                r.col(|ui| {
-                    ui.label("group name");
-                });
-                r.col(|ui| {
-                    ui.label("aspect to match");
-                });
-                r.col(|ui| {
-                    ui.label("match method");
-                });
-                r.col(|ui| {
-                    ui.label("text to match");
-                });
-            })
-            .body(|mut t| {
-                let mut to_remove = Vec::new();
-                for (id, rule) in self
-                    .modified_settings
-                    .analysis
-                    .custom_group_rules
-                    .iter_mut()
-                    .enumerate()
-                {
-                    t.row(25.0, |mut r| {
-                        r.col(|ui| {
-                            ui.checkbox(&mut rule.enabled, "");
-                        });
-
-                        r.col(|ui| {
-                            TextEdit::singleline(&mut rule.group_name)
-                                .desired_width(800.0)
-                                .show(ui);
-                        });
-
-                        Self::show_match_rule(
-                            &mut r,
-                            &mut rule.match_rule,
-                            id + line!() as usize,
-                            400.0,
-                            [
-                                MatchAspect::DamageName,
-                                MatchAspect::SubSourceName,
-                                MatchAspect::SubUniqueSourceName,
-                            ],
-                        );
-
-                        r.col(|ui| {
-                            if ui.selectable_label(false, "🗑").clicked() {
-                                to_remove.push(id);
-                            }
-                        });
-                    });
-                }
-
-                to_remove.into_iter().rev().for_each(|i| {
-                    self.modified_settings.analysis.custom_group_rules.remove(i);
-                });
-            });
+        Self::show_group_rules_table(
+            &mut self.modified_settings.analysis.custom_group_rules,
+            "custom grouping rules",
+            "group name",
+            ui,
+            293874,
+            [
+                MatchAspect::DamageName,
+                MatchAspect::SubSourceName,
+                MatchAspect::SubUniqueSourceName,
+            ],
+            100.0,
+        );
     }
 
     fn show_combat_name_rules(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("combat name detection rules").show_unindented(ui, |ui| {
-            if ui.button("✚").clicked() {
-                self.modified_settings
-                    .analysis
-                    .combat_name_rules
-                    .push(Default::default());
-            }
+            Self::show_group_rules_table(
+                &mut self.modified_settings.analysis.combat_name_rules,
+                "",
+                "combat name",
+                ui,
+                023975,
+                [
+                    MatchAspect::DamageName,
+                    MatchAspect::SubSourceName,
+                    MatchAspect::SubUniqueSourceName,
+                    MatchAspect::SourceOrTargetName,
+                    MatchAspect::SourceOrTargetUniqueName,
+                ],
+                200.0,
+            );
+        });
+    }
 
+    fn show_group_rules_table(
+        group_rules: &mut Vec<RulesGroup>,
+        title: &str,
+        name_header: &str,
+        ui: &mut Ui,
+        base_id: usize,
+        match_aspect_set: impl IntoIterator<Item = MatchAspect> + Copy,
+        popup_extra_space: f32,
+    ) {
+        ui.horizontal(|ui| {
+            ui.label(title);
+            if ui.button("✚").clicked() {
+                group_rules.push(Default::default());
+            }
+        });
+        TableBuilder::new(ui)
+            .striped(true)
+            .column(Column::auto())
+            .column(Column::auto())
+            .column(Column::auto().at_least(600.0).resizable(true))
+            .column(Column::auto())
+            .cell_layout(Layout::left_to_right(Align::Center))
+            .max_scroll_height(200.0)
+            .header(0.0, |mut r| {
+                r.col(|ui| {
+                    ui.label("on");
+                });
+                r.col(|ui| {
+                    ui.label("edit");
+                });
+                r.col(|ui| {
+                    ui.label(name_header);
+                });
+            })
+            .body(|mut t| {
+                let mut to_remove = Vec::new();
+                for (id, group_rule) in group_rules.iter_mut().enumerate() {
+                    t.row(25.0, |mut r| {
+                        r.col(|ui| {
+                            ui.checkbox(&mut group_rule.enabled, "");
+                        });
+
+                        r.col(|ui| {
+                            PopupButton::new("✏")
+                                .with_id_source(base_id + id)
+                                .show(ui, |ui| {
+                                    Self::show_rules_table(
+                                        &mut group_rule.rules,
+                                        &group_rule.name,
+                                        ui,
+                                        base_id + id,
+                                        match_aspect_set,
+                                    );
+                                    // HACK: so that the popup does not close when clicking the in one of the combo boxes
+                                    ui.add_space(popup_extra_space);
+                                });
+                        });
+
+                        r.col(|ui| {
+                            TextEdit::singleline(&mut group_rule.name)
+                                .desired_width(600.0)
+                                .show(ui);
+                        });
+
+                        r.col(|ui| {
+                            if ui.selectable_label(false, "🗑").clicked() {
+                                to_remove.push(id);
+                            }
+                        });
+                    });
+                }
+
+                to_remove.into_iter().rev().for_each(|i| {
+                    group_rules.remove(i);
+                });
+            });
+    }
+
+    fn show_rules_table(
+        rules: &mut Vec<MatchRule>,
+        title: &str,
+        ui: &mut Ui,
+        id: usize,
+        match_aspect_set: impl IntoIterator<Item = MatchAspect> + Copy,
+    ) {
+        ui.horizontal(|ui| {
+            ui.label(title);
+            if ui.button("✚").clicked() {
+                rules.push(Default::default());
+            }
+        });
+        ui.push_id(id, |ui| {
             TableBuilder::new(ui)
+                .striped(true)
                 .column(Column::auto())
-                .column(Column::auto().at_least(200.0).resizable(true))
                 .column(Column::auto())
                 .column(Column::auto())
-                .column(Column::auto().at_least(200.0).resizable(true))
+                .column(Column::auto().at_least(400.0).resizable(true))
                 .column(Column::auto())
                 .cell_layout(Layout::left_to_right(Align::Center))
-                .max_scroll_height(200.0)
+                .max_scroll_height(100.0)
                 .header(0.0, |mut r| {
                     r.col(|ui| {
                         ui.label("on");
-                    });
-                    r.col(|ui| {
-                        ui.label("combat name");
                     });
                     r.col(|ui| {
                         ui.label("aspect to match");
@@ -407,37 +384,46 @@ impl SettingsWindow {
                 })
                 .body(|mut t| {
                     let mut to_remove = Vec::new();
-                    for (id, rule) in self
-                        .modified_settings
-                        .analysis
-                        .combat_name_rules
-                        .iter_mut()
-                        .enumerate()
-                    {
+                    for (id, rule) in rules.iter_mut().enumerate() {
                         t.row(25.0, |mut r| {
                             r.col(|ui| {
                                 ui.checkbox(&mut rule.enabled, "");
                             });
 
                             r.col(|ui| {
-                                TextEdit::singleline(&mut rule.combat_name)
-                                    .desired_width(800.0)
-                                    .show(ui);
+                                ComboBox::from_id_source(id + 9387465)
+                                    .selected_text(rule.aspect.display())
+                                    .width(150.0)
+                                    .show_ui(ui, |ui| {
+                                        match_aspect_set.into_iter().for_each(|a| {
+                                            ui.selectable_value(&mut rule.aspect, a, a.display());
+                                        });
+                                    });
                             });
 
-                            Self::show_match_rule(
-                                &mut r,
-                                &mut rule.match_rule,
-                                id + line!() as usize,
-                                400.0,
-                                [
-                                    MatchAspect::DamageName,
-                                    MatchAspect::SubSourceName,
-                                    MatchAspect::SubUniqueSourceName,
-                                    MatchAspect::SourceOrTargetName,
-                                    MatchAspect::SourceOrTargetUniqueName,
-                                ],
-                            );
+                            r.col(|ui| {
+                                ComboBox::from_id_source(id + 394857)
+                                    .selected_text(rule.method.display())
+                                    .width(150.0)
+                                    .show_ui(ui, |ui| {
+                                        [
+                                            MatchMethod::Equals,
+                                            MatchMethod::StartsWith,
+                                            MatchMethod::EndsWith,
+                                            MatchMethod::Contains,
+                                        ]
+                                        .into_iter()
+                                        .for_each(|m| {
+                                            ui.selectable_value(&mut rule.method, m, m.display());
+                                        });
+                                    });
+                            });
+
+                            r.col(|ui| {
+                                TextEdit::singleline(&mut rule.expression)
+                                    .desired_width(600.0)
+                                    .show(ui);
+                            });
 
                             r.col(|ui| {
                                 if ui.selectable_label(false, "🗑").clicked() {
@@ -448,54 +434,294 @@ impl SettingsWindow {
                     }
 
                     to_remove.into_iter().rev().for_each(|i| {
-                        self.modified_settings.analysis.combat_name_rules.remove(i);
+                        rules.remove(i);
                     });
                 });
         });
     }
 
-    fn show_match_rule(
-        row: &mut TableRow,
-        rule: &mut MatchRule,
-        id: usize,
-        desired_expression_width: f32,
-        aspect_set: impl IntoIterator<Item = MatchAspect>,
-    ) {
-        row.col(|ui| {
-            ComboBox::from_id_source(id + 9387465)
-                .selected_text(rule.aspect.display())
-                .width(150.0)
-                .show_ui(ui, |ui| {
-                    aspect_set.into_iter().for_each(|a| {
-                        ui.selectable_value(&mut rule.aspect, a, a.display());
-                    });
-                });
-        });
+    // fn show_sub_source_grouping_reversal_rules(&mut self, ui: &mut Ui) {
+    //     ui.horizontal(|ui| {
+    //         ui.label("sub source (e.g. pets or summons) grouping reversal rules");
+    //         if ui.button("✚").clicked() {
+    //             self.modified_settings
+    //                 .analysis
+    //                 .summon_and_pet_grouping_revers_rules
+    //                 .push(Default::default());
+    //         }
+    //     });
 
-        row.col(|ui| {
-            ComboBox::from_id_source(id + 394857)
-                .selected_text(rule.method.display())
-                .width(150.0)
-                .show_ui(ui, |ui| {
-                    [
-                        MatchMethod::Equals,
-                        MatchMethod::StartsWith,
-                        MatchMethod::EndsWith,
-                        MatchMethod::Contains,
-                    ]
-                    .into_iter()
-                    .for_each(|m| {
-                        ui.selectable_value(&mut rule.method, m, m.display());
-                    });
-                });
-        });
+    //     TableBuilder::new(ui)
+    //         .striped(true)
+    //         .column(Column::auto())
+    //         .column(Column::auto())
+    //         .column(Column::auto())
+    //         .column(Column::auto().at_least(400.0).resizable(true))
+    //         .column(Column::auto())
+    //         .cell_layout(Layout::left_to_right(Align::Center))
+    //         .max_scroll_height(200.0)
+    //         .header(0.0, |mut r| {
+    //             r.col(|ui| {
+    //                 ui.label("on");
+    //             });
+    //             r.col(|ui| {
+    //                 ui.label("aspect to match");
+    //             });
+    //             r.col(|ui| {
+    //                 ui.label("match method");
+    //             });
+    //             r.col(|ui| {
+    //                 ui.label("text to match");
+    //             });
+    //         })
+    //         .body(|mut t| {
+    //             let mut to_remove = Vec::new();
+    //             for (id, rule) in self
+    //                 .modified_settings
+    //                 .analysis
+    //                 .summon_and_pet_grouping_revers_rules
+    //                 .iter_mut()
+    //                 .enumerate()
+    //             {
+    //                 t.row(25.0, |mut r| {
+    //                     r.col(|ui| {
+    //                         ui.checkbox(&mut rule.enabled, "");
+    //                     });
 
-        row.col(|ui| {
-            TextEdit::singleline(&mut rule.expression)
-                .desired_width(desired_expression_width)
-                .show(ui);
-        });
-    }
+    //                     Self::show_match_rule(
+    //                         &mut r,
+    //                         rule,
+    //                         id + line!() as usize,
+    //                         600.0,
+    //                         [
+    //                             MatchAspect::DamageName,
+    //                             MatchAspect::SubSourceName,
+    //                             MatchAspect::SubUniqueSourceName,
+    //                         ],
+    //                     );
+
+    //                     r.col(|ui| {
+    //                         if ui.selectable_label(false, "🗑").clicked() {
+    //                             to_remove.push(id);
+    //                         }
+    //                     });
+    //                 });
+    //             }
+
+    //             to_remove.into_iter().rev().for_each(|i| {
+    //                 self.modified_settings.analysis.custom_group_rules.remove(i);
+    //             });
+    //         });
+    // }
+
+    // fn show_grouping_rules(&mut self, ui: &mut Ui) {
+    //     ui.horizontal(|ui| {
+    //         ui.label("custom grouping rules");
+    //         if ui.button("✚").clicked() {
+    //             self.modified_settings
+    //                 .analysis
+    //                 .custom_group_rules
+    //                 .push(Default::default());
+    //         }
+    //     });
+
+    //     TableBuilder::new(ui)
+    //         .column(Column::auto())
+    //         .column(Column::auto().at_least(200.0).resizable(true))
+    //         .column(Column::auto())
+    //         .column(Column::auto())
+    //         .column(Column::auto().at_least(200.0).resizable(true))
+    //         .column(Column::auto())
+    //         .cell_layout(Layout::left_to_right(Align::Center))
+    //         .max_scroll_height(200.0)
+    //         .header(0.0, |mut r| {
+    //             r.col(|ui| {
+    //                 ui.label("on");
+    //             });
+    //             r.col(|ui| {
+    //                 ui.label("group name");
+    //             });
+    //             r.col(|ui| {
+    //                 ui.label("aspect to match");
+    //             });
+    //             r.col(|ui| {
+    //                 ui.label("match method");
+    //             });
+    //             r.col(|ui| {
+    //                 ui.label("text to match");
+    //             });
+    //         })
+    //         .body(|mut t| {
+    //             let mut to_remove = Vec::new();
+    //             for (id, rule) in self
+    //                 .modified_settings
+    //                 .analysis
+    //                 .custom_group_rules
+    //                 .iter_mut()
+    //                 .enumerate()
+    //             {
+    //                 t.row(25.0, |mut r| {
+    //                     r.col(|ui| {
+    //                         ui.checkbox(&mut rule.enabled, "");
+    //                     });
+
+    //                     r.col(|ui| {
+    //                         TextEdit::singleline(&mut rule.group_name)
+    //                             .desired_width(800.0)
+    //                             .show(ui);
+    //                     });
+
+    //                     Self::show_match_rule(
+    //                         &mut r,
+    //                         &mut rule.match_rule,
+    //                         id + line!() as usize,
+    //                         400.0,
+    //                         [
+    //                             MatchAspect::DamageName,
+    //                             MatchAspect::SubSourceName,
+    //                             MatchAspect::SubUniqueSourceName,
+    //                         ],
+    //                     );
+
+    //                     r.col(|ui| {
+    //                         if ui.selectable_label(false, "🗑").clicked() {
+    //                             to_remove.push(id);
+    //                         }
+    //                     });
+    //                 });
+    //             }
+
+    //             to_remove.into_iter().rev().for_each(|i| {
+    //                 self.modified_settings.analysis.custom_group_rules.remove(i);
+    //             });
+    //         });
+    // }
+
+    // fn show_combat_name_rules(&mut self, ui: &mut Ui) {
+    //     CollapsingHeader::new("combat name detection rules").show_unindented(ui, |ui| {
+    //         if ui.button("✚").clicked() {
+    //             self.modified_settings
+    //                 .analysis
+    //                 .combat_name_rules
+    //                 .push(Default::default());
+    //         }
+
+    //         TableBuilder::new(ui)
+    //             .column(Column::auto())
+    //             .column(Column::auto().at_least(200.0).resizable(true))
+    //             .column(Column::auto())
+    //             .column(Column::auto())
+    //             .column(Column::auto().at_least(200.0).resizable(true))
+    //             .column(Column::auto())
+    //             .cell_layout(Layout::left_to_right(Align::Center))
+    //             .max_scroll_height(200.0)
+    //             .header(0.0, |mut r| {
+    //                 r.col(|ui| {
+    //                     ui.label("on");
+    //                 });
+    //                 r.col(|ui| {
+    //                     ui.label("combat name");
+    //                 });
+    //                 r.col(|ui| {
+    //                     ui.label("aspect to match");
+    //                 });
+    //                 r.col(|ui| {
+    //                     ui.label("match method");
+    //                 });
+    //                 r.col(|ui| {
+    //                     ui.label("text to match");
+    //                 });
+    //             })
+    //             .body(|mut t| {
+    //                 let mut to_remove = Vec::new();
+    //                 for (id, rule) in self
+    //                     .modified_settings
+    //                     .analysis
+    //                     .combat_name_rules
+    //                     .iter_mut()
+    //                     .enumerate()
+    //                 {
+    //                     t.row(25.0, |mut r| {
+    //                         r.col(|ui| {
+    //                             ui.checkbox(&mut rule.enabled, "");
+    //                         });
+
+    //                         r.col(|ui| {
+    //                             TextEdit::singleline(&mut rule.combat_name)
+    //                                 .desired_width(800.0)
+    //                                 .show(ui);
+    //                         });
+
+    //                         Self::show_match_rule(
+    //                             &mut r,
+    //                             &mut rule.match_rule,
+    //                             id + line!() as usize,
+    //                             400.0,
+    //                             [
+    //                                 MatchAspect::DamageName,
+    //                                 MatchAspect::SubSourceName,
+    //                                 MatchAspect::SubUniqueSourceName,
+    //                                 MatchAspect::SourceOrTargetName,
+    //                                 MatchAspect::SourceOrTargetUniqueName,
+    //                             ],
+    //                         );
+
+    //                         r.col(|ui| {
+    //                             if ui.selectable_label(false, "🗑").clicked() {
+    //                                 to_remove.push(id);
+    //                             }
+    //                         });
+    //                     });
+    //                 }
+
+    //                 to_remove.into_iter().rev().for_each(|i| {
+    //                     self.modified_settings.analysis.combat_name_rules.remove(i);
+    //                 });
+    //             });
+    //     });
+    // }
+
+    // fn show_match_rule(
+    //     row: &mut TableRow,
+    //     rule: &mut MatchRule,
+    //     id: usize,
+    //     aspect_set: impl IntoIterator<Item = MatchAspect>,
+    // ) {
+    //     row.col(|ui| {
+    //         ComboBox::from_id_source(id + 9387465)
+    //             .selected_text(rule.aspect.display())
+    //             .width(150.0)
+    //             .show_ui(ui, |ui| {
+    //                 aspect_set.into_iter().for_each(|a| {
+    //                     ui.selectable_value(&mut rule.aspect, a, a.display());
+    //                 });
+    //             });
+    //     });
+
+    //     row.col(|ui| {
+    //         ComboBox::from_id_source(id + 394857)
+    //             .selected_text(rule.method.display())
+    //             .width(150.0)
+    //             .show_ui(ui, |ui| {
+    //                 [
+    //                     MatchMethod::Equals,
+    //                     MatchMethod::StartsWith,
+    //                     MatchMethod::EndsWith,
+    //                     MatchMethod::Contains,
+    //                 ]
+    //                 .into_iter()
+    //                 .for_each(|m| {
+    //                     ui.selectable_value(&mut rule.method, m, m.display());
+    //                 });
+    //             });
+    //     });
+
+    //     row.col(|ui| {
+    //         TextEdit::singleline(&mut rule.expression)
+    //             .desired_width(600.0)
+    //             .show(ui);
+    //     });
+    // }
 
     fn update_slider_displays(&mut self) {
         self.update_combat_separation_time_display();
