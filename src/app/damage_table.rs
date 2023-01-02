@@ -27,8 +27,8 @@ bitflags! {
 
 struct TablePart {
     name: String,
-    total_damage: TotalDamage,
-    dps: TextValue,
+    total_damage: ShieldAndHullTextValue,
+    dps: ShieldAndHullTextValue,
     damage_percentage: TextValue,
     max_one_hit: MaxOneHit,
     average_hit: TextValue,
@@ -45,7 +45,7 @@ struct MaxOneHit {
     name: String,
 }
 
-struct TotalDamage {
+struct ShieldAndHullTextValue {
     all: TextValue,
     shield: String,
     hull: String,
@@ -125,7 +125,7 @@ impl DamageTable {
         if by_column.contains(TableColumns::TOTAL_DAMAGE) {
             self.sort_by(|p| p.total_damage.all.value);
         } else if by_column.contains(TableColumns::DPS) {
-            self.sort_by(|p| p.dps.value);
+            self.sort_by(|p| p.dps.all.value);
         } else if by_column.contains(TableColumns::MAX_ONE_HIT) {
             self.sort_by(|p| p.max_one_hit.damage.value);
         } else if by_column.contains(TableColumns::AVERAGE_HIT) {
@@ -164,8 +164,20 @@ impl TablePart {
             .collect();
         Self {
             name: source.name.clone(),
-            total_damage: TotalDamage::new(source, number_formatter),
-            dps: TextValue::new(source.dps, 2, number_formatter),
+            total_damage: ShieldAndHullTextValue::new(
+                source.total_damage,
+                source.total_shield_damage,
+                source.total_hull_damage,
+                2,
+                number_formatter,
+            ),
+            dps: ShieldAndHullTextValue::new(
+                source.dps,
+                source.shield_dps,
+                source.hull_dps,
+                2,
+                number_formatter,
+            ),
             damage_percentage: TextValue::new(source.damage_percentage, 3, number_formatter),
             average_hit: TextValue::new(source.average_hit, 2, number_formatter),
             critical_chance: TextValue::new(source.critical_chance, 3, number_formatter),
@@ -265,12 +277,18 @@ impl MaxOneHit {
     }
 }
 
-impl TotalDamage {
-    fn new(source: &DamageGroup, number_formatter: &mut NumberFormatter) -> Self {
+impl ShieldAndHullTextValue {
+    fn new(
+        all: f64,
+        shield: f64,
+        hull: f64,
+        precision: usize,
+        number_formatter: &mut NumberFormatter,
+    ) -> Self {
         Self {
-            all: TextValue::new(source.total_damage, 2, number_formatter),
-            shield: number_formatter.format(source.total_shield_damage, 2),
-            hull: number_formatter.format(source.total_hull_damage, 2),
+            all: TextValue::new(all, precision, number_formatter),
+            shield: number_formatter.format(shield, precision),
+            hull: number_formatter.format(hull, precision),
         }
     }
 
@@ -306,21 +324,22 @@ impl Hits {
 fn show_shield_hull_values_tool_tip(response: Response, shield_value: &str, hull_value: &str) {
     response.on_hover_ui(|ui| {
         TableBuilder::new(ui)
-            .columns(Column::auto(), 2)
-            .header(0.0, |mut r| {
-                r.col(|ui| {
-                    ui.label("Shield");
-                });
-                r.col(|ui| {
-                    ui.label("Hull");
-                });
-            })
+            .columns(Column::auto().at_least(60.0), 1)
+            .columns(Column::auto(), 1)
             .body(|mut t| {
                 t.row(20.0, |mut r| {
+                    r.col(|ui| {
+                        ui.label("Shield");
+                    });
                     r.col(|ui| {
                         ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                             ui.label(shield_value);
                         });
+                    });
+                });
+                t.row(20.0, |mut r| {
+                    r.col(|ui| {
+                        ui.label("Hull");
                     });
                     r.col(|ui| {
                         ui.with_layout(Layout::left_to_right(Align::Center), |ui| {

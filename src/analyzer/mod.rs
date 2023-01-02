@@ -48,6 +48,8 @@ pub struct DamageGroup {
     pub critical_chance: f64,
     pub flanking: f64,
     pub dps: f64,
+    pub shield_dps: f64,
+    pub hull_dps: f64,
     pub damage_percentage: f64,
     hull_hits: Vec<Hit>,
     shield_hits: Vec<f64>,
@@ -337,6 +339,8 @@ impl DamageGroup {
             hull_hits: Vec::new(),
             shield_hits: Vec::new(),
             dps: 0.0,
+            shield_dps: 0.0,
+            hull_dps: 0.0,
             damage_percentage: 0.0,
             sub_groups: Default::default(),
             is_pool,
@@ -416,6 +420,8 @@ impl DamageGroup {
         self.critical_chance = critical_chance * 100.0;
         self.flanking = flanking * 100.0;
         self.dps = self.total_damage / combat_duration.max(1.0); // avoid absurd high numbers
+        self.shield_dps = self.total_shield_damage / combat_duration.max(1.0); // avoid absurd high numbers
+        self.hull_dps = self.total_hull_damage / combat_duration.max(1.0); // avoid absurd high numbers
     }
 
     fn recalculate_damage_percentage(&mut self, parent_total_damage: f64) {
