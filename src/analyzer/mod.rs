@@ -213,6 +213,10 @@ impl Player {
     }
 
     fn add_value(&mut self, record: &Record, settings: &AnalysisSettings) {
+        if record.value.get() == 0.0 {
+            return;
+        }
+
         match record.value {
             RecordValue::Damage(damage) => {
                 match (&record.sub_source, &record.target) {

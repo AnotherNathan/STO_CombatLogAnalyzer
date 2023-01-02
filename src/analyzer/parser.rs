@@ -257,6 +257,20 @@ impl RecordValue {
 
         return Some(Self::Damage(Value::Hull(damage_or_heal.abs())));
     }
+
+    pub fn get(&self) -> f64 {
+        match self {
+            RecordValue::Damage(v) | RecordValue::Heal(v) => v.get(),
+        }
+    }
+}
+
+impl Value {
+    pub fn get(&self) -> f64 {
+        match self {
+            Value::Shield(v) | Value::Hull(v) => *v,
+        }
+    }
 }
 
 impl<'a> From<std::io::Error> for RecordError<'a> {
