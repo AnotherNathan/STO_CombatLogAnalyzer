@@ -161,11 +161,7 @@ impl AnalysisContext {
         };
         let info = AnalysisInfo::Refreshed {
             latest_combat,
-            combats: analyzer
-                .result()
-                .iter()
-                .map(|c| c.identifier.clone())
-                .collect(),
+            combats: analyzer.result().iter().map(|c| c.identifier()).collect(),
         };
         self.is_busy.store(false, Ordering::Release);
         self.send_info(info);

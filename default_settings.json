@@ -1,0 +1,90 @@
+{
+  "analysis": {
+    "combatlog_file": "",
+    "combat_separation_time_seconds": 90.0,
+    "summon_and_pet_grouping_revers_rules": [
+      {
+        "enabled": false,
+        "rule": {
+          "aspect": "DamageName",
+          "expression": "Spore-Infused Anomalies",
+          "method": "Equals"
+        }
+      }
+    ],
+    "custom_group_rules": [
+      {
+        "enabled": false,
+        "rule": {
+          "group_name": "Dark Matter Laced Quantum Torpedo",
+          "match_rule": {
+            "aspect": "DamageName",
+            "expression": "Dark Matter Laced Quantum Torpedo",
+            "method": "StartsWith"
+          }
+        }
+      },
+      {
+        "enabled": false,
+        "rule": {
+          "group_name": "Dark Matter Laced Quantum Torpedo",
+          "match_rule": {
+            "aspect": "DamageName",
+            "expression": "Dark Matter Dissolution",
+            "method": "Equals"
+          }
+        }
+      }
+    ],
+    "combat_name_rules": [
+      {
+        "enabled": true,
+        "rule": {
+          "combat_name": "Infected Conduit",
+          "match_rule": {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Mission_Infected_Healer_Probe_Scaling",
+            "method": "Equals"
+          }
+        }
+      },
+      {
+        "enabled": true,
+        "rule": {
+          "combat_name": "Infected Conduit",
+          "match_rule": {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Space_Borg_Dreadnought_Raidisode_Sibrian_Final_Boss",
+            "method": "Equals"
+          }
+        }
+      },
+      {
+        "enabled": true,
+        "rule": {
+          "combat_name": "Hive",
+          "match_rule": {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Hive_Intro",
+            "method": "EndsWith"
+          }
+        }
+      },
+      {
+        "enabled": true,
+        "rule": {
+          "combat_name": "Hive",
+          "match_rule": {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Hive_Intro1",
+            "method": "EndsWith"
+          }
+        }
+      }
+    ]
+  },
+  "auto_refresh": {
+    "enable": false,
+    "interval_seconds": 4.0
+  }
+}

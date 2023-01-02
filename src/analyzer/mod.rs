@@ -7,8 +7,10 @@ use std::{
 
 use arrayvec::ArrayVec;
 use chrono::{Duration, NaiveDateTime};
+use eframe::epaint::ahash::HashSet;
+use itertools::Itertools;
 use log::{info, warn};
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 mod parser;
 pub mod settings;
@@ -24,7 +26,7 @@ pub struct Analyzer {
 
 #[derive(Clone, Debug)]
 pub struct Combat {
-    pub identifier: String,
+    pub names: FxHashSet<String>,
     pub time: Range<NaiveDateTime>,
     pub players: FxHashMap<String, Player>,
 }
@@ -108,7 +110,7 @@ impl Analyzer {
                 }
             };
 
-            combat.update_time(record.time);
+            combat.update_meta_data(&record, &self.settings);
 
             let player = match combat.players.get_mut(*full_name) {
                 Some(player) => player,
@@ -128,7 +130,7 @@ impl Analyzer {
         if let Some(first_modified_combat) = first_modified_combat {
             self.combats[first_modified_combat..]
                 .iter_mut()
-                .for_each(|p| p.recalculate_values());
+                .for_each(|p| p.recalculate_metrics());
         }
     }
 
@@ -141,19 +143,28 @@ impl Combat {
     fn new(start_time: NaiveDateTime) -> Self {
         Self {
             time: start_time..start_time,
-            identifier: String::new(),
+            names: Default::default(),
             players: Default::default(),
         }
     }
 
-    fn recalculate_values(&mut self) {
-        self.identifier.clear();
-        write!(
-            &mut self.identifier,
-            "{} - {}",
-            self.time.start, self.time.end
-        )
-        .unwrap();
+    pub fn identifier(&self) -> String {
+        let date_times = format!(
+            "{} {} - {}",
+            self.time.start.date(),
+            self.time.start.time().format("%T"),
+            self.time.end.time().format("%T")
+        );
+
+        if self.names.len() == 0 {
+            return format!("Combat | {}", date_times);
+        }
+
+        let name = self.names.iter().join(", ");
+        format!("{} | {}", name, date_times)
+    }
+
+    fn recalculate_metrics(&mut self) {
         self.players
             .values_mut()
             .for_each(|p| p.recalculate_metrics());
@@ -166,6 +177,23 @@ impl Combat {
         self.players
             .values_mut()
             .for_each(|p| p.recalculate_damage_percentage(total_damage));
+    }
+
+    fn update_meta_data(&mut self, record: &Record, settings: &AnalysisSettings) {
+        self.update_names(record, settings);
+        self.update_time(record.time);
+    }
+
+    fn update_names(&mut self, record: &Record, settings: &AnalysisSettings) {
+        settings
+            .combat_name_rules
+            .iter()
+            .filter(|r| r.enabled && r.match_rule.matches(record))
+            .for_each(|r| {
+                if !self.names.contains(&r.combat_name) {
+                    self.names.insert(r.combat_name.clone());
+                }
+            });
     }
 
     fn update_time(&mut self, end_time: NaiveDateTime) {
@@ -482,7 +510,7 @@ mod tests {
 
         analyzer.update();
         let result = analyzer.result();
-        let combats: Vec<_> = result.iter().map(|c| &c.identifier).collect();
+        let combats: Vec<_> = result.iter().map(|c| c.identifier()).collect();
         println!("combats: {:?}", combats);
     }
 }

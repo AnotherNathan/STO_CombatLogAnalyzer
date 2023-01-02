@@ -33,6 +33,7 @@ pub enum Entity<'a> {
     NonPlayer {
         name: &'a str,
         id: u64,
+        unique_name: &'a str,
     },
 }
 
@@ -196,10 +197,10 @@ impl<'a> Entity<'a> {
         let entity_type = captures.name("type")?.as_str();
         let id = captures.name("id")?.as_str();
         let id = str::parse::<u64>(id).ok()?;
+        let unique_name = captures.name("unique_name")?.as_str();
 
         match entity_type {
             "P" => {
-                let unique_name = captures.name("unique_name")?.as_str();
                 let player_id = captures.name("player_id")?.as_str();
                 let player_id = str::parse::<u64>(player_id).ok()?;
 
@@ -208,8 +209,28 @@ impl<'a> Entity<'a> {
                     id: (id, player_id),
                 })
             }
-            "C" => Some(Self::NonPlayer { name, id }),
+            "C" => Some(Self::NonPlayer {
+                name,
+                id,
+                unique_name,
+            }),
             _ => None,
+        }
+    }
+
+    pub fn name(&self) -> Option<&str> {
+        match self {
+            Entity::None => None,
+            Entity::Player { full_name, .. } => Some(full_name),
+            Entity::NonPlayer { name, .. } => Some(name),
+        }
+    }
+
+    pub fn unique_name(&self) -> Option<&str> {
+        match self {
+            Entity::None => None,
+            Entity::Player { full_name, .. } => Some(full_name),
+            Entity::NonPlayer { unique_name, .. } => Some(unique_name),
         }
     }
 }

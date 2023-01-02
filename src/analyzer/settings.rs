@@ -3,6 +3,7 @@ use std::ops::DerefMut;
 
 use chrono::Duration;
 use serde::*;
+use serde_json::value;
 
 use super::parser::*;
 
@@ -12,6 +13,7 @@ pub struct AnalysisSettings {
     pub combat_separation_time_seconds: f64,
     pub summon_and_pet_grouping_revers_rules: Vec<Rule<MatchRule>>,
     pub custom_group_rules: Vec<Rule<CustomGroupingRule>>,
+    pub combat_name_rules: Vec<Rule<CombatNameRule>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -29,8 +31,11 @@ pub struct MatchRule {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum MatchAspect {
+    SourceOrTargetName,
+    SourceOrTargetUniqueName,
+    SubSourceName,
+    SubUniqueSourceName,
     #[default]
-    PetOrSummonName,
     DamageName,
 }
 
@@ -49,13 +54,35 @@ pub struct CustomGroupingRule {
     pub match_rule: MatchRule,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct CombatNameRule {
+    pub combat_name: String,
+    pub match_rule: MatchRule,
+}
+
 impl MatchRule {
     pub fn matches(&self, record: &Record) -> bool {
         match self.aspect {
-            MatchAspect::PetOrSummonName => match record.sub_source {
-                Entity::NonPlayer { name, .. } => self.method.check_match(&self.expression, name),
-                _ => false,
-            },
+            MatchAspect::SourceOrTargetName => {
+                self.method
+                    .check_match_or_false(&self.expression, record.source.name())
+                    || self
+                        .method
+                        .check_match_or_false(&self.expression, record.target.name())
+            }
+            MatchAspect::SourceOrTargetUniqueName => {
+                self.method
+                    .check_match_or_false(&self.expression, record.source.unique_name())
+                    || self
+                        .method
+                        .check_match_or_false(&self.expression, record.target.unique_name())
+            }
+            MatchAspect::SubSourceName => self
+                .method
+                .check_match_or_false(&self.expression, record.sub_source.name()),
+            MatchAspect::SubUniqueSourceName => self
+                .method
+                .check_match_or_false(&self.expression, record.sub_source.unique_name()),
             MatchAspect::DamageName => self.method.check_match(&self.expression, record.value_name),
         }
     }
@@ -64,8 +91,11 @@ impl MatchRule {
 impl MatchAspect {
     pub const fn display(self) -> &'static str {
         match self {
-            MatchAspect::PetOrSummonName => "pet or summon name",
+            MatchAspect::SourceOrTargetName => "source or target name",
+            MatchAspect::SourceOrTargetUniqueName => "source or target unique name",
+            MatchAspect::SubSourceName => "sub source name (e.g. a pet or summon)",
             MatchAspect::DamageName => "damage name",
+            MatchAspect::SubUniqueSourceName => "sub source unique name (e.g. a pet or summon)",
         }
     }
 }
@@ -77,6 +107,13 @@ impl MatchMethod {
             MatchMethod::StartsWith => value.starts_with(expression),
             MatchMethod::EndsWith => value.ends_with(expression),
             MatchMethod::Contains => value.contains(expression),
+        }
+    }
+
+    fn check_match_or_false(&self, expression: &str, value: Option<&str>) -> bool {
+        match value {
+            Some(value) => self.check_match(expression, value),
+            None => false,
         }
     }
 
@@ -97,6 +134,7 @@ impl Default for AnalysisSettings {
             combat_separation_time_seconds: 1.5 * 60.0,
             summon_and_pet_grouping_revers_rules: Default::default(),
             custom_group_rules: Default::default(),
+            combat_name_rules: Default::default(),
         }
     }
 }

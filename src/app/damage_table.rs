@@ -74,7 +74,7 @@ impl DamageTable {
     pub fn new(combat: &Combat) -> Self {
         let mut number_formatter = NumberFormatter::new();
         let mut table = Self {
-            identifier: combat.identifier.clone(),
+            identifier: combat.identifier(),
             players: combat
                 .players
                 .values()

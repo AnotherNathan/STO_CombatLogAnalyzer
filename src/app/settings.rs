@@ -7,7 +7,9 @@ use rfd::FileDialog;
 use serde::*;
 use serde_json::*;
 
-use crate::analyzer::settings::{self, AnalysisSettings, MatchAspect, MatchMethod, MatchRule};
+use crate::analyzer::settings::{
+    self, AnalysisSettings, MatchAspect, MatchMethod, MatchRule, Rule,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Settings {
@@ -197,8 +199,23 @@ impl SettingsWindow {
     }
 
     fn show_analysis_tab(&mut self, ui: &mut Ui) {
+        self.show_sub_source_grouping_reversal_rules(ui);
+        ui.add_space(20.0);
+
+        ui.separator();
+        ui.push_id(line!(), |ui| {
+            self.show_grouping_rules(ui);
+        });
+        ui.add_space(20.0);
+
+        ui.separator();
+        self.show_combat_name_rules(ui);
+        ui.add_space(20.0);
+    }
+
+    fn show_sub_source_grouping_reversal_rules(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
-            ui.label("summon or pet grouping reversal rules");
+            ui.label("sub source (e.g. pets or summons) grouping reversal rules");
             if ui.button("✚").clicked() {
                 self.modified_settings
                     .analysis
@@ -244,7 +261,17 @@ impl SettingsWindow {
                             ui.checkbox(&mut rule.enabled, "");
                         });
 
-                        Self::show_match_rule(&mut r, rule, id + line!() as usize, 600.0);
+                        Self::show_match_rule(
+                            &mut r,
+                            rule,
+                            id + line!() as usize,
+                            600.0,
+                            [
+                                MatchAspect::DamageName,
+                                MatchAspect::SubSourceName,
+                                MatchAspect::SubUniqueSourceName,
+                            ],
+                        );
 
                         r.col(|ui| {
                             if ui.selectable_label(false, "🗑").clicked() {
@@ -258,21 +285,99 @@ impl SettingsWindow {
                     self.modified_settings.analysis.custom_group_rules.remove(i);
                 });
             });
+    }
 
-        ui.add_space(20.0);
+    fn show_grouping_rules(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            ui.label("custom grouping rules");
+            if ui.button("✚").clicked() {
+                self.modified_settings
+                    .analysis
+                    .custom_group_rules
+                    .push(Default::default());
+            }
+        });
 
-        ui.separator();
+        TableBuilder::new(ui)
+            .column(Column::auto())
+            .column(Column::auto().at_least(200.0).resizable(true))
+            .column(Column::auto())
+            .column(Column::auto())
+            .column(Column::auto().at_least(200.0).resizable(true))
+            .column(Column::auto())
+            .cell_layout(Layout::left_to_right(Align::Center))
+            .max_scroll_height(200.0)
+            .header(0.0, |mut r| {
+                r.col(|ui| {
+                    ui.label("on");
+                });
+                r.col(|ui| {
+                    ui.label("group name");
+                });
+                r.col(|ui| {
+                    ui.label("aspect to match");
+                });
+                r.col(|ui| {
+                    ui.label("match method");
+                });
+                r.col(|ui| {
+                    ui.label("text to match");
+                });
+            })
+            .body(|mut t| {
+                let mut to_remove = Vec::new();
+                for (id, rule) in self
+                    .modified_settings
+                    .analysis
+                    .custom_group_rules
+                    .iter_mut()
+                    .enumerate()
+                {
+                    t.row(25.0, |mut r| {
+                        r.col(|ui| {
+                            ui.checkbox(&mut rule.enabled, "");
+                        });
 
-        ui.push_id(line!(), |ui| {
-            ui.horizontal(|ui| {
-                ui.label("custom grouping rules");
-                if ui.button("✚").clicked() {
-                    self.modified_settings
-                        .analysis
-                        .custom_group_rules
-                        .push(Default::default());
+                        r.col(|ui| {
+                            TextEdit::singleline(&mut rule.group_name)
+                                .desired_width(800.0)
+                                .show(ui);
+                        });
+
+                        Self::show_match_rule(
+                            &mut r,
+                            &mut rule.match_rule,
+                            id + line!() as usize,
+                            400.0,
+                            [
+                                MatchAspect::DamageName,
+                                MatchAspect::SubSourceName,
+                                MatchAspect::SubUniqueSourceName,
+                            ],
+                        );
+
+                        r.col(|ui| {
+                            if ui.selectable_label(false, "🗑").clicked() {
+                                to_remove.push(id);
+                            }
+                        });
+                    });
                 }
+
+                to_remove.into_iter().rev().for_each(|i| {
+                    self.modified_settings.analysis.custom_group_rules.remove(i);
+                });
             });
+    }
+
+    fn show_combat_name_rules(&mut self, ui: &mut Ui) {
+        CollapsingHeader::new("combat name detection rules").show_unindented(ui, |ui| {
+            if ui.button("✚").clicked() {
+                self.modified_settings
+                    .analysis
+                    .combat_name_rules
+                    .push(Default::default());
+            }
 
             TableBuilder::new(ui)
                 .column(Column::auto())
@@ -288,7 +393,7 @@ impl SettingsWindow {
                         ui.label("on");
                     });
                     r.col(|ui| {
-                        ui.label("group name");
+                        ui.label("combat name");
                     });
                     r.col(|ui| {
                         ui.label("aspect to match");
@@ -305,7 +410,7 @@ impl SettingsWindow {
                     for (id, rule) in self
                         .modified_settings
                         .analysis
-                        .custom_group_rules
+                        .combat_name_rules
                         .iter_mut()
                         .enumerate()
                     {
@@ -315,7 +420,7 @@ impl SettingsWindow {
                             });
 
                             r.col(|ui| {
-                                TextEdit::singleline(&mut rule.group_name)
+                                TextEdit::singleline(&mut rule.combat_name)
                                     .desired_width(800.0)
                                     .show(ui);
                             });
@@ -325,6 +430,13 @@ impl SettingsWindow {
                                 &mut rule.match_rule,
                                 id + line!() as usize,
                                 400.0,
+                                [
+                                    MatchAspect::DamageName,
+                                    MatchAspect::SubSourceName,
+                                    MatchAspect::SubUniqueSourceName,
+                                    MatchAspect::SourceOrTargetName,
+                                    MatchAspect::SourceOrTargetUniqueName,
+                                ],
                             );
 
                             r.col(|ui| {
@@ -336,11 +448,9 @@ impl SettingsWindow {
                     }
 
                     to_remove.into_iter().rev().for_each(|i| {
-                        self.modified_settings.analysis.custom_group_rules.remove(i);
+                        self.modified_settings.analysis.combat_name_rules.remove(i);
                     });
                 });
-
-            ui.add_space(20.0);
         });
     }
 
@@ -349,22 +459,16 @@ impl SettingsWindow {
         rule: &mut MatchRule,
         id: usize,
         desired_expression_width: f32,
+        aspect_set: impl IntoIterator<Item = MatchAspect>,
     ) {
         row.col(|ui| {
             ComboBox::from_id_source(id + 9387465)
                 .selected_text(rule.aspect.display())
                 .width(150.0)
                 .show_ui(ui, |ui| {
-                    ui.selectable_value(
-                        &mut rule.aspect,
-                        MatchAspect::PetOrSummonName,
-                        MatchAspect::PetOrSummonName.display(),
-                    );
-                    ui.selectable_value(
-                        &mut rule.aspect,
-                        MatchAspect::DamageName,
-                        MatchAspect::DamageName.display(),
-                    );
+                    aspect_set.into_iter().for_each(|a| {
+                        ui.selectable_value(&mut rule.aspect, a, a.display());
+                    });
                 });
         });
 
@@ -373,26 +477,16 @@ impl SettingsWindow {
                 .selected_text(rule.method.display())
                 .width(150.0)
                 .show_ui(ui, |ui| {
-                    ui.selectable_value(
-                        &mut rule.method,
+                    [
                         MatchMethod::Equals,
-                        MatchMethod::Equals.display(),
-                    );
-                    ui.selectable_value(
-                        &mut rule.method,
                         MatchMethod::StartsWith,
-                        MatchMethod::StartsWith.display(),
-                    );
-                    ui.selectable_value(
-                        &mut rule.method,
                         MatchMethod::EndsWith,
-                        MatchMethod::EndsWith.display(),
-                    );
-                    ui.selectable_value(
-                        &mut rule.method,
                         MatchMethod::Contains,
-                        MatchMethod::Contains.display(),
-                    );
+                    ]
+                    .into_iter()
+                    .for_each(|m| {
+                        ui.selectable_value(&mut rule.method, m, m.display());
+                    });
                 });
         });
 
@@ -453,7 +547,7 @@ impl Settings {
                 return;
             }
         };
-        let data = match serde_json::to_string(self) {
+        let data = match serde_json::to_string_pretty(self) {
             Ok(d) => d,
             Err(_) => {
                 return;
@@ -478,7 +572,7 @@ impl Default for AutoRefresh {
     fn default() -> Self {
         Self {
             enable: false,
-            interval_seconds: 3.0,
+            interval_seconds: 4.0,
         }
     }
 }
