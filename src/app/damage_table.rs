@@ -90,6 +90,7 @@ impl DamageTable {
         TableBuilder::new(ui)
             .columns(Column::auto(), 9)
             .striped(true)
+            .max_scroll_height(f32::MAX)
             .header(0.0, |mut r| {
                 r.col(|ui| {
                     ui.label("Name");
