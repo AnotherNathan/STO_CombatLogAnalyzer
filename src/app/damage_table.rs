@@ -1,4 +1,3 @@
-use arboard::Clipboard;
 use bitflags::bitflags;
 use eframe::egui::*;
 use egui_extras::{Column, TableBody, TableBuilder, TableRow};
@@ -207,9 +206,7 @@ impl TablePart {
                             .selectable_label(false, "copy name to clipboard")
                             .clicked()
                         {
-                            if let Ok(mut clipboard) = Clipboard::new() {
-                                _ = clipboard.set_text(&self.name);
-                            }
+                            ui.output().copied_text = self.name.clone();
                         }
                     });
                 });
