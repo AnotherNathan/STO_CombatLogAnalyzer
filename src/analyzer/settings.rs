@@ -1,5 +1,6 @@
 use std::ops::Deref;
 use std::ops::DerefMut;
+use std::path::Path;
 
 use chrono::Duration;
 use serde::*;
@@ -60,6 +61,12 @@ pub struct RulesGroup {
     pub name: String,
     pub rules: Vec<MatchRule>,
     pub enabled: bool,
+}
+
+impl AnalysisSettings {
+    pub fn combatlog_file(&self) -> &Path {
+        Path::new(&self.combatlog_file)
+    }
 }
 
 impl RulesGroup {

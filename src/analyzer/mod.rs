@@ -29,6 +29,7 @@ pub struct Combat {
     pub names: FxHashSet<String>,
     pub time: Range<NaiveDateTime>,
     pub players: FxHashMap<String, Player>,
+    pub log_pos: Option<Range<u64>>,
 }
 
 #[derive(Clone, Debug)]
@@ -74,7 +75,7 @@ pub struct MaxOneHit {
 impl Analyzer {
     pub fn new(settings: AnalysisSettings) -> Option<Self> {
         Some(Self {
-            parser: Parser::new(&PathBuf::from(&settings.combatlog_file))?,
+            parser: Parser::new(settings.combatlog_file())?,
             combat_separation_time: Duration::seconds(settings.combat_separation_time_seconds as _),
             settings,
             combats: Default::default(),
@@ -102,12 +103,12 @@ impl Analyzer {
                     if record.time.signed_duration_since(combat.time.end)
                         > self.combat_separation_time =>
                 {
-                    self.combats.push(Combat::new(record.time));
+                    self.combats.push(Combat::new(&record));
                     self.combats.last_mut().unwrap()
                 }
                 Some(combat) => combat,
                 None => {
-                    self.combats.push(Combat::new(record.time));
+                    self.combats.push(Combat::new(&record));
                     self.combats.last_mut().unwrap()
                 }
             };
@@ -139,14 +140,19 @@ impl Analyzer {
     pub fn result(&self) -> &Vec<Combat> {
         &self.combats
     }
+
+    pub fn settings(&self) -> &AnalysisSettings {
+        &self.settings
+    }
 }
 
 impl Combat {
-    fn new(start_time: NaiveDateTime) -> Self {
+    fn new(start_record: &Record) -> Self {
         Self {
-            time: start_time..start_time,
+            time: start_record.time..start_record.time,
             names: Default::default(),
             players: Default::default(),
+            log_pos: start_record.log_pos.clone(),
         }
     }
 
@@ -183,7 +189,8 @@ impl Combat {
 
     fn update_meta_data(&mut self, record: &Record, settings: &AnalysisSettings) {
         self.update_names(record, settings);
-        self.update_time(record.time);
+        self.update_time(record);
+        self.update_log_pos(record);
     }
 
     fn update_names(&mut self, record: &Record, settings: &AnalysisSettings) {
@@ -198,8 +205,16 @@ impl Combat {
             });
     }
 
-    fn update_time(&mut self, end_time: NaiveDateTime) {
-        self.time.end = end_time;
+    fn update_time(&mut self, record: &Record) {
+        self.time.end = record.time;
+    }
+
+    fn update_log_pos(&mut self, record: &Record) {
+        if let (Some(log_pos), Some(record_log_pos)) =
+            (self.log_pos.as_mut(), record.log_pos.as_ref())
+        {
+            log_pos.end = record_log_pos.end;
+        }
     }
 }
 

@@ -52,7 +52,10 @@ impl eframe::App for App {
         self.handle_analysis_infos();
 
         CentralPanel::default().show(ctx, |ui| {
-            match self.settings_window.show(ctx, ui, &mut self.settings) {
+            match self
+                .settings_window
+                .show(&self.analysis_handler, ui, &mut self.settings)
+            {
                 SettingsResult::NoChanges => (),
                 SettingsResult::ReloadLog => {
                     self.analysis_handler = AnalysisHandler::new(
@@ -90,7 +93,7 @@ impl eframe::App for App {
                 }
 
                 if self.analysis_handler.is_busy() {
-                    ui.label("⏳ Refreshing..");
+                    ui.label("⏳ Working..");
                 }
             });
 

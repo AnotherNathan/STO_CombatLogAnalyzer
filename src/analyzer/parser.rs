@@ -2,6 +2,7 @@ use std::{
     fmt::Write,
     fs::File,
     io::{BufRead, BufReader, Seek},
+    ops::Range,
     path::Path,
 };
 
@@ -21,6 +22,7 @@ pub struct Record<'a> {
     pub value_flags: ValueFlags,
     pub value: RecordValue,
     pub raw: &'a str,
+    pub log_pos: Option<Range<u64>>,
 }
 
 #[derive(Debug)]
@@ -77,7 +79,7 @@ pub enum RecordError<'a> {
 
 impl Parser {
     pub fn new(file_name: &Path) -> Option<Self> {
-        let mut file = File::options()
+        let file = File::options()
             .read(true)
             .write(false)
             .open(file_name)
@@ -96,16 +98,26 @@ impl Parser {
 
     pub fn parse_next(&mut self) -> Result<Record, RecordError> {
         self.buffer.clear();
+        let start_pos = self.pos();
         let count = self.file.read_line(&mut self.buffer)?;
+        let end_pos = self.pos();
         if count == 0 {
             return Err(RecordError::EndReached);
         }
 
-        Self::parse_from_line(&self.buffer, &mut self.scratch_pad)
+        let log_pos = match (start_pos, end_pos) {
+            (Some(s), Some(e)) => Some(s..e),
+            _ => None,
+        };
+        Self::parse_from_line(&self.buffer, &mut self.scratch_pad, log_pos)
             .ok_or_else(|| RecordError::InvalidRecord(&self.buffer))
     }
 
-    fn parse_from_line<'a>(line: &'a str, scratch_pad: &mut String) -> Option<Record<'a>> {
+    fn parse_from_line<'a>(
+        line: &'a str,
+        scratch_pad: &mut String,
+        log_pos: Option<Range<u64>>,
+    ) -> Option<Record<'a>> {
         let mut parts = line.split(',');
 
         let time_and_source_name = parts.next()?.trim();
@@ -146,6 +158,7 @@ impl Parser {
             value_flags,
             value,
             raw: line,
+            log_pos,
         };
         Some(record)
     }

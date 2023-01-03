@@ -1,4 +1,6 @@
 use std::{
+    fs::File,
+    io::{BufRead, BufReader, Seek, SeekFrom, Write},
     ops::Add,
     path::{Path, PathBuf},
     sync::{
@@ -50,6 +52,7 @@ enum Instruction {
     Refresh,
     AutoRefresh,
     GetCombat(usize),
+    ClearLog,
 }
 
 pub enum AnalysisInfo {
@@ -104,6 +107,10 @@ impl AnalysisHandler {
     pub fn get_combat(&self, combat_index: usize) {
         self.tx.send(Instruction::GetCombat(combat_index)).unwrap();
     }
+
+    pub fn clear_log(&self) {
+        self.tx.send(Instruction::ClearLog).unwrap();
+    }
 }
 
 impl AnalysisContext {
@@ -144,7 +151,10 @@ impl AnalysisContext {
                 Instruction::GetCombat(combat_index) => {
                     self.get_combat(combat_index);
                 }
+                Instruction::ClearLog => self.clear_log(),
             }
+
+            Self::set_is_busy(&self.is_busy, false);
         }
     }
 
@@ -153,7 +163,7 @@ impl AnalysisContext {
             Some(a) => a,
             None => return,
         };
-        self.is_busy.store(true, Ordering::Relaxed);
+        Self::set_is_busy(&self.is_busy, true);
         analyzer.update();
         let latest_combat = match analyzer.result().last() {
             Some(c) => c.clone(),
@@ -163,7 +173,6 @@ impl AnalysisContext {
             latest_combat,
             combats: analyzer.result().iter().map(|c| c.identifier()).collect(),
         };
-        self.is_busy.store(false, Ordering::Release);
         self.send_info(info);
         if let Some(ctx) = &mut self.auto_refresh {
             ctx.state = AutoRefreshState::Idle;
@@ -214,9 +223,71 @@ impl AnalysisContext {
         self.send_info(AnalysisInfo::Combat(combat));
     }
 
+    fn clear_log(&mut self) {
+        let analyzer = match &self.analyzer {
+            Some(a) => a,
+            None => return,
+        };
+        let settings = analyzer.settings().clone();
+
+        let last_combat = analyzer.result().last();
+        let last_combat_data = last_combat
+            .map(|c| Self::read_log_combat_data(settings.combatlog_file(), c))
+            .flatten();
+
+        self.analyzer = None;
+
+        let mut file = match File::options()
+            .write(true)
+            .truncate(true)
+            .create(false)
+            .open(settings.combatlog_file())
+        {
+            Ok(f) => f,
+            Err(_) => return,
+        };
+
+        if let Some(last_combat_data) = last_combat_data {
+            let _ = file.write_all(last_combat_data.as_bytes());
+        }
+
+        drop(file);
+        self.analyzer = Analyzer::new(settings);
+        self.refresh();
+    }
+
+    fn read_log_combat_data(file_path: &Path, combat: &Combat) -> Option<String> {
+        let pos = match combat.log_pos.clone() {
+            Some(p) => p,
+            None => return None,
+        };
+
+        let file = match File::options().create(false).read(true).open(file_path) {
+            Ok(f) => f,
+            Err(_) => return None,
+        };
+
+        let mut combat_data = String::new();
+        let mut reader = BufReader::with_capacity(1 << 20, file);
+        reader.seek(SeekFrom::Start(pos.start)).ok()?;
+
+        loop {
+            let count = reader.read_line(&mut combat_data).ok()?;
+            if count == 0 || reader.stream_position().ok()? >= pos.end {
+                break;
+            }
+        }
+
+        Some(combat_data)
+    }
+
     fn send_info(&self, info: AnalysisInfo) {
         self.tx.send(info).unwrap();
         self.ctx.request_repaint();
+    }
+
+    fn set_is_busy(is_busy: &AtomicBool, value: bool) {
+        is_busy.store(value, Ordering::Relaxed);
     }
 }
 

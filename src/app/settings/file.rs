@@ -2,16 +2,30 @@ use eframe::egui::*;
 use rfd::FileDialog;
 use std::fmt::Write;
 
+use crate::app::analysis_handling::AnalysisHandler;
+
 use super::Settings;
 
 #[derive(Default)]
 pub struct FileTab {
     combat_separation_time: String,
     auto_refresh_interval: String,
+
+    clear_log_dialog: ClearLogConfirmationDialog,
+}
+
+#[derive(Default)]
+struct ClearLogConfirmationDialog {
+    is_open: bool,
 }
 
 impl FileTab {
-    pub fn show(&mut self, modified_settings: &mut Settings, ui: &mut Ui) {
+    pub fn show(
+        &mut self,
+        analysis_handler: &AnalysisHandler,
+        modified_settings: &mut Settings,
+        ui: &mut Ui,
+    ) {
         ui.horizontal(|ui| {
             ui.label("combatlog file");
             if ui.button("browse").clicked() {
@@ -24,6 +38,8 @@ impl FileTab {
                         new_combatlog_file.display().to_string();
                 }
             }
+
+            self.clear_log_dialog.show(analysis_handler, ui);
         });
         TextEdit::singleline(&mut modified_settings.analysis.combatlog_file)
             .desired_width(f32::MAX)
@@ -96,9 +112,10 @@ impl FileTab {
         ui.add_space(100.0);
     }
 
-    pub fn update_slider_displays(&mut self, settings: &Settings) {
+    pub fn initialize(&mut self, settings: &Settings) {
         self.update_combat_separation_time_display(settings);
         self.update_auto_refresh_interval_display(settings);
+        self.clear_log_dialog.initialize();
     }
 
     fn update_combat_separation_time_display(&mut self, settings: &Settings) {
@@ -118,5 +135,53 @@ impl FileTab {
     fn update_slider_display(display: &mut String, value: f64) {
         display.clear();
         write!(display, "{}", value).unwrap();
+    }
+}
+
+impl ClearLogConfirmationDialog {
+    fn show(&mut self, analysis_handler: &AnalysisHandler, ui: &mut Ui) {
+        let clear_response = ui.button("Clear Log file");
+
+        let mut newly_opened = false;
+        if clear_response.clicked() {
+            self.is_open = true;
+            newly_opened = true;
+        }
+
+        if !self.is_open {
+            return;
+        }
+
+        let mut window = Window::new("Clear Log File")
+            .collapsible(false)
+            .default_size([400.0, 400.0])
+            .resizable(false);
+        if newly_opened {
+            window = window.current_pos(clear_response.rect.min);
+            // TODO bring to front
+        }
+
+        window.show(ui.ctx(), |ui| {
+                ui.label("Clearing the log will delete all combats from log file except for the newest one.");
+                ui.label("Note that for this to work properly all data from the log must have been analyzed.");
+                ui.label("Make sure you refreshed before proceeding.");
+                ui.add_space(20.0);
+                ui.label("Do you wish to proceed?");
+
+                ui.horizontal(|ui| {
+                    if ui.button("Clear Log").clicked() {
+                        self.is_open = false;
+                        analysis_handler.clear_log()
+                    }
+
+                    if ui.button("Cancel").clicked() {
+                        self.is_open = false;
+                    }
+                });
+            });
+    }
+
+    fn initialize(&mut self) {
+        self.is_open = false;
     }
 }
