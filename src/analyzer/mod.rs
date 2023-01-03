@@ -94,10 +94,6 @@ impl Analyzer {
                 }
             };
 
-            let Entity::Player { full_name, .. } = &record.source else{
-                continue;
-            };
-
             let combat = match self.combats.last_mut() {
                 Some(combat)
                     if record.time.signed_duration_since(combat.time.end)
@@ -114,6 +110,10 @@ impl Analyzer {
             };
 
             combat.update_meta_data(&record, &self.settings);
+
+            let Entity::Player { full_name, .. } = &record.source else{
+                continue;
+            };
 
             let player = match combat.players.get_mut(*full_name) {
                 Some(player) => player,
