@@ -50,7 +50,7 @@
         "enabled": true
       },
       {
-        "name": "Hive",
+        "name": "Hive Onslaught",
         "rules": [
           {
             "aspect": "SourceOrTargetUniqueName",
@@ -62,6 +62,192 @@
             "aspect": "SourceOrTargetUniqueName",
             "expression": "Hive_Intro1",
             "method": "EndsWith",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Herald Sphere",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Herald_Sphere",
+            "method": "EndsWith",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Days of Doom",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Msn_Tmp_Fed_Outpost_Space_Doomsday_Machine",
+            "method": "Equals",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Into the Hive",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Ground_Borg_Queen_Disembodied",
+            "method": "Equals",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Undine Assault",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Missione_Event_Planetary_Invasion_Rift",
+            "method": "Equals",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Cure Found",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Cure",
+            "method": "EndsWith",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Gateway to Gre'thor",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Event_Ico_Qonos_Space_Herald_Dreadnaught",
+            "method": "Equals",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Storming the Spire",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Mission_Dys_Spire_Assault",
+            "method": "StartsWith",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Khitomer Vortex",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Raidisode_Khitomer_Intro_Boss",
+            "method": "EndsWith",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Gravity Kills",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Msn_Luk_Hypermass_Queue_System_Tzk_Gravitic_Anchor",
+            "method": "Equals",
+            "enabled": true
+          },
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Msn_Luk_Hypermass_Queue_System_Asteroid",
+            "method": "Equals",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Borg Disconnected",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetName",
+            "expression": "Disconnected Cube",
+            "method": "Equals",
+            "enabled": true
+          },
+          {
+            "aspect": "SourceOrTargetName",
+            "expression": "Disconnected Probe",
+            "method": "Equals",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Khitomer Vortex",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Raidisode_Khitomer_Intro_Boss",
+            "method": "EndsWith",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Miner Instabilities",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Msn_Edren_Queue_Ground_Gorn",
+            "method": "StartsWith",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Counterpoint",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Mission_Starbase_Ds9_Mu_Queue",
+            "method": "Equals",
+            "enabled": true
+          },
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Mirror_Ds9_Queue_Pointdefense",
+            "method": "EndsWith",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Pahvo Dissension",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Device_Pahvo_Tfo_Crystal_Tether",
+            "method": "Equals",
             "enabled": true
           }
         ],
