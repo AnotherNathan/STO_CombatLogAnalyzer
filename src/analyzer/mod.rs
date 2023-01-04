@@ -5,12 +5,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use arrayvec::ArrayVec;
 use chrono::{Duration, NaiveDateTime};
 use eframe::epaint::ahash::HashSet;
 use itertools::Itertools;
 use log::{info, warn};
 use rustc_hash::{FxHashMap, FxHashSet};
+use smallvec::SmallVec;
 
 mod parser;
 pub mod settings;
@@ -24,18 +24,23 @@ pub struct Analyzer {
     combats: Vec<Combat>,
 }
 
+type Players = FxHashMap<String, Player>;
+type GroupingPath<'a> = SmallVec<[&'a str; 8]>;
+
 #[derive(Clone, Debug)]
 pub struct Combat {
     pub names: FxHashSet<String>,
     pub time: Range<NaiveDateTime>,
-    pub players: FxHashMap<String, Player>,
+    pub players: Players,
     pub log_pos: Option<Range<u64>>,
 }
 
 #[derive(Clone, Debug)]
 pub struct Player {
+    active_combat_time: Option<Range<NaiveDateTime>>,
     combat_time: Option<Range<NaiveDateTime>>,
-    pub damage_source: DamageGroup,
+    pub damage_out: DamageGroup,
+    pub damage_in: DamageGroup,
 }
 
 #[derive(Clone, Debug)]
@@ -85,49 +90,13 @@ impl Analyzer {
     pub fn update(&mut self) {
         let mut first_modified_combat = None;
         loop {
-            let record = match self.parser.parse_next() {
-                Ok(record) => record,
+            match self.process_next_record(&mut first_modified_combat) {
+                Ok(_) => (),
                 Err(RecordError::EndReached) => break,
                 Err(RecordError::InvalidRecord(invalid_record)) => {
                     warn!("failed to parse record: {}", invalid_record);
-                    continue;
                 }
-            };
-
-            let combat = match self.combats.last_mut() {
-                Some(combat)
-                    if record.time.signed_duration_since(combat.time.end)
-                        > self.combat_separation_time =>
-                {
-                    self.combats.push(Combat::new(&record));
-                    self.combats.last_mut().unwrap()
-                }
-                Some(combat) => combat,
-                None => {
-                    self.combats.push(Combat::new(&record));
-                    self.combats.last_mut().unwrap()
-                }
-            };
-
-            combat.update_meta_data(&record, &self.settings);
-
-            let Entity::Player { full_name, .. } = &record.source else{
-                continue;
-            };
-
-            let player = match combat.players.get_mut(*full_name) {
-                Some(player) => player,
-                None => {
-                    let player = Player::new(&record);
-                    combat
-                        .players
-                        .insert(player.damage_source.name.to_string(), player);
-                    combat.players.get_mut(*full_name).unwrap()
-                }
-            };
-
-            player.add_value(&record, &self.settings);
-            first_modified_combat.get_or_insert(self.combats.len() - 1);
+            }
         }
 
         if let Some(first_modified_combat) = first_modified_combat {
@@ -135,6 +104,48 @@ impl Analyzer {
                 .iter_mut()
                 .for_each(|p| p.recalculate_metrics());
         }
+    }
+
+    fn process_next_record(
+        &mut self,
+        first_modified_combat: &mut Option<usize>,
+    ) -> Result<(), RecordError> {
+        let record = self.parser.parse_next()?;
+
+        match self.combats.last_mut() {
+            Some(combat)
+                if record.time.signed_duration_since(combat.time.end)
+                    > self.combat_separation_time =>
+            {
+                self.combats.push(Combat::new(&record));
+            }
+            None => {
+                self.combats.push(Combat::new(&record));
+            }
+            _ => (),
+        }
+        first_modified_combat.get_or_insert(self.combats.len() - 1);
+        let combat = self.combats.last_mut().unwrap();
+
+        combat.update_meta_data(&record, &self.settings);
+
+        if record.value.get() == 0.0 {
+            return Ok(());
+        }
+
+        if let Entity::Player { full_name, .. } = &record.source {
+            let player = combat.get_player(full_name);
+            player.add_out_value(&record, &self.settings);
+            return Ok(());
+        }
+
+        if let Entity::Player { full_name, .. } = &record.target {
+            let player = combat.get_player(full_name);
+            player.add_in_value(&record, &self.settings);
+            return Ok(());
+        }
+
+        Ok(())
     }
 
     pub fn result(&self) -> &Vec<Combat> {
@@ -154,6 +165,15 @@ impl Combat {
             players: Default::default(),
             log_pos: start_record.log_pos.clone(),
         }
+    }
+
+    fn get_player(&mut self, full_name: &str) -> &mut Player {
+        if !self.players.contains_key(full_name) {
+            let player = Player::new(full_name);
+            self.players
+                .insert(player.damage_out.name.to_string(), player);
+        }
+        self.players.get_mut(full_name).unwrap()
     }
 
     pub fn identifier(&self) -> String {
@@ -176,15 +196,22 @@ impl Combat {
         self.players
             .values_mut()
             .for_each(|p| p.recalculate_metrics());
+        self.recalculate_damage_group_percentage(|p| &mut p.damage_out);
+        self.recalculate_damage_group_percentage(|p| &mut p.damage_in);
+    }
 
+    fn recalculate_damage_group_percentage(
+        &mut self,
+        mut group: impl FnMut(&mut Player) -> &mut DamageGroup,
+    ) {
         let total_damage = self
             .players
-            .values()
-            .map(|p| p.damage_source.total_damage)
+            .values_mut()
+            .map(|p| group(p).total_damage)
             .sum();
         self.players
             .values_mut()
-            .for_each(|p| p.recalculate_damage_percentage(total_damage));
+            .for_each(|p| group(p).recalculate_damage_percentage(total_damage));
     }
 
     fn update_meta_data(&mut self, record: &Record, settings: &AnalysisSettings) {
@@ -219,102 +246,90 @@ impl Combat {
 }
 
 impl Player {
-    fn new(record: &Record) -> Self {
-        let Entity::Player{full_name,..} = record.source else{
-            panic!("record source is not a player")
-        };
+    fn new(full_name: &str) -> Self {
         Self {
+            active_combat_time: None,
             combat_time: None,
-            damage_source: DamageGroup::new(full_name, true),
+            damage_out: DamageGroup::new(full_name, true),
+            damage_in: DamageGroup::new(full_name, true),
         }
     }
 
-    fn add_value(&mut self, record: &Record, settings: &AnalysisSettings) {
-        if record.value.get() == 0.0 {
-            return;
-        }
-
+    fn add_out_value(&mut self, record: &Record, settings: &AnalysisSettings) {
         match record.value {
             RecordValue::Damage(damage) => {
-                match (&record.sub_source, &record.target) {
-                    (Entity::None, _) | (_, Entity::None) => {
-                        self.add_and_group_up_damage(
-                            &[record.value_name],
-                            record,
-                            damage,
-                            settings,
-                        );
-                    }
-                    (
-                        Entity::NonPlayer { name, .. }
-                        | Entity::Player {
-                            full_name: name, ..
-                        },
-                        _,
-                    ) => {
-                        self.add_and_group_up_pet_or_summon_damage(name, record, damage, settings);
-                    }
-                    _ => warn!(
-                        "encountered unexpected sub source + target combo: {}",
-                        record.raw
-                    ),
-                }
+                let path = Self::build_grouping_path(record, settings);
 
+                self.damage_out
+                    .add_damage(&path, damage, record.value_flags);
+
+                self.update_active_combat_time(record);
                 self.update_combat_time(record);
             }
             RecordValue::Heal(_) => (),
         }
     }
 
-    fn add_and_group_up_pet_or_summon_damage(
-        &mut self,
-        pet_or_summon_name: &str,
-        record: &Record,
-        damage: Value,
-        settings: &AnalysisSettings,
-    ) {
-        if settings
-            .summon_and_pet_grouping_revers_rules
-            .iter()
-            .any(|r| r.enabled && r.matches(record))
-        {
-            self.add_and_group_up_damage(
-                &[record.value_name, pet_or_summon_name],
-                record,
-                damage,
-                settings,
-            );
-        } else {
-            self.add_and_group_up_damage(
-                &[pet_or_summon_name, record.value_name],
-                record,
-                damage,
-                settings,
-            );
+    fn add_in_value(&mut self, record: &Record, settings: &AnalysisSettings) {
+        let source_name = record.source.name().unwrap_or("<unknown source>");
+        match record.value {
+            RecordValue::Damage(damage) => {
+                let mut path = Self::build_grouping_path(record, settings);
+                path.push(source_name);
+
+                self.damage_in.add_damage(&path, damage, record.value_flags);
+                self.update_combat_time(record);
+            }
+            RecordValue::Heal(_) => (),
         }
     }
 
-    fn add_and_group_up_damage(
-        &mut self,
-        path: &[&str],
-        record: &Record,
-        damage: Value,
-        settings: &AnalysisSettings,
-    ) {
+    fn build_grouping_path<'a>(
+        record: &'a Record,
+        settings: &'a AnalysisSettings,
+    ) -> GroupingPath<'a> {
+        let mut path = GroupingPath::new();
+
+        match (&record.sub_source, &record.target) {
+            (Entity::None, _) | (_, Entity::None) => {
+                path.push(record.value_name);
+            }
+
+            (
+                Entity::NonPlayer { name, .. }
+                | Entity::Player {
+                    full_name: name, ..
+                },
+                _,
+            ) => {
+                if settings
+                    .summon_and_pet_grouping_revers_rules
+                    .iter()
+                    .any(|r| r.matches(record))
+                {
+                    path.extend_from_slice(&[name, record.value_name]);
+                } else {
+                    path.extend_from_slice(&[record.value_name, name]);
+                }
+            }
+        }
+
         if let Some(rule) = settings
             .custom_group_rules
             .iter()
             .find(|r| r.matches(record))
         {
-            let mut grouped_path = ArrayVec::<_, 3>::new();
-            grouped_path.push(rule.name.as_str());
-            grouped_path.try_extend_from_slice(path).unwrap();
-            self.damage_source
-                .add_damage(&grouped_path, damage, record.value_flags);
-        } else {
-            self.damage_source
-                .add_damage(path, damage, record.value_flags);
+            path.push(rule.name.as_str());
         }
+
+        path
+    }
+
+    fn update_active_combat_time(&mut self, record: &Record) {
+        let active_combat_time = self
+            .active_combat_time
+            .get_or_insert_with(|| record.time..record.time);
+        active_combat_time.end = record.time;
     }
 
     fn update_combat_time(&mut self, record: &Record) {
@@ -325,18 +340,20 @@ impl Player {
     }
 
     fn recalculate_metrics(&mut self) {
-        let combat_duration = self
-            .combat_time
+        Self::recalculate_group_metrics(&mut self.damage_out, &self.active_combat_time);
+        Self::recalculate_group_metrics(&mut self.damage_in, &self.combat_time);
+    }
+
+    fn recalculate_group_metrics(
+        group: &mut DamageGroup,
+        combat_time: &Option<Range<NaiveDateTime>>,
+    ) {
+        let active_combat_duration = combat_time
             .as_ref()
             .map(|t| t.end.signed_duration_since(t.start))
             .unwrap_or(Duration::max_value());
-        let combat_duration = combat_duration.to_std().unwrap().as_secs_f64();
-        self.damage_source.recalculate_metrics(combat_duration);
-    }
-
-    fn recalculate_damage_percentage(&mut self, parent_total_damage: f64) {
-        self.damage_source
-            .recalculate_damage_percentage(parent_total_damage);
+        let combat_duration = active_combat_duration.to_std().unwrap().as_secs_f64();
+        group.recalculate_metrics(combat_duration);
     }
 }
 
@@ -464,8 +481,8 @@ impl DamageGroup {
             return;
         }
 
-        let sub_source = self.get_pool_sub_group(path.first().unwrap());
-        sub_source.add_damage(&path[1..], damage, flags);
+        let sub_source = self.get_pool_sub_group(path.last().unwrap());
+        sub_source.add_damage(&path[..path.len() - 1], damage, flags);
     }
 
     fn get_non_pool_sub_group(&mut self, sub_group: &str) -> &mut Self {

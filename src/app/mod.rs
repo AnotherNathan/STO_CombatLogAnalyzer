@@ -21,8 +21,22 @@ pub struct App {
     settings_window: SettingsWindow,
     combats: Vec<String>,
     selected_combat: Option<usize>,
-    table: DamageTable,
+    tables: DamageTables,
     analysis_handler: AnalysisHandler,
+    active_tab: Tab,
+}
+
+struct DamageTables {
+    identifier: String,
+    damage_out: DamageTable,
+    damage_in: DamageTable,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+enum Tab {
+    #[default]
+    DamageOut,
+    DamageIn,
 }
 
 impl App {
@@ -41,8 +55,9 @@ impl App {
             settings_window: Default::default(),
             combats: Default::default(),
             selected_combat: None,
-            table: DamageTable::empty(),
+            tables: DamageTables::empty(),
             analysis_handler,
+            active_tab: Default::default(),
         }
     }
 }
@@ -70,7 +85,7 @@ impl eframe::App for App {
             ui.horizontal(|ui| {
                 ComboBox::new("combat list", "Combats")
                     .width(400.0)
-                    .selected_text(self.table.identifier.as_str())
+                    .selected_text(self.tables.identifier.as_str())
                     .show_ui(ui, |ui| {
                         for (i, combat) in self.combats.iter().enumerate().rev() {
                             if ui
@@ -97,7 +112,26 @@ impl eframe::App for App {
                 }
             });
 
-            self.table.show(ui);
+            ui.horizontal(|ui| {
+                if ui
+                    .selectable_label(self.active_tab == Tab::DamageOut, "Outgoing Damage")
+                    .clicked()
+                {
+                    self.active_tab = Tab::DamageOut;
+                }
+
+                if ui
+                    .selectable_label(self.active_tab == Tab::DamageIn, "Incoming Damage")
+                    .clicked()
+                {
+                    self.active_tab = Tab::DamageIn;
+                }
+            });
+
+            match self.active_tab {
+                Tab::DamageIn => self.tables.damage_in.show(ui),
+                Tab::DamageOut => self.tables.damage_out.show(ui),
+            }
         });
     }
 }
@@ -106,16 +140,32 @@ impl App {
     fn handle_analysis_infos(&mut self) {
         for info in self.analysis_handler.check_for_info() {
             match info {
-                AnalysisInfo::Combat(combat) => self.table = DamageTable::new(&combat),
+                AnalysisInfo::Combat(combat) => self.tables.update(&combat),
                 AnalysisInfo::Refreshed {
                     latest_combat,
                     combats,
                 } => {
-                    self.table = DamageTable::new(&latest_combat);
+                    self.tables.update(&latest_combat);
                     self.combats = combats;
                     self.selected_combat = Some(self.combats.len());
                 }
             }
         }
+    }
+}
+
+impl DamageTables {
+    fn empty() -> Self {
+        Self {
+            identifier: "<no data loaded>".to_string(),
+            damage_out: DamageTable::empty(),
+            damage_in: DamageTable::empty(),
+        }
+    }
+
+    fn update(&mut self, combat: &Combat) {
+        self.identifier = combat.identifier();
+        self.damage_out = DamageTable::new(combat, |p| &p.damage_out);
+        self.damage_in = DamageTable::new(combat, |p| &p.damage_in);
     }
 }

@@ -257,7 +257,10 @@ impl RecordValue {
         let damage_or_heal = str::parse::<f64>(damage_or_heal).ok()?;
 
         if damage_or_heal < 0.0 && value_type == "HitPoints" {
-            return Some(Self::Heal(Value::Hull(damage_or_heal.abs())));
+            if damage_or_heal < 0.0 {
+                return Some(Self::Heal(Value::Hull(damage_or_heal.abs())));
+            }
+            return Some(Self::Damage(Value::Hull(damage_or_heal.abs())));
         }
 
         if value_type == "Shield" {

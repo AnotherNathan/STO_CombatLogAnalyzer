@@ -3,10 +3,8 @@ use eframe::egui::*;
 use egui_extras::{Column, TableBody, TableBuilder, TableRow};
 
 use crate::{analyzer::*, helpers::number_formatting::NumberFormatter};
-use std::fmt::Write;
 
 pub struct DamageTable {
-    pub identifier: String,
     players: Vec<TablePart>,
 }
 
@@ -65,19 +63,17 @@ struct TextValue {
 impl DamageTable {
     pub fn empty() -> Self {
         Self {
-            identifier: "<no data loaded>".to_string(),
             players: Vec::new(),
         }
     }
 
-    pub fn new(combat: &Combat) -> Self {
+    pub fn new(combat: &Combat, mut damage_group: impl FnMut(&Player) -> &DamageGroup) -> Self {
         let mut number_formatter = NumberFormatter::new();
         let mut table = Self {
-            identifier: combat.identifier(),
             players: combat
                 .players
                 .values()
-                .map(|p| TablePart::new(&p.damage_source, &mut number_formatter))
+                .map(|p| TablePart::new(damage_group(p), &mut number_formatter))
                 .collect(),
         };
         table.sort(TableColumns::TOTAL_DAMAGE);
