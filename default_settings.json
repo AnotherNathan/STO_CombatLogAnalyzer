@@ -252,6 +252,42 @@
           }
         ],
         "enabled": true
+      },
+      {
+        "name": "Dranuur Gauntlet",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Msn_Luk_Colony_Dranuur_Queue",
+            "method": "StartsWith",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "To Hell With Honor",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Mission_Beta_Lankal",
+            "method": "StartsWith",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Bug Hunt",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Msn_Dlt_Bluegill_Hunt_Queue_Ground_Ens",
+            "method": "Equals",
+            "enabled": true
+          }
+        ],
+        "enabled": true
       }
     ]
   },
