@@ -1,0 +1,310 @@
+accepted = [
+    "Apache-2.0",
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "MPL-2.0",
+    "ISC",
+    "CC0-1.0",
+    "Zlib",
+    "OFL-1.1",
+    "LicenseRef-UFL-1.0",
+    "LicenseRef-UFL-1.0",
+    "Unicode-DFS-2016",
+]
+
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
+
+[atomic_refcell.clarify]
+license = "Apache-2.0 OR MIT"
+
+[[atomic_refcell.clarify.files]]
+path = "LICENSE.MIT"
+license = "MIT"
+checksum = "d8e997e6cdf64acfdd3a9315b5dea0dd933f1f5386a55a2c16916dc8514071f2"
+
+[[atomic_refcell.clarify.files]]
+checksum = "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+path = "LICENSE.APACHE"
+license = "Apache-2.0"
+
+# ------------------------------------------------------------------------------------------
+[itoa.clarify]
+license = "Apache-2.0 OR MIT"
+
+[[itoa.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+
+[[itoa.clarify.files]]
+checksum = "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+path = "LICENSE-APACHE"
+license = "Apache-2.0"
+
+# ------------------------------------------------------------------------------------------
+[calloop.clarify]
+license = "MIT"
+
+[[calloop.clarify.files]]
+path = "LICENSE.txt"
+checksum = "4b71658d3410d813b6fc6ceb654ce2aa8c2d3094c944dc59c2041da6227810e3"
+
+# ------------------------------------------------------------------------------------------
+[once_cell.clarify]
+license = "Apache-2.0 OR MIT"
+
+[[once_cell.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+
+[[once_cell.clarify.files]]
+checksum = "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+path = "LICENSE-APACHE"
+license = "Apache-2.0"
+
+
+# ------------------------------------------------------------------------------------------
+[timer.clarify]
+license = "MPL-2.0"
+
+[[timer.clarify.files]]
+path = "LICENSE"
+checksum = "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5"
+
+# ------------------------------------------------------------------------------------------
+[cxx.clarify]
+license = "Apache-2.0 OR MIT"
+
+[[cxx.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+
+[[cxx.clarify.files]]
+checksum = "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+path = "LICENSE-APACHE"
+license = "Apache-2.0"
+
+# ------------------------------------------------------------------------------------------
+[nom.clarify]
+license = "MIT"
+
+[[nom.clarify.files]]
+path = "LICENSE"
+checksum = "4dbda04344456f09a7a588140455413a9ac59b6b26a1ef7cdf9c800c012d87f0"
+
+# ------------------------------------------------------------------------------------------
+[libc.clarify]
+license = "Apache-2.0 OR MIT"
+
+[[libc.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "a8d47ff51ca256f56a8932dba07660672dbfe3004257ca8de708aac1415937a1"
+
+[[libc.clarify.files]]
+checksum = "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+path = "LICENSE-APACHE"
+license = "Apache-2.0"
+
+# ------------------------------------------------------------------------------------------
+[ryu.clarify]
+license = "Apache-2.0 OR BSL-1.0"
+
+[[ryu.clarify.files]]
+path = "LICENSE-BOOST"
+license = "BSL-1.0"
+checksum = "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566"
+
+[[ryu.clarify.files]]
+checksum = "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+path = "LICENSE-APACHE"
+license = "Apache-2.0"
+
+# ------------------------------------------------------------------------------------------
+[proc-macro2.clarify]
+license = "Apache-2.0 OR BSL-1.0"
+
+[[proc-macro2.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+
+[[proc-macro2.clarify.files]]
+checksum = "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+path = "LICENSE-APACHE"
+license = "Apache-2.0"
+
+# ------------------------------------------------------------------------------------------
+[quote.clarify]
+license = "Apache-2.0 OR BSL-1.0"
+
+[[quote.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+
+[[quote.clarify.files]]
+checksum = "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+path = "LICENSE-APACHE"
+license = "Apache-2.0"
+
+# ------------------------------------------------------------------------------------------
+[link-cplusplus.clarify]
+license = "Apache-2.0 OR BSL-1.0"
+
+[[link-cplusplus.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+
+[[link-cplusplus.clarify.files]]
+checksum = "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+path = "LICENSE-APACHE"
+license = "Apache-2.0"
+
+# ------------------------------------------------------------------------------------------
+[cxxbridge-macro.clarify]
+license = "Apache-2.0 OR BSL-1.0"
+
+[[cxxbridge-macro.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+
+[[cxxbridge-macro.clarify.files]]
+checksum = "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+path = "LICENSE-APACHE"
+license = "Apache-2.0"
+
+# ------------------------------------------------------------------------------------------
+[serde.clarify]
+license = "Apache-2.0 OR BSL-1.0"
+
+[[serde.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+
+[[serde.clarify.files]]
+checksum = "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+path = "LICENSE-APACHE"
+license = "Apache-2.0"
+
+# ------------------------------------------------------------------------------------------
+[serde_derive.clarify]
+license = "Apache-2.0 OR BSL-1.0"
+
+[[serde_derive.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+
+[[serde_derive.clarify.files]]
+checksum = "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+path = "LICENSE-APACHE"
+license = "Apache-2.0"
+
+
+# ------------------------------------------------------------------------------------------
+[serde_json.clarify]
+license = "Apache-2.0 OR BSL-1.0"
+
+[[serde_json.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+
+[[serde_json.clarify.files]]
+checksum = "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+path = "LICENSE-APACHE"
+license = "Apache-2.0"
+
+# ------------------------------------------------------------------------------------------
+[syn.clarify]
+license = "Apache-2.0 OR BSL-1.0"
+
+[[syn.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+
+[[syn.clarify.files]]
+checksum = "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+path = "LICENSE-APACHE"
+license = "Apache-2.0"
+
+# ------------------------------------------------------------------------------------------
+[thiserror-impl.clarify]
+license = "Apache-2.0 OR BSL-1.0"
+
+[[thiserror-impl.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+
+[[thiserror-impl.clarify.files]]
+checksum = "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+path = "LICENSE-APACHE"
+license = "Apache-2.0"
+
+# ------------------------------------------------------------------------------------------
+[thiserror.clarify]
+license = "Apache-2.0 OR BSL-1.0"
+
+[[thiserror.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+
+[[thiserror.clarify.files]]
+checksum = "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+path = "LICENSE-APACHE"
+license = "Apache-2.0"
+
+# ------------------------------------------------------------------------------------------
+[unicode-ident.clarify]
+license = "( MIT OR Apache-2.0 ) AND Unicode-DFS-2016"
+
+[[unicode-ident.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+
+[[unicode-ident.clarify.files]]
+checksum = "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+path = "LICENSE-APACHE"
+license = "Apache-2.0"
+
+[[unicode-ident.clarify.files]]
+checksum = "68f5b9f5ea36881a0942ba02f558e9e1faf76cc09cb165ad801744c61b738844"
+path = "LICENSE-UNICODE"
+license = "Unicode-DFS-2016"
+
+# ------------------------------------------------------------------------------------------
+[webbrowser.clarify]
+license = "Apache-2.0 OR BSL-1.0"
+
+[[webbrowser.clarify.files]]
+path = "LICENSE-MIT"
+license = "MIT"
+checksum = "7f0f4f8802c102d35110806d1755b7681127575b644f64750810cc47fa78df5b"
+
+[[webbrowser.clarify.files]]
+checksum = "b0f7d40eaa9577d99132579866bf1eaf448577dc737582b8a34f1b3e7fab8994"
+path = "LICENSE-APACHE"
+license = "Apache-2.0"
+
+# ------------------------------------------------------------------------------------------
+# for some odd reason this still does not work and generates a warning
+[epaint.clarify]
+license = "( MIT OR Apache-2.0 ) AND OFL-1.1 AND LicenseRef-UFL-1.0"
+
+[[epaint.clarify.files]]
+path = "fonts/UFL.txt"
+license = "LicenseRef-UFL-1.0"
+checksum = "0cebe8aa1ba75c4fdf57946d6109ed0a8ce12ae6bb420bad4e4f302c5c147d78"
