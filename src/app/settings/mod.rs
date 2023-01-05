@@ -1,12 +1,13 @@
 pub use app_settings::Settings;
 use eframe::{egui::*, Frame};
 
-use self::{analysis::AnalysisTab, file::FileTab, visuals::VisualsTab};
+use self::{analysis::AnalysisTab, debug::DebugTab, file::FileTab, visuals::VisualsTab};
 
 use super::{analysis_handling::AnalysisHandler, state::AppState};
 
 mod analysis;
 mod app_settings;
+mod debug;
 mod file;
 mod visuals;
 
@@ -17,6 +18,7 @@ pub struct SettingsWindow {
     file_tab: FileTab,
     analysis_tab: AnalysisTab,
     visuals_tab: VisualsTab,
+    debug_tab: DebugTab,
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
@@ -25,6 +27,7 @@ enum SettingsTab {
     File,
     Analysis,
     Visuals,
+    Debug,
 }
 
 impl SettingsWindow {
@@ -38,6 +41,7 @@ impl SettingsWindow {
             selected_tab: Default::default(),
             file_tab: Default::default(),
             analysis_tab: Default::default(),
+            debug_tab: Default::default(),
             visuals_tab,
         }
     }
@@ -58,6 +62,7 @@ impl SettingsWindow {
                     ui.selectable_value(&mut self.selected_tab, SettingsTab::File, "file");
                     ui.selectable_value(&mut self.selected_tab, SettingsTab::Analysis, "analysis");
                     ui.selectable_value(&mut self.selected_tab, SettingsTab::Visuals, "visuals");
+                    ui.selectable_value(&mut self.selected_tab, SettingsTab::Debug, "debug");
                 });
 
                 ui.separator();
@@ -74,6 +79,7 @@ impl SettingsWindow {
                         self.visuals_tab
                             .show(&mut self.modified_settings, ui, frame)
                     }
+                    SettingsTab::Debug => self.debug_tab.show(&mut self.modified_settings, ui),
                 }
 
                 ui.separator();

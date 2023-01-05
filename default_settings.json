@@ -352,5 +352,9 @@
   "visuals": {
     "ui_scale": 1.2000000000000002,
     "theme": "Light"
+  },
+  "debug": {
+    "enable_log": true,
+    "log_level_filter": "INFO"
   }
 }

@@ -9,6 +9,7 @@ pub struct Settings {
     pub analysis: AnalysisSettings,
     pub auto_refresh: AutoRefresh,
     pub visuals: Visuals,
+    pub debug: DebugSettings,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -28,6 +29,12 @@ pub enum Theme {
     #[default]
     Dark,
     Light,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct DebugSettings {
+    pub enable_log: bool,
+    pub log_level_filter: log::LevelFilter,
 }
 
 impl Settings {
@@ -97,6 +104,15 @@ impl Default for Visuals {
         Self {
             ui_scale: 1.0,
             theme: Default::default(),
+        }
+    }
+}
+
+impl Default for DebugSettings {
+    fn default() -> Self {
+        Self {
+            enable_log: false,
+            log_level_filter: log::LevelFilter::Info,
         }
     }
 }

@@ -2,10 +2,19 @@ use std::{fs::OpenOptions, path::PathBuf};
 
 use simplelog::{CombinedLogger, Config, SharedLogger, SimpleLogger, WriteLogger};
 
+use super::settings::Settings;
+
 pub fn initialize() {
-    // TODO make it configurable via settings
-    let mut loggers: Vec<Box<dyn SharedLogger>> =
-        vec![SimpleLogger::new(log::LevelFilter::Info, Config::default())];
+    let settings = Settings::load_or_default();
+
+    if !settings.debug.enable_log {
+        return;
+    }
+
+    let mut loggers: Vec<Box<dyn SharedLogger>> = vec![SimpleLogger::new(
+        settings.debug.log_level_filter,
+        Config::default(),
+    )];
 
     if let Some(file) = file_path()
         .map(|p| OpenOptions::new().create(true).append(true).open(&p).ok())
