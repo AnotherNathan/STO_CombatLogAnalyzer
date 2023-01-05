@@ -258,8 +258,8 @@
         "rules": [
           {
             "aspect": "SourceOrTargetUniqueName",
-            "expression": "Msn_Luk_Colony_Dranuur_Queue",
-            "method": "StartsWith",
+            "expression": "Msn_Luk_Colony_Dranuur_Queue_System_Upgradeable_Satellite",
+            "method": "Equals",
             "enabled": true
           }
         ],
@@ -342,6 +342,18 @@
           }
         ],
         "enabled": true
+      },
+      {
+        "name": "Peril Over Pahvo",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Msn_Dsc_Pahvo_Defense_Queue_System_Upgradeable_Satellite",
+            "method": "Equals",
+            "enabled": true
+          }
+        ],
+        "enabled": true
       }
     ]
   },
@@ -350,8 +362,8 @@
     "interval_seconds": 4.0
   },
   "visuals": {
-    "ui_scale": 1.2000000000000002,
-    "theme": "Light"
+    "ui_scale": 1.0,
+    "theme": "Dark"
   },
   "debug": {
     "enable_log": true,
