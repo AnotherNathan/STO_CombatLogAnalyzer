@@ -1,5 +1,6 @@
 use eframe::{
-    egui::{ComboBox, Context, Ui, Visuals},
+    egui::{style::Selection, ComboBox, Context, Ui, Visuals},
+    epaint::{Rgba, Shadow},
     Frame,
 };
 
@@ -19,6 +20,16 @@ impl VisualsTab {
             .show_ui(ui, |ui| {
                 if ui
                     .selectable_value(&mut visuals.theme, Theme::Dark, Theme::Dark.display())
+                    .changed()
+                {
+                    Self::set_theme(ui.ctx(), visuals.theme);
+                }
+                if ui
+                    .selectable_value(
+                        &mut visuals.theme,
+                        Theme::LightDark,
+                        Theme::LightDark.display(),
+                    )
                     .changed()
                 {
                     Self::set_theme(ui.ctx(), visuals.theme);
@@ -66,6 +77,7 @@ impl VisualsTab {
     fn set_theme(ctx: &Context, theme: Theme) {
         let visuals = match theme {
             Theme::Dark => Visuals::dark(),
+            Theme::LightDark => Self::light_dark(),
             Theme::Light => Visuals::light(),
         };
         ctx.set_visuals(visuals);
@@ -73,5 +85,29 @@ impl VisualsTab {
 
     fn set_ui_scale(ctx: &Context, native_pixels_per_point: Option<f32>, ui_scale: f64) {
         ctx.set_pixels_per_point(native_pixels_per_point.unwrap_or(1.0) * ui_scale as f32);
+    }
+
+    fn light_dark() -> Visuals {
+        let background = Rgba::from_rgb(0.08, 0.08, 0.08).into();
+        let darker_background = Rgba::from_rgb(0.05, 0.05, 0.05).into();
+        let brighter_background = Rgba::from_rgb(0.15, 0.15, 0.15).into();
+        let mut theme = Visuals::dark();
+        theme.code_bg_color = background;
+        theme.error_fg_color = Rgba::from_rgb(0.8, 0.3, 0.3).into();
+        theme.extreme_bg_color = darker_background;
+        theme.faint_bg_color = brighter_background;
+        theme.hyperlink_color = Rgba::from_rgb(0.2, 0.2, 0.9).into();
+        theme.panel_fill = background;
+        theme.warn_fg_color = Rgba::from_rgb(0.8, 0.7, 0.3).into();
+        theme.override_text_color = Some(Rgba::from_rgb(0.92, 0.92, 0.92).into());
+        theme.selection = Selection {
+            bg_fill: Rgba::from_rgb(0.2, 0.2, 0.7).into(),
+            ..Default::default()
+        };
+        theme.popup_shadow = Shadow::NONE;
+
+        theme.window_fill = background;
+        theme.window_shadow = Shadow::NONE;
+        theme
     }
 }

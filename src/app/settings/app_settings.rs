@@ -26,8 +26,9 @@ pub struct Visuals {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Default)]
 pub enum Theme {
-    #[default]
     Dark,
+    #[default]
+    LightDark,
     Light,
 }
 
@@ -94,6 +95,7 @@ impl Theme {
     pub const fn display(&self) -> &'static str {
         match self {
             Theme::Dark => "Dark",
+            Theme::LightDark => "Light Dark",
             Theme::Light => "Light",
         }
     }
