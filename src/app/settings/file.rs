@@ -1,16 +1,14 @@
 use eframe::egui::*;
 use rfd::FileDialog;
-use std::fmt::Write;
 
-use crate::app::analysis_handling::AnalysisHandler;
+use crate::{
+    app::analysis_handling::AnalysisHandler, custom_widgets::slider_text_edit::SliderTextEdit,
+};
 
 use super::Settings;
 
 #[derive(Default)]
 pub struct FileTab {
-    combat_separation_time: String,
-    auto_refresh_interval: String,
-
     clear_log_dialog: ClearLogConfirmationDialog,
 }
 
@@ -48,32 +46,16 @@ impl FileTab {
         ui.separator();
 
         ui.label("combat separation time in seconds");
-        ui.horizontal(|ui| {
-            if Slider::new(
-                &mut modified_settings.analysis.combat_separation_time_seconds,
-                15.0..=240.0,
-            )
-            .clamp_to_range(false)
-            .show_value(false)
-            .step_by(15.0)
-            .ui(ui)
-            .changed()
-            {
-                self.update_combat_separation_time_display(modified_settings);
-            }
-
-            if TextEdit::singleline(&mut self.combat_separation_time)
-                .desired_width(40.0)
-                .show(ui)
-                .response
-                .changed()
-            {
-                if let Ok(combat_separation_time) = self.combat_separation_time.parse::<f64>() {
-                    modified_settings.analysis.combat_separation_time_seconds =
-                        combat_separation_time.max(0.0);
-                }
-            }
-        });
+        SliderTextEdit::new(
+            &mut modified_settings.analysis.combat_separation_time_seconds,
+            15.0..=240.0,
+            "combat separation time slider",
+        )
+        .clamp_to_range(false)
+        .step_by(15.0)
+        .desired_text_edit_width(40.0)
+        .clamp_min(1.0)
+        .show(ui);
 
         ui.separator();
 
@@ -82,59 +64,22 @@ impl FileTab {
             "auto refresh when log changes",
         );
         ui.label("auto refresh interval in seconds");
-        ui.horizontal(|ui| {
-            if Slider::new(
-                &mut modified_settings.auto_refresh.interval_seconds,
-                1.0..=10.0,
-            )
-            .clamp_to_range(false)
-            .show_value(false)
-            .step_by(1.0)
-            .ui(ui)
-            .changed()
-            {
-                self.update_auto_refresh_interval_display(modified_settings);
-            }
-
-            if TextEdit::singleline(&mut self.auto_refresh_interval)
-                .desired_width(40.0)
-                .show(ui)
-                .response
-                .changed()
-            {
-                if let Ok(auto_refresh_interval) = self.auto_refresh_interval.parse::<f64>() {
-                    modified_settings.auto_refresh.interval_seconds =
-                        auto_refresh_interval.max(0.0);
-                }
-            }
-        });
+        SliderTextEdit::new(
+            &mut modified_settings.auto_refresh.interval_seconds,
+            1.0..=10.0,
+            "auto refresh slider",
+        )
+        .clamp_to_range(false)
+        .step_by(1.0)
+        .desired_text_edit_width(40.0)
+        .clamp_min(0.1)
+        .show(ui);
 
         ui.add_space(100.0);
     }
 
-    pub fn initialize(&mut self, settings: &Settings) {
-        self.update_combat_separation_time_display(settings);
-        self.update_auto_refresh_interval_display(settings);
+    pub fn initialize(&mut self) {
         self.clear_log_dialog.initialize();
-    }
-
-    fn update_combat_separation_time_display(&mut self, settings: &Settings) {
-        Self::update_slider_display(
-            &mut self.combat_separation_time,
-            settings.analysis.combat_separation_time_seconds,
-        );
-    }
-
-    fn update_auto_refresh_interval_display(&mut self, settings: &Settings) {
-        Self::update_slider_display(
-            &mut self.auto_refresh_interval,
-            settings.auto_refresh.interval_seconds,
-        );
-    }
-
-    fn update_slider_display(display: &mut String, value: f64) {
-        display.clear();
-        write!(display, "{}", value).unwrap();
     }
 }
 

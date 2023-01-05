@@ -82,28 +82,34 @@ impl DamageTable {
     }
 
     pub fn show(&mut self, ui: &mut Ui) {
-        TableBuilder::new(ui)
-            .columns(Column::auto(), 9)
-            .striped(true)
-            .max_scroll_height(f32::MAX)
-            .header(0.0, |mut r| {
-                r.col(|ui| {
-                    ui.label("Name");
+        ScrollArea::new([true, false]).show(ui, |ui| {
+            TableBuilder::new(ui)
+                .columns(Column::auto(), 9)
+                .striped(true)
+                .max_scroll_height(f32::MAX)
+                .header(0.0, |mut r| {
+                    r.col(|ui| {
+                        ui.label("Name");
+                    });
+                    self.show_column_header(&mut r, "Total Damage", TableColumns::TOTAL_DAMAGE);
+                    self.show_column_header(&mut r, "DPS", TableColumns::DPS);
+                    self.show_column_header(&mut r, "Damage %", TableColumns::DPS);
+                    self.show_column_header(&mut r, "Max One-Hit", TableColumns::MAX_ONE_HIT);
+                    self.show_column_header(&mut r, "Average Hit", TableColumns::AVERAGE_HIT);
+                    self.show_column_header(
+                        &mut r,
+                        "Critical Chance %",
+                        TableColumns::CRITICAL_CHANCE,
+                    );
+                    self.show_column_header(&mut r, "Flanking %", TableColumns::FLANKING);
+                    self.show_column_header(&mut r, "Hits", TableColumns::HITS);
+                })
+                .body(|mut t| {
+                    for player in self.players.iter_mut() {
+                        player.show(&mut t, 0.0);
+                    }
                 });
-                self.show_column_header(&mut r, "Total Damage", TableColumns::TOTAL_DAMAGE);
-                self.show_column_header(&mut r, "DPS", TableColumns::DPS);
-                self.show_column_header(&mut r, "Damage %", TableColumns::DPS);
-                self.show_column_header(&mut r, "Max One-Hit", TableColumns::MAX_ONE_HIT);
-                self.show_column_header(&mut r, "Average Hit", TableColumns::AVERAGE_HIT);
-                self.show_column_header(&mut r, "Critical Chance %", TableColumns::CRITICAL_CHANCE);
-                self.show_column_header(&mut r, "Flanking %", TableColumns::FLANKING);
-                self.show_column_header(&mut r, "Hits", TableColumns::HITS);
-            })
-            .body(|mut t| {
-                for player in self.players.iter_mut() {
-                    player.show(&mut t, 0.0);
-                }
-            });
+        });
     }
 
     fn show_column_header(&mut self, row: &mut TableRow, column_name: &str, column: TableColumns) {

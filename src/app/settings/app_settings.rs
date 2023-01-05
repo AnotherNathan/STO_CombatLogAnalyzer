@@ -8,12 +8,26 @@ use crate::analyzer::settings::AnalysisSettings;
 pub struct Settings {
     pub analysis: AnalysisSettings,
     pub auto_refresh: AutoRefresh,
+    pub visuals: Visuals,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AutoRefresh {
     pub enable: bool,
     pub interval_seconds: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Visuals {
+    pub ui_scale: f64,
+    pub theme: Theme,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Default)]
+pub enum Theme {
+    #[default]
+    Dark,
+    Light,
 }
 
 impl Settings {
@@ -65,6 +79,24 @@ impl Default for AutoRefresh {
         Self {
             enable: false,
             interval_seconds: 4.0,
+        }
+    }
+}
+
+impl Theme {
+    pub const fn display(&self) -> &'static str {
+        match self {
+            Theme::Dark => "Dark",
+            Theme::Light => "Light",
+        }
+    }
+}
+
+impl Default for Visuals {
+    fn default() -> Self {
+        Self {
+            ui_scale: 1.0,
+            theme: Default::default(),
         }
     }
 }

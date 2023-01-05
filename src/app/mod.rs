@@ -9,21 +9,22 @@ use self::{
     analysis_handling::{AnalysisHandler, AnalysisInfo},
     damage_table::{DamageTable, TableColumns},
     settings::*,
+    state::AppState,
 };
 
 mod analysis_handling;
 mod damage_table;
 pub mod logging;
 mod settings;
+mod state;
 
 pub struct App {
-    settings: Settings,
     settings_window: SettingsWindow,
     combats: Vec<String>,
     selected_combat: Option<usize>,
     tables: DamageTables,
-    analysis_handler: AnalysisHandler,
     active_tab: Tab,
+    state: AppState,
 }
 
 struct DamageTables {
@@ -44,20 +45,16 @@ impl App {
         let mut style = Style::clone(&cc.egui_ctx.style());
         style.override_font_id = Some(FontId::monospace(12.0));
         cc.egui_ctx.set_style(Arc::new(style));
-        let settings = Settings::load_or_default();
-        let analysis_handler = AnalysisHandler::new(
-            settings.analysis.clone(),
-            cc.egui_ctx.clone(),
-            settings.auto_refresh.interval_seconds(),
-        );
+        let state = AppState::new(&cc.egui_ctx);
+        let settings_window =
+            SettingsWindow::new(&cc.egui_ctx, cc.integration_info.native_pixels_per_point);
         Self {
-            settings,
-            settings_window: Default::default(),
+            settings_window,
             combats: Default::default(),
             selected_combat: None,
             tables: DamageTables::empty(),
-            analysis_handler,
             active_tab: Default::default(),
+            state,
         }
     }
 }
@@ -67,20 +64,7 @@ impl eframe::App for App {
         self.handle_analysis_infos();
 
         CentralPanel::default().show(ctx, |ui| {
-            match self
-                .settings_window
-                .show(&self.analysis_handler, ui, &mut self.settings)
-            {
-                SettingsResult::NoChanges => (),
-                SettingsResult::ReloadLog => {
-                    self.analysis_handler = AnalysisHandler::new(
-                        self.settings.analysis.clone(),
-                        ctx.clone(),
-                        self.settings.auto_refresh.interval_seconds(),
-                    );
-                    self.analysis_handler.refresh();
-                }
-            }
+            self.settings_window.show(&mut self.state, ui, frame);
 
             ui.horizontal(|ui| {
                 ComboBox::new("combat list", "Combats")
@@ -97,35 +81,25 @@ impl eframe::App for App {
                                 .changed()
                             {
                                 if let Some(combat_index) = self.selected_combat {
-                                    self.analysis_handler.get_combat(combat_index);
+                                    self.state.analysis_handler.get_combat(combat_index);
                                 }
                             }
                         }
                     });
 
                 if ui.button("Refresh now").clicked() {
-                    self.analysis_handler.refresh();
+                    self.state.analysis_handler.refresh();
                 }
 
-                if self.analysis_handler.is_busy() {
+                if self.state.analysis_handler.is_busy() {
                     ui.label("⏳ Working..");
                 }
             });
 
             ui.horizontal(|ui| {
-                if ui
-                    .selectable_label(self.active_tab == Tab::DamageOut, "Outgoing Damage")
-                    .clicked()
-                {
-                    self.active_tab = Tab::DamageOut;
-                }
+                ui.selectable_value(&mut self.active_tab, Tab::DamageOut, "Outgoing Damage");
 
-                if ui
-                    .selectable_label(self.active_tab == Tab::DamageIn, "Incoming Damage")
-                    .clicked()
-                {
-                    self.active_tab = Tab::DamageIn;
-                }
+                ui.selectable_value(&mut self.active_tab, Tab::DamageIn, "Incoming Damage");
             });
 
             match self.active_tab {
@@ -138,7 +112,7 @@ impl eframe::App for App {
 
 impl App {
     fn handle_analysis_infos(&mut self) {
-        for info in self.analysis_handler.check_for_info() {
+        for info in self.state.analysis_handler.check_for_info() {
             match info {
                 AnalysisInfo::Combat(combat) => self.tables.update(&combat),
                 AnalysisInfo::Refreshed {

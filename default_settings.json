@@ -294,5 +294,9 @@
   "auto_refresh": {
     "enable": false,
     "interval_seconds": 4.0
+  },
+  "visuals": {
+    "ui_scale": 1.2000000000000002,
+    "theme": "Light"
   }
 }
