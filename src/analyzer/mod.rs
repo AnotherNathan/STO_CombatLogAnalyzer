@@ -130,13 +130,11 @@ impl Analyzer {
         if let Entity::Player { full_name, .. } = &record.source {
             let player = combat.get_player(full_name);
             player.add_out_value(&record, &self.settings);
-            return Ok(());
         }
 
         if let Entity::Player { full_name, .. } = &record.target {
             let player = combat.get_player(full_name);
             player.add_in_value(&record, &self.settings);
-            return Ok(());
         }
 
         Ok(())
