@@ -59,10 +59,10 @@ impl SettingsWindow {
             .default_size([800.0, 400.0])
             .show(ui.ctx(), |ui| {
                 ui.horizontal(|ui| {
-                    ui.selectable_value(&mut self.selected_tab, SettingsTab::File, "file");
-                    ui.selectable_value(&mut self.selected_tab, SettingsTab::Analysis, "analysis");
-                    ui.selectable_value(&mut self.selected_tab, SettingsTab::Visuals, "visuals");
-                    ui.selectable_value(&mut self.selected_tab, SettingsTab::Debug, "debug");
+                    ui.selectable_value(&mut self.selected_tab, SettingsTab::File, "File");
+                    ui.selectable_value(&mut self.selected_tab, SettingsTab::Analysis, "Analysis");
+                    ui.selectable_value(&mut self.selected_tab, SettingsTab::Visuals, "Visuals");
+                    ui.selectable_value(&mut self.selected_tab, SettingsTab::Debug, "Debug");
                 });
 
                 ui.separator();

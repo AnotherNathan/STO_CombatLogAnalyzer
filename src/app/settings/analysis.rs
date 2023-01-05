@@ -33,7 +33,7 @@ impl AnalysisTab {
             &mut modified_settings
                 .analysis
                 .summon_and_pet_grouping_revers_rules,
-            "sub source (e.g. pets or summons) grouping reversal rules",
+            "Sub-Source (e.g. pets or summons) Grouping Reversal rules",
             ui,
             39048765,
             [
@@ -47,8 +47,8 @@ impl AnalysisTab {
     fn show_grouping_rules(&mut self, modified_settings: &mut Settings, ui: &mut Ui) {
         Self::show_group_rules_table(
             &mut modified_settings.analysis.custom_group_rules,
-            "custom grouping rules",
-            "group name",
+            "Custom Grouping rules",
+            "Group Name",
             ui,
             293874,
             [
@@ -61,11 +61,11 @@ impl AnalysisTab {
     }
 
     fn show_combat_name_rules(&mut self, modified_settings: &mut Settings, ui: &mut Ui) {
-        CollapsingHeader::new("combat name detection rules").show_unindented(ui, |ui| {
+        CollapsingHeader::new("Combat Name Detection rules").show_unindented(ui, |ui| {
             Self::show_group_rules_table(
                 &mut modified_settings.analysis.combat_name_rules,
                 "",
-                "combat name",
+                "Combat Name",
                 ui,
                 023975,
                 [
@@ -105,10 +105,10 @@ impl AnalysisTab {
             .max_scroll_height(200.0)
             .header(0.0, |mut r| {
                 r.col(|ui| {
-                    ui.label("on");
+                    ui.label("On");
                 });
                 r.col(|ui| {
-                    ui.label("edit");
+                    ui.label("Edit");
                 });
                 r.col(|ui| {
                     ui.label(name_header);
@@ -183,16 +183,16 @@ impl AnalysisTab {
                 .max_scroll_height(100.0)
                 .header(0.0, |mut r| {
                     r.col(|ui| {
-                        ui.label("on");
+                        ui.label("On");
                     });
                     r.col(|ui| {
-                        ui.label("aspect to match");
+                        ui.label("Aspect to match");
                     });
                     r.col(|ui| {
-                        ui.label("match method");
+                        ui.label("Match Method");
                     });
                     r.col(|ui| {
-                        ui.label("text to match");
+                        ui.label("Text to match");
                     });
                 })
                 .body(|mut t| {

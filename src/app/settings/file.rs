@@ -25,8 +25,8 @@ impl FileTab {
         ui: &mut Ui,
     ) {
         ui.horizontal(|ui| {
-            ui.label("combatlog file");
-            if ui.button("browse").clicked() {
+            ui.label("Combatlog File");
+            if ui.button("Browse").clicked() {
                 // TODO find out how to set the parent
                 if let Some(new_combatlog_file) = FileDialog::new()
                     .add_filter("combatlog", &["log"])
@@ -45,7 +45,7 @@ impl FileTab {
 
         ui.separator();
 
-        ui.label("combat separation time in seconds");
+        ui.label("Combat Separation Time in seconds");
         SliderTextEdit::new(
             &mut modified_settings.analysis.combat_separation_time_seconds,
             15.0..=240.0,
@@ -61,13 +61,13 @@ impl FileTab {
 
         ui.checkbox(
             &mut modified_settings.auto_refresh.enable,
-            "auto refresh when log changes",
+            "Auto Refresh when log changes",
         );
-        ui.label("auto refresh interval in seconds");
+        ui.label("Auto Refresh Interval in seconds");
         SliderTextEdit::new(
             &mut modified_settings.auto_refresh.interval_seconds,
             1.0..=10.0,
-            "auto refresh slider",
+            "auto refresh interval slider",
         )
         .clamp_to_range(false)
         .step_by(1.0)
@@ -85,7 +85,7 @@ impl FileTab {
 
 impl ClearLogConfirmationDialog {
     fn show(&mut self, analysis_handler: &AnalysisHandler, ui: &mut Ui) {
-        let clear_response = ui.button("Clear Log file");
+        let clear_response = ui.button("Clear Log File");
 
         let mut newly_opened = false;
         if clear_response.clicked() {

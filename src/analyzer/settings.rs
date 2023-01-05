@@ -110,11 +110,11 @@ impl MatchRule {
 impl MatchAspect {
     pub const fn display(self) -> &'static str {
         match self {
-            MatchAspect::SourceOrTargetName => "source or target name",
-            MatchAspect::SourceOrTargetUniqueName => "source or target unique name",
-            MatchAspect::SubSourceName => "sub source name (e.g. a pet or summon)",
-            MatchAspect::DamageName => "damage name",
-            MatchAspect::SubUniqueSourceName => "sub source unique name (e.g. a pet or summon)",
+            MatchAspect::SourceOrTargetName => "Source or Target Name",
+            MatchAspect::SourceOrTargetUniqueName => "Source or Target Unique Name",
+            MatchAspect::SubSourceName => "Sub-Source Name (e.g. a pet or summon)",
+            MatchAspect::DamageName => "Damage Name",
+            MatchAspect::SubUniqueSourceName => "Sub-Source Unique Name (e.g. a pet or summon)",
         }
     }
 }
@@ -138,10 +138,10 @@ impl MatchMethod {
 
     pub const fn display(self) -> &'static str {
         match self {
-            MatchMethod::Equals => "equals",
-            MatchMethod::StartsWith => "starts with",
-            MatchMethod::EndsWith => "ends with",
-            MatchMethod::Contains => "contains",
+            MatchMethod::Equals => "Equals",
+            MatchMethod::StartsWith => "Starts with",
+            MatchMethod::EndsWith => "Ends with",
+            MatchMethod::Contains => "Contains",
         }
     }
 }
