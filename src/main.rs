@@ -1,10 +1,10 @@
+#![allow(non_snake_case)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-#![cfg_attr(not(debug_assertions), allow(non_snake_case))]
 
 use std::backtrace::Backtrace;
 
 use app::logging;
-use eframe::epaint::{vec2, Vec2};
+use eframe::epaint::vec2;
 
 mod analyzer;
 mod app;

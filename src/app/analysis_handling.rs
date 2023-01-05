@@ -1,7 +1,6 @@
 use std::{
     fs::File,
     io::{BufRead, BufReader, Seek, SeekFrom, Write},
-    ops::Add,
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -10,14 +9,14 @@ use std::{
     time::SystemTime,
 };
 
-use chrono::{Duration, NaiveDateTime, NaiveTime};
+use chrono::Duration;
 use crossbeam_channel::{unbounded, Receiver, Sender};
-use eframe::{egui::Context, epaint::mutex::RwLock};
+use eframe::egui::Context;
 use log::info;
 use notify::{recommended_watcher, RecommendedWatcher, Watcher};
 use timer::{Guard, Timer};
 
-use crate::analyzer::{self, settings::AnalysisSettings, Analyzer, Combat};
+use crate::analyzer::{settings::AnalysisSettings, Analyzer, Combat};
 
 pub struct AnalysisHandler {
     tx: Sender<Instruction>,

@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
 use eframe::{
-    egui::{popup_below_widget, Area, Frame, Id, InnerResponse, Layout, Order, Ui, WidgetText},
+    egui::{Area, Frame, Id, InnerResponse, Layout, Order, Ui, WidgetText},
     emath::Align,
     epaint::Rect,
 };

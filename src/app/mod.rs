@@ -1,15 +1,11 @@
-use std::{ops::Add, path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
-use chrono::Duration;
 use eframe::egui::*;
 
 use crate::analyzer::*;
 
 use self::{
-    analysis_handling::{AnalysisHandler, AnalysisInfo},
-    damage_table::{DamageTable, TableColumns},
-    settings::*,
-    state::AppState,
+    analysis_handling::AnalysisInfo, damage_table::DamageTable, settings::*, state::AppState,
 };
 
 mod analysis_handling;
