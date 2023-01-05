@@ -20,7 +20,7 @@ Click Ok at the bottom of the settings window.
 ## Building the tool from Source
 Install the rust tool chain from https://www.rust-lang.org/.
 
-And the build with
+And the build it with
 
 ```
 C:\path\to\STO_CombatLogAnalyzer> cargo build --release
