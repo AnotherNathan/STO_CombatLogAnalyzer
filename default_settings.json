@@ -288,6 +288,60 @@
           }
         ],
         "enabled": true
+      },
+      {
+        "name": "Tzenkethi Front",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Msn_Tzk_Tzenkethi_Assault_Ball",
+            "method": "Equals",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Khitomer in Stasis",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Mission_Borgraid03_Borg_Power_Node",
+            "method": "Equals",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Defense of Starbase One",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetName",
+            "expression": "U.S.S. Decatur",
+            "method": "Equals",
+            "enabled": true
+          },
+          {
+            "aspect": "SourceOrTargetName",
+            "expression": "U.S.S. Andor",
+            "method": "Equals",
+            "enabled": true
+          },
+          {
+            "aspect": "SourceOrTargetName",
+            "expression": "U.S.S. Lafayette",
+            "method": "Equals",
+            "enabled": true
+          },
+          {
+            "aspect": "SourceOrTargetName",
+            "expression": "U.S.S. Roosevelt",
+            "method": "Equals",
+            "enabled": true
+          }
+        ],
+        "enabled": true
       }
     ]
   },
