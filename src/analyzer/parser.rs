@@ -179,6 +179,12 @@ impl Parser {
     }
 }
 
+impl<'a> Record<'a> {
+    pub fn is_player_out_damage(&self) -> bool {
+        self.source.is_player() && self.value.is_damage()
+    }
+}
+
 impl ValueFlags {
     fn parse(input: &str) -> Self {
         let mut flags = ValueFlags::NONE;
@@ -246,6 +252,13 @@ impl<'a> Entity<'a> {
             Entity::NonPlayer { unique_name, .. } => Some(unique_name),
         }
     }
+
+    pub fn is_player(&self) -> bool {
+        match self {
+            Entity::Player { .. } => true,
+            _ => false,
+        }
+    }
 }
 
 impl RecordValue {
@@ -277,6 +290,13 @@ impl RecordValue {
     pub fn get(&self) -> f64 {
         match self {
             RecordValue::Damage(v) | RecordValue::Heal(v) => v.get(),
+        }
+    }
+
+    pub fn is_damage(&self) -> bool {
+        match self {
+            RecordValue::Damage(_) => true,
+            RecordValue::Heal(_) => false,
         }
     }
 }

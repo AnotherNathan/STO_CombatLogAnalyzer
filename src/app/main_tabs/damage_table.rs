@@ -4,6 +4,8 @@ use egui_extras::{Column, TableBody, TableBuilder, TableRow};
 
 use crate::{analyzer::*, helpers::number_formatting::NumberFormatter};
 
+use super::common::*;
+
 pub struct DamageTable {
     players: Vec<TablePart>,
 }
@@ -42,22 +44,11 @@ struct MaxOneHit {
     name: String,
 }
 
-struct ShieldAndHullTextValue {
-    all: TextValue,
-    shield: String,
-    hull: String,
-}
-
 struct Hits {
     all: usize,
     all_text: String,
     shield: String,
     hull: String,
-}
-
-struct TextValue {
-    text: String,
-    value: f64,
 }
 
 impl DamageTable {
@@ -166,9 +157,9 @@ impl TablePart {
         Self {
             name: source.name.clone(),
             total_damage: ShieldAndHullTextValue::new(
-                source.total_damage,
-                source.total_shield_damage,
-                source.total_hull_damage,
+                source.total_damage.all,
+                source.total_damage.shield,
+                source.total_damage.hull,
                 2,
                 number_formatter,
             ),
@@ -191,7 +182,7 @@ impl TablePart {
     }
 
     fn show(&mut self, table: &mut TableBody, indent: f32) {
-        table.row(20.0, |mut r| {
+        table.row(ROW_HEIGHT, |mut r| {
             r.col(|ui| {
                 ui.horizontal(|ui| {
                     ui.add_space(indent * 30.0);
@@ -245,24 +236,6 @@ impl TablePart {
     }
 }
 
-impl TextValue {
-    fn new(value: f64, precision: usize, number_formatter: &mut NumberFormatter) -> Self {
-        Self {
-            text: number_formatter.format(value, precision),
-            value,
-        }
-    }
-
-    fn show(&self, row: &mut TableRow) -> Response {
-        row.col(|ui| {
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.label(&self.text)
-            });
-        })
-        .1
-    }
-}
-
 impl MaxOneHit {
     fn new(source: &DamageGroup, number_formatter: &mut NumberFormatter) -> Self {
         Self {
@@ -273,27 +246,6 @@ impl MaxOneHit {
 
     fn show(&self, row: &mut TableRow) {
         self.damage.show(row).on_hover_text(&self.name);
-    }
-}
-
-impl ShieldAndHullTextValue {
-    fn new(
-        all: f64,
-        shield: f64,
-        hull: f64,
-        precision: usize,
-        number_formatter: &mut NumberFormatter,
-    ) -> Self {
-        Self {
-            all: TextValue::new(all, precision, number_formatter),
-            shield: number_formatter.format(shield, precision),
-            hull: number_formatter.format(hull, precision),
-        }
-    }
-
-    fn show(&self, row: &mut TableRow) {
-        let response = self.all.show(row);
-        show_shield_hull_values_tool_tip(response, &self.shield, &self.hull);
     }
 }
 
@@ -318,34 +270,4 @@ impl Hits {
 
         show_shield_hull_values_tool_tip(response, &self.shield, &self.hull);
     }
-}
-
-fn show_shield_hull_values_tool_tip(response: Response, shield_value: &str, hull_value: &str) {
-    response.on_hover_ui(|ui| {
-        TableBuilder::new(ui)
-            .columns(Column::auto().at_least(60.0), 1)
-            .columns(Column::auto(), 1)
-            .body(|mut t| {
-                t.row(20.0, |mut r| {
-                    r.col(|ui| {
-                        ui.label("Shield");
-                    });
-                    r.col(|ui| {
-                        ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                            ui.label(shield_value);
-                        });
-                    });
-                });
-                t.row(20.0, |mut r| {
-                    r.col(|ui| {
-                        ui.label("Hull");
-                    });
-                    r.col(|ui| {
-                        ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                            ui.label(hull_value);
-                        });
-                    });
-                });
-            });
-    });
 }

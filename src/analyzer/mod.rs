@@ -24,15 +24,18 @@ type GroupingPath<'a> = SmallVec<[&'a str; 8]>;
 #[derive(Clone, Debug)]
 pub struct Combat {
     pub names: FxHashSet<String>,
-    pub time: Range<NaiveDateTime>,
+    pub combat_time: Option<Range<NaiveDateTime>>,
+    pub active_time: Range<NaiveDateTime>,
+    pub total_damage_out: TotalDamage,
+    pub total_damage_in: TotalDamage,
     pub players: Players,
     pub log_pos: Option<Range<u64>>,
 }
 
 #[derive(Clone, Debug)]
 pub struct Player {
-    active_combat_time: Option<Range<NaiveDateTime>>,
-    combat_time: Option<Range<NaiveDateTime>>,
+    pub combat_time: Option<Range<NaiveDateTime>>,
+    pub active_time: Option<Range<NaiveDateTime>>,
     pub damage_out: DamageGroup,
     pub damage_in: DamageGroup,
 }
@@ -40,9 +43,7 @@ pub struct Player {
 #[derive(Clone, Debug)]
 pub struct DamageGroup {
     pub name: String,
-    pub total_damage: f64,
-    pub total_shield_damage: f64,
-    pub total_hull_damage: f64,
+    pub total_damage: TotalDamage,
     pub max_one_hit: MaxOneHit,
     pub average_hit: f64,
     pub critical_chance: f64,
@@ -57,6 +58,13 @@ pub struct DamageGroup {
     is_pool: bool,
 
     pub sub_groups: FxHashMap<String, DamageGroup>,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TotalDamage {
+    pub all: f64,
+    pub shield: f64,
+    pub hull: f64,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -108,7 +116,7 @@ impl Analyzer {
 
         match self.combats.last_mut() {
             Some(combat)
-                if record.time.signed_duration_since(combat.time.end)
+                if record.time.signed_duration_since(combat.active_time.end)
                     > self.combat_separation_time =>
             {
                 self.combats.push(Combat::new(&record));
@@ -151,11 +159,19 @@ impl Analyzer {
 
 impl Combat {
     fn new(start_record: &Record) -> Self {
+        let time = start_record.time..start_record.time;
         Self {
-            time: start_record.time..start_record.time,
+            combat_time: if start_record.is_player_out_damage() {
+                Some(time.clone())
+            } else {
+                None
+            },
+            active_time: time,
             names: Default::default(),
             players: Default::default(),
             log_pos: start_record.log_pos.clone(),
+            total_damage_out: Default::default(),
+            total_damage_in: Default::default(),
         }
     }
 
@@ -171,39 +187,57 @@ impl Combat {
     pub fn identifier(&self) -> String {
         let date_times = format!(
             "{} {} - {}",
-            self.time.start.date(),
-            self.time.start.time().format("%T"),
-            self.time.end.time().format("%T")
+            self.active_time.start.date(),
+            self.active_time.start.time().format("%T"),
+            self.active_time.end.time().format("%T")
         );
 
+        let name = self.name();
+        format!("{} | {}", name, date_times)
+    }
+
+    pub fn name(&self) -> String {
         if self.names.len() == 0 {
-            return format!("Combat | {}", date_times);
+            return "Combat".to_string();
         }
 
-        let name = self.names.iter().join(", ");
-        format!("{} | {}", name, date_times)
+        self.names.iter().join(", ")
     }
 
     fn recalculate_metrics(&mut self) {
         self.players
             .values_mut()
             .for_each(|p| p.recalculate_metrics());
-        self.recalculate_damage_group_percentage(|p| &mut p.damage_out);
-        self.recalculate_damage_group_percentage(|p| &mut p.damage_in);
+
+        self.total_damage_out = self.recalculate_total_damage(|p| &p.damage_out);
+        self.total_damage_in = self.recalculate_total_damage(|p| &p.damage_in);
+        self.recalculate_damage_group_percentage(self.total_damage_out, |p| &mut p.damage_out);
+        self.recalculate_damage_group_percentage(self.total_damage_in, |p| &mut p.damage_in);
+    }
+
+    fn recalculate_total_damage(
+        &self,
+        mut group: impl FnMut(&Player) -> &DamageGroup,
+    ) -> TotalDamage {
+        let (shield, hull, all) = self.players.values().fold((0.0, 0.0, 0.0), |(s, h, a), p| {
+            let total_damage = &group(p).total_damage;
+            (
+                total_damage.shield + s,
+                total_damage.hull + h,
+                total_damage.all + a,
+            )
+        });
+        TotalDamage { all, shield, hull }
     }
 
     fn recalculate_damage_group_percentage(
         &mut self,
+        total_damage: TotalDamage,
         mut group: impl FnMut(&mut Player) -> &mut DamageGroup,
     ) {
-        let total_damage = self
-            .players
-            .values_mut()
-            .map(|p| group(p).total_damage)
-            .sum();
         self.players
             .values_mut()
-            .for_each(|p| group(p).recalculate_damage_percentage(total_damage));
+            .for_each(|p| group(p).recalculate_damage_percentage(total_damage.all));
     }
 
     fn update_meta_data(&mut self, record: &Record, settings: &AnalysisSettings) {
@@ -225,7 +259,13 @@ impl Combat {
     }
 
     fn update_time(&mut self, record: &Record) {
-        self.time.end = record.time;
+        if record.is_player_out_damage() {
+            let combat_time = self
+                .combat_time
+                .get_or_insert_with(|| record.time..record.time);
+            combat_time.end = record.time;
+        }
+        self.active_time.end = record.time;
     }
 
     fn update_log_pos(&mut self, record: &Record) {
@@ -240,8 +280,8 @@ impl Combat {
 impl Player {
     fn new(full_name: &str) -> Self {
         Self {
-            active_combat_time: None,
             combat_time: None,
+            active_time: None,
             damage_out: DamageGroup::new(full_name, true),
             damage_in: DamageGroup::new(full_name, true),
         }
@@ -255,8 +295,8 @@ impl Player {
                 self.damage_out
                     .add_damage(&path, damage, record.value_flags);
 
-                self.update_active_combat_time(record);
                 self.update_combat_time(record);
+                self.update_active_time(record);
             }
             RecordValue::Heal(_) => (),
         }
@@ -270,7 +310,7 @@ impl Player {
                 path.push(source_name);
 
                 self.damage_in.add_damage(&path, damage, record.value_flags);
-                self.update_combat_time(record);
+                self.update_active_time(record);
             }
             RecordValue::Heal(_) => (),
         }
@@ -317,13 +357,6 @@ impl Player {
         path
     }
 
-    fn update_active_combat_time(&mut self, record: &Record) {
-        let active_combat_time = self
-            .active_combat_time
-            .get_or_insert_with(|| record.time..record.time);
-        active_combat_time.end = record.time;
-    }
-
     fn update_combat_time(&mut self, record: &Record) {
         let combat_time = self
             .combat_time
@@ -331,9 +364,16 @@ impl Player {
         combat_time.end = record.time;
     }
 
+    fn update_active_time(&mut self, record: &Record) {
+        let active_time = self
+            .active_time
+            .get_or_insert_with(|| record.time..record.time);
+        active_time.end = record.time;
+    }
+
     fn recalculate_metrics(&mut self) {
-        Self::recalculate_group_metrics(&mut self.damage_out, &self.active_combat_time);
-        Self::recalculate_group_metrics(&mut self.damage_in, &self.combat_time);
+        Self::recalculate_group_metrics(&mut self.damage_out, &self.combat_time);
+        Self::recalculate_group_metrics(&mut self.damage_in, &self.active_time);
     }
 
     fn recalculate_group_metrics(
@@ -353,9 +393,7 @@ impl DamageGroup {
     fn new(name: &str, is_pool: bool) -> Self {
         Self {
             name: name.to_string(),
-            total_damage: 0.0,
-            total_shield_damage: 0.0,
-            total_hull_damage: 0.0,
+            total_damage: Default::default(),
             max_one_hit: MaxOneHit::default(),
             average_hit: 0.0,
             critical_chance: 0.0,
@@ -385,8 +423,8 @@ impl DamageGroup {
 
     fn recalculate_metrics(&mut self, combat_duration: f64) {
         self.max_one_hit.reset();
-        self.total_hull_damage = 0.0;
-        self.total_shield_damage = 0.0;
+        self.total_damage.hull = 0.0;
+        self.total_damage.shield = 0.0;
 
         let mut crits_count = 0;
         let mut flanks_count = 0;
@@ -406,7 +444,7 @@ impl DamageGroup {
 
         for hit in self.hull_hits.iter() {
             self.max_one_hit.update(&self.name, hit.damage);
-            self.total_hull_damage += hit.damage;
+            self.total_damage.hull += hit.damage;
 
             if hit.flags.contains(ValueFlags::CRITICAL) {
                 crits_count += 1;
@@ -419,15 +457,15 @@ impl DamageGroup {
 
         for hit in self.shield_hits.iter().copied() {
             self.max_one_hit.update(&self.name, hit);
-            self.total_shield_damage += hit;
+            self.total_damage.shield += hit;
         }
 
-        self.total_damage = self.total_hull_damage + self.total_shield_damage;
+        self.total_damage.all = self.total_damage.hull + self.total_damage.shield;
 
         let average_hit = if self.hits() == 0 {
             0.0
         } else {
-            self.total_damage / self.hits() as f64
+            self.total_damage.all / self.hits() as f64
         };
         let critical_chance = if crits_count == 0 {
             0.0
@@ -443,20 +481,20 @@ impl DamageGroup {
         self.average_hit = average_hit;
         self.critical_chance = critical_chance * 100.0;
         self.flanking = flanking * 100.0;
-        self.dps = self.total_damage / combat_duration.max(1.0); // avoid absurd high numbers
-        self.shield_dps = self.total_shield_damage / combat_duration.max(1.0); // avoid absurd high numbers
-        self.hull_dps = self.total_hull_damage / combat_duration.max(1.0); // avoid absurd high numbers
+        self.dps = self.total_damage.all / combat_duration.max(1.0); // avoid absurd high numbers
+        self.shield_dps = self.total_damage.shield / combat_duration.max(1.0); // avoid absurd high numbers
+        self.hull_dps = self.total_damage.hull / combat_duration.max(1.0); // avoid absurd high numbers
     }
 
     fn recalculate_damage_percentage(&mut self, parent_total_damage: f64) {
-        self.damage_percentage = if self.total_damage == 0.0 {
+        self.damage_percentage = if self.total_damage.all == 0.0 {
             0.0
         } else {
-            self.total_damage / parent_total_damage * 100.0
+            self.total_damage.all / parent_total_damage * 100.0
         };
         self.sub_groups
             .values_mut()
-            .for_each(|s| s.recalculate_damage_percentage(self.total_damage));
+            .for_each(|s| s.recalculate_damage_percentage(self.total_damage.all));
     }
 
     fn add_damage(&mut self, path: &[&str], damage: Value, flags: ValueFlags) {

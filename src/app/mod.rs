@@ -2,15 +2,11 @@ use std::sync::Arc;
 
 use eframe::egui::*;
 
-use crate::analyzer::*;
-
-use self::{
-    analysis_handling::AnalysisInfo, damage_table::DamageTable, settings::*, state::AppState,
-};
+use self::{analysis_handling::AnalysisInfo, main_tabs::*, settings::*, state::AppState};
 
 mod analysis_handling;
-mod damage_table;
 pub mod logging;
+mod main_tabs;
 mod settings;
 mod state;
 
@@ -18,22 +14,8 @@ pub struct App {
     settings_window: SettingsWindow,
     combats: Vec<String>,
     selected_combat: Option<usize>,
-    tables: DamageTables,
-    active_tab: Tab,
+    main_tabs: MainTabs,
     state: AppState,
-}
-
-struct DamageTables {
-    identifier: String,
-    damage_out: DamageTable,
-    damage_in: DamageTable,
-}
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-enum Tab {
-    #[default]
-    DamageOut,
-    DamageIn,
 }
 
 impl App {
@@ -48,8 +30,7 @@ impl App {
             settings_window,
             combats: Default::default(),
             selected_combat: None,
-            tables: DamageTables::empty(),
-            active_tab: Default::default(),
+            main_tabs: MainTabs::empty(),
             state,
         }
     }
@@ -65,7 +46,7 @@ impl eframe::App for App {
             ui.horizontal(|ui| {
                 ComboBox::new("combat list", "Combats")
                     .width(400.0)
-                    .selected_text(self.tables.identifier.as_str())
+                    .selected_text(self.main_tabs.identifier.as_str())
                     .show_ui(ui, |ui| {
                         for (i, combat) in self.combats.iter().enumerate().rev() {
                             if ui
@@ -92,16 +73,7 @@ impl eframe::App for App {
                 }
             });
 
-            ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.active_tab, Tab::DamageOut, "Outgoing Damage");
-
-                ui.selectable_value(&mut self.active_tab, Tab::DamageIn, "Incoming Damage");
-            });
-
-            match self.active_tab {
-                Tab::DamageIn => self.tables.damage_in.show(ui),
-                Tab::DamageOut => self.tables.damage_out.show(ui),
-            }
+            self.main_tabs.show(ui);
         });
     }
 }
@@ -110,32 +82,16 @@ impl App {
     fn handle_analysis_infos(&mut self) {
         for info in self.state.analysis_handler.check_for_info() {
             match info {
-                AnalysisInfo::Combat(combat) => self.tables.update(&combat),
+                AnalysisInfo::Combat(combat) => self.main_tabs.update(&combat),
                 AnalysisInfo::Refreshed {
                     latest_combat,
                     combats,
                 } => {
-                    self.tables.update(&latest_combat);
+                    self.main_tabs.update(&latest_combat);
                     self.combats = combats;
                     self.selected_combat = Some(self.combats.len());
                 }
             }
         }
-    }
-}
-
-impl DamageTables {
-    fn empty() -> Self {
-        Self {
-            identifier: "<no data loaded>".to_string(),
-            damage_out: DamageTable::empty(),
-            damage_in: DamageTable::empty(),
-        }
-    }
-
-    fn update(&mut self, combat: &Combat) {
-        self.identifier = combat.identifier();
-        self.damage_out = DamageTable::new(combat, |p| &p.damage_out);
-        self.damage_in = DamageTable::new(combat, |p| &p.damage_in);
     }
 }
