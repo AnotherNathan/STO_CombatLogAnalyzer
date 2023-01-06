@@ -319,6 +319,8 @@ impl<'a> From<std::io::Error> for RecordError<'a> {
 mod tests {
     use std::path::PathBuf;
 
+    use rustc_hash::FxHashSet;
+
     use super::*;
 
     #[ignore = "manual test"]
@@ -341,5 +343,41 @@ mod tests {
         }
 
         // println!("{:?}", record_data);
+    }
+
+    #[ignore = "helper to find a way to detect a combats name"]
+    #[test]
+    fn list_all_names() {
+        let mut parser = Parser::new(&PathBuf::from(
+            r"D:\Rust\STO_CombatLogAnalyzer\target\release\swarm.log",
+        ))
+        .unwrap();
+
+        let mut names = FxHashSet::default();
+        while let Ok(record) = parser.parse_next() {
+            if let Some(name) = record.source.name() {
+                names.insert(name.to_string());
+            }
+            if let Some(name) = record.target.name() {
+                names.insert(name.to_string());
+            }
+            if let Some(name) = record.sub_source.name() {
+                names.insert(name.to_string());
+            }
+
+            if let Some(unique_name) = record.source.unique_name() {
+                names.insert(unique_name.to_string());
+            }
+            if let Some(unique_name) = record.target.unique_name() {
+                names.insert(unique_name.to_string());
+            }
+            if let Some(unique_name) = record.sub_source.unique_name() {
+                names.insert(unique_name.to_string());
+            }
+        }
+
+        for name in names.iter() {
+            println!("{}", name);
+        }
     }
 }

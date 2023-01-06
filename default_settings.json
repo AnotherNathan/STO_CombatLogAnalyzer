@@ -354,6 +354,30 @@
           }
         ],
         "enabled": true
+      },
+      {
+        "name": "Brotherhood of the Sword",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Msn_Ico_Qonos_Ground",
+            "method": "StartsWith",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Swarm",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Ndm_Torad_Space_Civilian_Frigate_Transport_Fleet",
+            "method": "Equals",
+            "enabled": true
+          }
+        ],
+        "enabled": true
       }
     ]
   },
@@ -363,7 +387,7 @@
   },
   "visuals": {
     "ui_scale": 1.0,
-    "theme": "Dark"
+    "theme": "LightDark"
   },
   "debug": {
     "enable_log": true,
