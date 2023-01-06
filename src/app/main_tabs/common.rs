@@ -15,6 +15,12 @@ pub struct TextValue {
 }
 
 #[derive(Default)]
+pub struct TextCount {
+    pub text: String,
+    pub count: u64,
+}
+
+#[derive(Default)]
 pub struct ShieldAndHullTextValue {
     pub all: TextValue,
     pub shield: String,
@@ -56,12 +62,20 @@ impl TextValue {
     }
 
     pub fn show(&self, row: &mut TableRow) -> Response {
-        row.col(|ui| {
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.label(&self.text)
-            });
-        })
-        .1
+        show_value_text(row, &self.text)
+    }
+}
+
+impl TextCount {
+    pub fn new(count: u64) -> Self {
+        Self {
+            text: count.to_string(),
+            count,
+        }
+    }
+
+    pub fn show(&self, row: &mut TableRow) -> Response {
+        show_value_text(row, &self.text)
     }
 }
 
@@ -82,13 +96,17 @@ impl TextDuration {
     }
 
     pub fn show(&self, row: &mut TableRow) -> Response {
-        row.col(|ui| {
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.label(&self.text)
-            });
-        })
-        .1
+        show_value_text(row, &self.text)
     }
+}
+
+fn show_value_text(row: &mut TableRow, value_text: &str) -> Response {
+    row.col(|ui| {
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            ui.label(value_text)
+        });
+    })
+    .1
 }
 
 pub fn show_shield_hull_values_tool_tip(response: Response, shield_value: &str, hull_value: &str) {
@@ -101,21 +119,13 @@ pub fn show_shield_hull_values_tool_tip(response: Response, shield_value: &str, 
                     r.col(|ui| {
                         ui.label("Shield");
                     });
-                    r.col(|ui| {
-                        ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                            ui.label(shield_value);
-                        });
-                    });
+                    show_value_text(&mut r, shield_value);
                 });
                 t.row(ROW_HEIGHT, |mut r| {
                     r.col(|ui| {
                         ui.label("Hull");
                     });
-                    r.col(|ui| {
-                        ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                            ui.label(hull_value);
-                        });
-                    });
+                    show_value_text(&mut r, hull_value);
                 });
             });
     });

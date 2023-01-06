@@ -25,6 +25,8 @@ struct Player {
     combat_duration: TextDuration,
     combat_duration_percentage: TextValue,
     active_duration: TextDuration,
+    kills: TextCount,
+    deaths: TextCount,
 }
 
 impl SummaryTable {
@@ -51,7 +53,7 @@ impl SummaryTable {
     pub fn show(&mut self, ui: &mut Ui) {
         ScrollArea::new([true, false]).show(ui, |ui| {
             TableBuilder::new(ui)
-                .columns(Column::auto(), 9)
+                .columns(Column::auto(), 11)
                 .striped(true)
                 .max_scroll_height(f32::MAX)
                 .header(0.0, |mut r| {
@@ -90,6 +92,14 @@ impl SummaryTable {
 
                     Self::show_column_header(&mut r, "Active Duration", || {
                         self.sort_by_key(|p| p.active_duration.duration)
+                    });
+
+                    Self::show_column_header(&mut r, "Kills", || {
+                        self.sort_by_key(|p| p.kills.count)
+                    });
+
+                    Self::show_column_header(&mut r, "Deaths", || {
+                        self.sort_by_key(|p| p.deaths.count)
                     });
                 })
                 .body(|mut t| {
@@ -175,6 +185,8 @@ impl Player {
                 number_formatter,
             ),
             active_duration: TextDuration::new(player_active_duration),
+            kills: TextCount::new(player.kills),
+            deaths: TextCount::new(player.deaths),
         }
     }
 
@@ -194,6 +206,8 @@ impl Player {
             self.combat_duration.show(&mut r);
             self.combat_duration_percentage.show(&mut r);
             self.active_duration.show(&mut r);
+            self.kills.show(&mut r);
+            self.deaths.show(&mut r);
         })
     }
 }

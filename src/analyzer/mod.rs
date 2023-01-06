@@ -30,6 +30,8 @@ pub struct Combat {
     pub total_damage_in: TotalDamage,
     pub players: Players,
     pub log_pos: Option<Range<u64>>,
+    pub total_deaths: u64,
+    pub total_kills: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -38,6 +40,8 @@ pub struct Player {
     pub active_time: Option<Range<NaiveDateTime>>,
     pub damage_out: DamageGroup,
     pub damage_in: DamageGroup,
+    pub deaths: u64,
+    pub kills: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -172,6 +176,8 @@ impl Combat {
             log_pos: start_record.log_pos.clone(),
             total_damage_out: Default::default(),
             total_damage_in: Default::default(),
+            total_kills: 0,
+            total_deaths: 0,
         }
     }
 
@@ -211,6 +217,8 @@ impl Combat {
 
         self.total_damage_out = self.recalculate_total_damage(|p| &p.damage_out);
         self.total_damage_in = self.recalculate_total_damage(|p| &p.damage_in);
+        self.total_kills = self.players.values().map(|p| p.kills).sum();
+        self.total_deaths = self.players.values().map(|p| p.deaths).sum();
         self.recalculate_damage_group_percentage(self.total_damage_out, |p| &mut p.damage_out);
         self.recalculate_damage_group_percentage(self.total_damage_in, |p| &mut p.damage_in);
     }
@@ -284,6 +292,8 @@ impl Player {
             active_time: None,
             damage_out: DamageGroup::new(full_name, true),
             damage_in: DamageGroup::new(full_name, true),
+            deaths: 0,
+            kills: 0,
         }
     }
 
@@ -297,6 +307,10 @@ impl Player {
 
                 self.update_combat_time(record);
                 self.update_active_time(record);
+
+                if record.value_flags.contains(ValueFlags::KILL) {
+                    self.kills += 1;
+                }
             }
             RecordValue::Heal(_) => (),
         }
@@ -311,6 +325,9 @@ impl Player {
 
                 self.damage_in.add_damage(&path, damage, record.value_flags);
                 self.update_active_time(record);
+                if record.value_flags.contains(ValueFlags::KILL) {
+                    self.deaths += 1;
+                }
             }
             RecordValue::Heal(_) => (),
         }

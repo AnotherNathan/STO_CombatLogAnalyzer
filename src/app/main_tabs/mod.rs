@@ -17,6 +17,8 @@ pub struct MainTabs {
     pub active_duration: TextDuration,
     pub total_damage_out: ShieldAndHullTextValue,
     pub total_damage_in: ShieldAndHullTextValue,
+    pub total_kills: TextCount,
+    pub total_deaths: TextCount,
 
     pub summary_table: SummaryTable,
     pub damage_out_table: DamageTable,
@@ -47,6 +49,8 @@ impl MainTabs {
             active_duration: Default::default(),
             total_damage_out: Default::default(),
             total_damage_in: Default::default(),
+            total_kills: Default::default(),
+            total_deaths: Default::default(),
         }
     }
 
@@ -73,6 +77,8 @@ impl MainTabs {
             2,
             &mut number_formatter,
         );
+        self.total_kills = TextCount::new(combat.total_kills);
+        self.total_deaths = TextCount::new(combat.total_deaths);
 
         self.summary_table = SummaryTable::new(combat);
         self.damage_out_table = DamageTable::new(combat, |p| &p.damage_out);
@@ -102,7 +108,7 @@ impl MainTabs {
 
         ui.push_id("combat summary table", |ui| {
             TableBuilder::new(ui)
-                .columns(Column::auto(), 2)
+                .columns(Column::auto(), 6)
                 .striped(true)
                 .max_scroll_height(f32::MAX)
                 .body(|mut t| {
@@ -134,6 +140,9 @@ impl MainTabs {
                         &self.total_damage_in.shield,
                         &self.total_damage_in.hull,
                     );
+
+                    Self::summary_row(&mut t, "Total Kills", &self.total_kills.text);
+                    Self::summary_row(&mut t, "Total Deaths", &self.total_deaths.text);
                 });
         });
 
