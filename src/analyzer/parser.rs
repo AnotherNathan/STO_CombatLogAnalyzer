@@ -345,6 +345,18 @@ mod tests {
         // println!("{:?}", record_data);
     }
 
+    #[ignore = "manual test"]
+    #[test]
+    fn single_record() {
+        let record = Parser::parse_from_line(
+            "23:01:07:10:12:56.3::Borg Queen Octahedron,C[25 Mission_Space_Borg_Queen_Diamond],Ayel,P[12793028@5473940 Ayel@greyblizzard],,*,Plasma Fire,Pn.Wujkxq,Plasma,Kill,2086.87,5300.66",
+            &mut String::new(),
+            None)
+            .unwrap();
+
+        println!("{:?}", record)
+    }
+
     #[ignore = "helper to find a way to detect a combats name"]
     #[test]
     fn list_all_names() {

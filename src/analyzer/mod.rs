@@ -155,6 +155,13 @@ impl Analyzer {
             player.add_in_value(&record, combat_start_offset_millis, &self.settings);
         }
 
+        if let (Entity::Player { full_name, .. }, Entity::NonPlayer { .. }) =
+            (&record.sub_source, &record.source)
+        {
+            let player = combat.get_player(full_name);
+            player.add_in_value(&record, combat_start_offset_millis, &self.settings);
+        }
+
         Ok(())
     }
 
