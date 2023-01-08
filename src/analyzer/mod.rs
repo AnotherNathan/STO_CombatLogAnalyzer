@@ -56,8 +56,8 @@ pub struct DamageGroup {
     pub shield_dps: f64,
     pub hull_dps: f64,
     pub damage_percentage: f64,
-    hull_hits: Vec<Hit>,
-    shield_hits: Vec<f64>,
+    pub hull_hits: Vec<Hit>,
+    pub shield_hits: Vec<Hit>,
 
     is_pool: bool,
 
@@ -75,6 +75,7 @@ pub struct TotalDamage {
 pub struct Hit {
     pub damage: f64,
     pub flags: ValueFlags,
+    pub times_millis: u32, // offset to start of combat
 }
 
 #[derive(Clone, Debug, Default)]
@@ -139,14 +140,19 @@ impl Analyzer {
             return Ok(());
         }
 
+        let combat_start_offset_millis = record
+            .time
+            .signed_duration_since(combat.active_time.start)
+            .num_milliseconds() as u32;
+
         if let Entity::Player { full_name, .. } = &record.source {
             let player = combat.get_player(full_name);
-            player.add_out_value(&record, &self.settings);
+            player.add_out_value(&record, combat_start_offset_millis, &self.settings);
         }
 
         if let Entity::Player { full_name, .. } = &record.target {
             let player = combat.get_player(full_name);
-            player.add_in_value(&record, &self.settings);
+            player.add_in_value(&record, combat_start_offset_millis, &self.settings);
         }
 
         Ok(())
@@ -297,13 +303,22 @@ impl Player {
         }
     }
 
-    fn add_out_value(&mut self, record: &Record, settings: &AnalysisSettings) {
+    fn add_out_value(
+        &mut self,
+        record: &Record,
+        combat_start_offset_millis: u32,
+        settings: &AnalysisSettings,
+    ) {
         match record.value {
             RecordValue::Damage(damage) => {
                 let path = Self::build_grouping_path(record, settings);
 
-                self.damage_out
-                    .add_damage(&path, damage, record.value_flags);
+                self.damage_out.add_damage(
+                    &path,
+                    damage,
+                    record.value_flags,
+                    combat_start_offset_millis,
+                );
 
                 self.update_combat_time(record);
                 self.update_active_time(record);
@@ -316,14 +331,24 @@ impl Player {
         }
     }
 
-    fn add_in_value(&mut self, record: &Record, settings: &AnalysisSettings) {
+    fn add_in_value(
+        &mut self,
+        record: &Record,
+        combat_start_offset_millis: u32,
+        settings: &AnalysisSettings,
+    ) {
         let source_name = record.source.name().unwrap_or("<unknown source>");
         match record.value {
             RecordValue::Damage(damage) => {
                 let mut path = Self::build_grouping_path(record, settings);
                 path.push(source_name);
 
-                self.damage_in.add_damage(&path, damage, record.value_flags);
+                self.damage_in.add_damage(
+                    &path,
+                    damage,
+                    record.value_flags,
+                    combat_start_offset_millis,
+                );
                 self.update_active_time(record);
                 if record.value_flags.contains(ValueFlags::KILL) {
                     self.deaths += 1;
@@ -473,8 +498,8 @@ impl DamageGroup {
         }
 
         for hit in self.shield_hits.iter().copied() {
-            self.max_one_hit.update(&self.name, hit);
-            self.total_damage.shield += hit;
+            self.max_one_hit.update(&self.name, hit.damage);
+            self.total_damage.shield += hit.damage;
         }
 
         self.total_damage.all = self.total_damage.hull + self.total_damage.shield;
@@ -514,14 +539,25 @@ impl DamageGroup {
             .for_each(|s| s.recalculate_damage_percentage(self.total_damage.all));
     }
 
-    fn add_damage(&mut self, path: &[&str], damage: Value, flags: ValueFlags) {
+    fn add_damage(
+        &mut self,
+        path: &[&str],
+        damage: Value,
+        flags: ValueFlags,
+        combat_start_offset_millis: u32,
+    ) {
         if path.len() == 1 {
             let sub_source = self.get_non_pool_sub_group(path[0]);
             match damage {
-                Value::Shield(shield_damage) => sub_source.shield_hits.push(shield_damage),
+                Value::Shield(shield_damage) => sub_source.shield_hits.push(Hit {
+                    damage: shield_damage,
+                    flags,
+                    times_millis: combat_start_offset_millis,
+                }),
                 Value::Hull(hull_damage) => sub_source.hull_hits.push(Hit {
                     damage: hull_damage,
                     flags,
+                    times_millis: combat_start_offset_millis,
                 }),
             }
 
@@ -529,7 +565,12 @@ impl DamageGroup {
         }
 
         let sub_source = self.get_pool_sub_group(path.last().unwrap());
-        sub_source.add_damage(&path[..path.len() - 1], damage, flags);
+        sub_source.add_damage(
+            &path[..path.len() - 1],
+            damage,
+            flags,
+            combat_start_offset_millis,
+        );
     }
 
     fn get_non_pool_sub_group(&mut self, sub_group: &str) -> &mut Self {

@@ -3,11 +3,13 @@ use egui_extras::*;
 
 use crate::{analyzer::Combat, helpers::number_formatting::NumberFormatter};
 
-use self::{common::*, damage_table::DamageTable, summary_table::SummaryTable};
+use self::{common::*, damage_tab::DamageTab, summary_table::SummaryTable};
 
 mod common;
-pub mod damage_table;
-pub mod summary_table;
+mod damage_tab;
+mod damage_table;
+mod dps_plot;
+mod summary_table;
 
 pub struct MainTabs {
     pub identifier: String,
@@ -21,8 +23,8 @@ pub struct MainTabs {
     pub total_deaths: TextCount,
 
     pub summary_table: SummaryTable,
-    pub damage_out_table: DamageTable,
-    pub damage_in_table: DamageTable,
+    pub damage_out_tab: DamageTab,
+    pub damage_in_tab: DamageTab,
 
     active_tab: MainTab,
 }
@@ -42,8 +44,8 @@ impl MainTabs {
             identifier: nothing_loaded.clone(),
             name: nothing_loaded,
             summary_table: SummaryTable::empty(),
-            damage_out_table: DamageTable::empty(),
-            damage_in_table: DamageTable::empty(),
+            damage_out_tab: DamageTab::empty(|p| &p.damage_out),
+            damage_in_tab: DamageTab::empty(|p| &p.damage_in),
             active_tab: Default::default(),
             combat_duration: Default::default(),
             active_duration: Default::default(),
@@ -81,8 +83,8 @@ impl MainTabs {
         self.total_deaths = TextCount::new(combat.total_deaths);
 
         self.summary_table = SummaryTable::new(combat);
-        self.damage_out_table = DamageTable::new(combat, |p| &p.damage_out);
-        self.damage_in_table = DamageTable::new(combat, |p| &p.damage_in);
+        self.damage_out_tab.update(combat);
+        self.damage_in_tab.update(combat);
     }
 
     pub fn show(&mut self, ui: &mut Ui) {
@@ -96,8 +98,8 @@ impl MainTabs {
 
         match self.active_tab {
             MainTab::Summary => self.show_summary_tab(ui),
-            MainTab::DamageOut => self.damage_out_table.show(ui),
-            MainTab::DamageIn => self.damage_in_table.show(ui),
+            MainTab::DamageOut => self.damage_out_tab.show(ui),
+            MainTab::DamageIn => self.damage_in_tab.show(ui),
         }
     }
 
