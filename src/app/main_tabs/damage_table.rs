@@ -8,6 +8,7 @@ use super::common::*;
 
 pub struct DamageTable {
     players: Vec<TablePart>,
+    selected_id: Option<u32>,
 }
 
 bitflags! {
@@ -24,8 +25,8 @@ bitflags! {
     }
 }
 
-struct TablePart {
-    name: String,
+pub struct TablePart {
+    pub name: String,
     total_damage: ShieldAndHullTextValue,
     dps: ShieldAndHullTextValue,
     damage_percentage: TextValue,
@@ -34,7 +35,11 @@ struct TablePart {
     critical_chance: TextValue,
     flanking: TextValue,
     hits: Hits,
-    sub_parts: Vec<TablePart>,
+    pub sub_parts: Vec<TablePart>,
+
+    pub source_hits: Vec<Hit>,
+
+    id: u32,
 
     open: bool,
 }
@@ -55,24 +60,27 @@ impl DamageTable {
     pub fn empty() -> Self {
         Self {
             players: Vec::new(),
+            selected_id: None,
         }
     }
 
     pub fn new(combat: &Combat, mut damage_group: impl FnMut(&Player) -> &DamageGroup) -> Self {
         let mut number_formatter = NumberFormatter::new();
+        let mut id_source = 0;
         let mut table = Self {
             players: combat
                 .players
                 .values()
-                .map(|p| TablePart::new(damage_group(p), &mut number_formatter))
+                .map(|p| TablePart::new(damage_group(p), &mut number_formatter, &mut id_source))
                 .collect(),
+            selected_id: None,
         };
         table.sort(TableColumns::TOTAL_DAMAGE);
 
         table
     }
 
-    pub fn show(&mut self, ui: &mut Ui) {
+    pub fn show(&mut self, ui: &mut Ui, mut on_selected: impl FnMut(Option<&TablePart>)) {
         ScrollArea::horizontal()
             .min_scrolled_width(0.0)
             .show(ui, |ui| {
@@ -100,7 +108,7 @@ impl DamageTable {
                     })
                     .body(|mut t| {
                         for player in self.players.iter_mut() {
-                            player.show(&mut t, 0.0);
+                            player.show(&mut t, 0.0, &mut self.selected_id, &mut on_selected);
                         }
                     });
             });
@@ -151,11 +159,17 @@ impl DamageTable {
 }
 
 impl TablePart {
-    fn new(source: &DamageGroup, number_formatter: &mut NumberFormatter) -> Self {
+    fn new(
+        source: &DamageGroup,
+        number_formatter: &mut NumberFormatter,
+        id_source: &mut u32,
+    ) -> Self {
+        let id = *id_source;
+        *id_source += 1;
         let sub_parts = source
             .sub_groups
             .values()
-            .map(|s| TablePart::new(s, number_formatter))
+            .map(|s| TablePart::new(s, number_formatter, id_source))
             .collect();
         Self {
             name: source.name.clone(),
@@ -181,10 +195,23 @@ impl TablePart {
             hits: Hits::new(source),
             sub_parts,
             open: false,
+            id,
+            source_hits: source
+                .hull_hits
+                .iter()
+                .chain(source.hull_hits.iter())
+                .copied()
+                .collect(),
         }
     }
 
-    fn show(&mut self, table: &mut TableBody, indent: f32) {
+    fn show(
+        &mut self,
+        table: &mut TableBody,
+        indent: f32,
+        selected_id: &mut Option<u32>,
+        on_selected: &mut impl FnMut(Option<&TablePart>),
+    ) {
         table.row(ROW_HEIGHT, |mut r| {
             r.col(|ui| {
                 ui.horizontal(|ui| {
@@ -197,7 +224,18 @@ impl TablePart {
                     {
                         self.open = !self.open;
                     }
-                    ui.label(&self.name).context_menu(|ui| {
+                    let name_response =
+                        ui.selectable_label(Some(self.id) == *selected_id, &self.name);
+                    if name_response.clicked() {
+                        if *selected_id == Some(self.id) {
+                            *selected_id = None;
+                            on_selected(None);
+                        } else {
+                            *selected_id = Some(self.id);
+                            on_selected(Some(self));
+                        }
+                    }
+                    name_response.context_menu(|ui| {
                         if ui
                             .selectable_label(false, "copy name to clipboard")
                             .clicked()
@@ -220,7 +258,7 @@ impl TablePart {
 
         if self.open {
             for sub_part in self.sub_parts.iter_mut() {
-                sub_part.show(table, indent + 1.0);
+                sub_part.show(table, indent + 1.0, selected_id, on_selected);
             }
         }
     }

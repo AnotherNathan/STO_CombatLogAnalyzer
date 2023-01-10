@@ -13,6 +13,7 @@ pub struct DpsPlot {
     lines: Vec<PreparedLine>,
     largest_point: f64,
     newly_created: bool,
+    updated_filter_parameters: Option<(f64, FilterMethod)>,
 }
 
 pub struct PreparedLine {
@@ -35,34 +36,56 @@ impl DpsPlot {
             lines: Vec::new(),
             largest_point: 100_000.0,
             newly_created: true,
+            updated_filter_parameters: None,
         }
     }
 
-    pub fn from_groups<'a>(
+    pub fn from_damage_groups<'a>(
         groups: impl Iterator<Item = &'a DamageGroup>,
         filter_size_s: f64,
         filter_method: FilterMethod,
     ) -> Self {
-        let lines: Vec<_> = groups
-            .into_iter()
-            .map(|g| PreparedLine::new(g, filter_size_s, filter_method))
+        Self::from_data(
+            groups.map(|g| {
+                (
+                    g.name.as_str(),
+                    g.hull_hits.iter().chain(g.shield_hits.iter()),
+                )
+            }),
+            filter_size_s,
+            filter_method,
+        )
+    }
+
+    pub fn from_data<'a>(
+        lines: impl Iterator<Item = (&'a str, impl Iterator<Item = &'a Hit>)>,
+        filter_size_s: f64,
+        filter_method: FilterMethod,
+    ) -> Self {
+        let lines: Vec<_> = lines
+            .map(|(n, h)| PreparedLine::new(n, h, filter_size_s, filter_method))
             .collect();
         let largest_point = Self::compute_largest_point(&lines);
         Self {
             lines,
             largest_point,
             newly_created: true,
+            updated_filter_parameters: None,
         }
     }
 
     pub fn update(&mut self, filter_size_s: f64, filter_method: FilterMethod) {
-        self.lines
-            .iter_mut()
-            .for_each(|l| l.update(filter_size_s, filter_method));
-        self.largest_point = Self::compute_largest_point(&self.lines);
+        self.updated_filter_parameters = Some((filter_size_s, filter_method));
     }
 
     pub fn show(&mut self, ui: &mut Ui) {
+        if let Some((filter_size_s, filter_method)) = self.updated_filter_parameters.take() {
+            self.lines
+                .iter_mut()
+                .for_each(|l| l.update(filter_size_s, filter_method));
+            self.largest_point = Self::compute_largest_point(&self.lines);
+        }
+
         let mut plot = Plot::new("dps plot")
             .y_axis_formatter(Self::format_axis)
             .x_axis_formatter(Self::format_axis)
@@ -116,9 +139,13 @@ impl DpsPlot {
 }
 
 impl PreparedLine {
-    fn new(group: &DamageGroup, filter_size_s: f64, filter_method: FilterMethod) -> Self {
-        let summed_and_sorted_hits =
-            Self::sum_up_and_sort_hits(group.hull_hits.iter().chain(group.shield_hits.iter()));
+    fn new<'a>(
+        name: &str,
+        hits: impl Iterator<Item = &'a Hit>,
+        filter_size_s: f64,
+        filter_method: FilterMethod,
+    ) -> Self {
+        let summed_and_sorted_hits = Self::sum_up_and_sort_hits(hits);
 
         let start_time_s = summed_and_sorted_hits
             .iter()
@@ -136,7 +163,7 @@ impl PreparedLine {
         let duration_s = end_time_s - start_time_s;
 
         let mut prepared_line = Self {
-            name: group.name.clone(),
+            name: name.to_string(),
             points: Vec::new(),
             start_time_s,
             duration_s,
