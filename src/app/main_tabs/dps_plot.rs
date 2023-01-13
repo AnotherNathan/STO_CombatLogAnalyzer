@@ -1,8 +1,4 @@
-use std::{
-    cmp::Ordering,
-    f64::consts::PI,
-    ops::{Range, RangeInclusive},
-};
+use std::{f64::consts::PI, ops::RangeInclusive};
 
 use eframe::egui::{widgets::plot::*, *};
 
@@ -17,7 +13,7 @@ pub struct DpsPlot {
     lines: Vec<PreparedLine>,
     largest_point: f64,
     newly_created: bool,
-    updated_filter: Option<Filter>,
+    updated_filter: Option<f64>,
 }
 
 pub struct PreparedLine {
@@ -26,13 +22,6 @@ pub struct PreparedLine {
     summed_and_sorted_hits: Vec<Hit>,
     start_time_s: f64,
     duration_s: f64,
-}
-
-#[derive(Clone, Copy, PartialEq)]
-pub enum Filter {
-    Gauss { standard_deviation: f64 },
-    Triangle { size: f64 },
-    Box { size: f64 },
 }
 
 impl DpsPlot {
@@ -47,7 +36,7 @@ impl DpsPlot {
 
     pub fn from_damage_groups<'a>(
         groups: impl Iterator<Item = &'a DamageGroup>,
-        filter: Filter,
+        filter: f64,
     ) -> Self {
         Self::from_data(
             groups.map(|g| {
@@ -62,7 +51,7 @@ impl DpsPlot {
 
     pub fn from_data<'a>(
         lines: impl Iterator<Item = (&'a str, impl Iterator<Item = &'a Hit>)>,
-        filter: Filter,
+        filter: f64,
     ) -> Self {
         let lines: Vec<_> = lines
             .map(|(n, h)| PreparedLine::new(n, h, filter))
@@ -76,7 +65,7 @@ impl DpsPlot {
         }
     }
 
-    pub fn update(&mut self, filter: Filter) {
+    pub fn update(&mut self, filter: f64) {
         self.updated_filter = Some(filter);
     }
 
@@ -139,7 +128,7 @@ impl DpsPlot {
 }
 
 impl PreparedLine {
-    fn new<'a>(name: &str, hits: impl Iterator<Item = &'a Hit>, filter_method: Filter) -> Self {
+    fn new<'a>(name: &str, hits: impl Iterator<Item = &'a Hit>, filter: f64) -> Self {
         let summed_and_sorted_hits = Self::sum_up_and_sort_hits(hits);
 
         let start_time_s = summed_and_sorted_hits
@@ -165,7 +154,7 @@ impl PreparedLine {
             summed_and_sorted_hits,
         };
 
-        prepared_line.update(filter_method);
+        prepared_line.update(filter);
 
         prepared_line
     }
@@ -185,13 +174,7 @@ impl PreparedLine {
         hits
     }
 
-    fn update(&mut self, filter: Filter) {
-        let (sample, filter_value_s): (fn(&[Hit], f64, f64) -> f64, f64) = match filter {
-            Filter::Gauss { standard_deviation } => (Self::sample_gauss_filter, standard_deviation),
-            Filter::Triangle { size } => (Self::sample_triangle_filter, size),
-            Filter::Box { size } => (Self::sample_box_filter, size),
-        };
-
+    fn update(&mut self, filter: f64) {
         let points_count = (self.duration_s * SAMPLE_RATE).round() as _;
         let mut points = Vec::with_capacity(points_count);
         for i in 0..points_count {
@@ -199,7 +182,7 @@ impl PreparedLine {
             let time = self.start_time_s + self.duration_s * start_offset;
             let point = [
                 time,
-                sample(&self.summed_and_sorted_hits, time, filter_value_s),
+                Self::get_sample_gauss_filtered(&self.summed_and_sorted_hits, time, filter),
             ];
             points.push(point);
         }
@@ -207,79 +190,11 @@ impl PreparedLine {
         self.points = points;
     }
 
-    fn get_sample_entry(hits: &[Hit], time_range_millis: Range<u32>) -> Option<usize> {
-        hits.binary_search_by(|h| {
-            if h.times_millis < time_range_millis.start {
-                return Ordering::Less;
-            }
-
-            if h.times_millis >= time_range_millis.end {
-                return Ordering::Greater;
-            }
-
-            Ordering::Equal
-        })
-        .ok()
-    }
-
-    fn get_sample_entry2(hits: &[Hit], time_millis: u32) -> usize {
+    fn get_sample_entry(hits: &[Hit], time_millis: u32) -> usize {
         match hits.binary_search_by_key(&time_millis, |h| h.times_millis) {
             Ok(i) => i,
             Err(i) => i,
         }
-    }
-
-    fn get_sample_hits<'a>(
-        hits: &'a [Hit],
-        filter_size_seconds: f64,
-        time_seconds: f64,
-    ) -> &'a [Hit] {
-        let filter_size_millis = seconds_to_millis(filter_size_seconds);
-        let filter_half_size = filter_size_millis / 2;
-        let time_millis = seconds_to_millis(time_seconds);
-        let time_start_millis = time_millis.saturating_sub(filter_half_size);
-        let time_end_millis = time_millis + filter_half_size;
-
-        let index = match Self::get_sample_entry(hits, time_start_millis..time_end_millis) {
-            Some(i) => i,
-            None => return &[],
-        };
-
-        let start_index = index
-            - hits[0..index]
-                .iter()
-                .rev()
-                .take_while(|h| h.times_millis >= time_start_millis)
-                .count();
-        let end_index = index
-            + hits[index..]
-                .iter()
-                .take_while(|h| h.times_millis < time_end_millis)
-                .count();
-        &hits[start_index..end_index]
-    }
-
-    fn sample_box_filter(hits: &[Hit], time_seconds: f64, filter_size_seconds: f64) -> f64 {
-        let hits = Self::get_sample_hits(hits, filter_size_seconds, time_seconds);
-
-        let value = hits.iter().map(|h| h.damage).sum::<f64>() / filter_size_seconds;
-
-        value
-    }
-
-    fn sample_triangle_filter(hits: &[Hit], time_seconds: f64, filter_size_seconds: f64) -> f64 {
-        let hits = Self::get_sample_hits(hits, filter_size_seconds, time_seconds);
-        let half_size = filter_size_seconds * 0.5;
-
-        let mut value = 0.0;
-        for hit in hits {
-            let offset_to_triangle_center =
-                (time_seconds - millis_to_seconds(hit.times_millis)).abs();
-            let weight = (half_size - offset_to_triangle_center) / (half_size * half_size);
-            value += weight * hit.damage;
-        }
-
-        value
     }
 
     fn gauss_probability_density_function(t: f64, offset: f64, standard_deviation: f64) -> f64 {
@@ -307,7 +222,7 @@ impl PreparedLine {
         Some(weight * hit.damage)
     }
 
-    fn get_gauss_sample_half(
+    fn get_get_sample_gauss_filtered_half(
         hits: &[Hit],
         time_seconds: f64,
         sigma_seconds: f64,
@@ -330,17 +245,25 @@ impl PreparedLine {
         value
     }
 
-    fn sample_gauss_filter(hits: &[Hit], time_seconds: f64, sigma_seconds: f64) -> f64 {
+    fn get_sample_gauss_filtered(hits: &[Hit], time_seconds: f64, sigma_seconds: f64) -> f64 {
         let time_millis = seconds_to_millis(time_seconds);
 
-        let entry_index = Self::get_sample_entry2(hits, time_millis);
+        let entry_index = Self::get_sample_entry(hits, time_millis);
 
-        Self::get_gauss_sample_half(hits, time_seconds, sigma_seconds, entry_index - 1, |i| {
-            i.checked_sub(1)
-        }) + Self::get_gauss_value(hits, entry_index, time_seconds, sigma_seconds).unwrap_or(0.0)
-            + Self::get_gauss_sample_half(hits, time_seconds, sigma_seconds, entry_index + 1, |i| {
-                Some(i + 1)
-            })
+        Self::get_get_sample_gauss_filtered_half(
+            hits,
+            time_seconds,
+            sigma_seconds,
+            entry_index - 1,
+            |i| i.checked_sub(1),
+        ) + Self::get_gauss_value(hits, entry_index, time_seconds, sigma_seconds).unwrap_or(0.0)
+            + Self::get_get_sample_gauss_filtered_half(
+                hits,
+                time_seconds,
+                sigma_seconds,
+                entry_index + 1,
+                |i| Some(i + 1),
+            )
     }
 
     fn to_line(&self) -> Line {
@@ -354,37 +277,4 @@ fn seconds_to_millis(seconds: f64) -> u32 {
 
 fn millis_to_seconds(millis: u32) -> f64 {
     millis as f64 * (1.0 / 1e3)
-}
-
-impl Filter {
-    pub const fn display_name(&self) -> &'static str {
-        match self {
-            Filter::Gauss { .. } => "Gauss",
-            Filter::Triangle { .. } => "Triangle",
-            Filter::Box { .. } => "Box",
-        }
-    }
-
-    pub const fn display_value_name(&self) -> &'static str {
-        match self {
-            Filter::Gauss { .. } => "Standard Deviation (s)",
-            Filter::Triangle { .. } | Filter::Box { .. } => "Size (s)",
-        }
-    }
-
-    pub const fn recommended_value_range(&self) -> RangeInclusive<f64> {
-        match self {
-            Filter::Gauss { .. } => 0.4..=6.0,
-            Filter::Triangle { .. } => 2.0..=30.0,
-            Filter::Box { .. } => 1.0..=30.0,
-        }
-    }
-
-    pub fn value_mut(&mut self) -> &mut f64 {
-        match self {
-            Filter::Gauss { standard_deviation } => standard_deviation,
-            Filter::Triangle { size } => size,
-            Filter::Box { size } => size,
-        }
-    }
 }

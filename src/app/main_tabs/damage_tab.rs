@@ -1,4 +1,4 @@
-use eframe::egui::{ComboBox, Ui};
+use eframe::egui::*;
 
 use crate::{
     analyzer::*,
@@ -15,7 +15,7 @@ pub struct DamageTab {
     dps_main_plot: DpsPlot,
     dps_selection_plot: Option<DpsPlot>,
     damage_group: fn(&Player) -> &DamageGroup,
-    filter: Filter,
+    filter: f64,
 }
 
 impl DamageTab {
@@ -24,9 +24,7 @@ impl DamageTab {
             table: DamageTable::empty(),
             dps_main_plot: DpsPlot::empty(),
             damage_group: damage_group,
-            filter: Filter::Gauss {
-                standard_deviation: 0.4,
-            },
+            filter: 0.4,
             dps_selection_plot: None,
         }
     }
@@ -50,53 +48,18 @@ impl DamageTab {
                 });
 
                 bottom_ui.horizontal(|ui| {
-                    if ComboBox::from_label("Filter Method")
-                        .selected_text(self.filter.display_name())
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(
-                                &mut self.filter,
-                                Filter::Gauss {
-                                    standard_deviation: 0.4,
-                                },
-                                Filter::Gauss {
-                                    standard_deviation: 0.4,
-                                }
-                                .display_name(),
-                            ) | ui.selectable_value(
-                                &mut self.filter,
-                                Filter::Triangle { size: 2.0 },
-                                Filter::Triangle { size: 2.0 }.display_name(),
-                            ) | ui.selectable_value(
-                                &mut self.filter,
-                                Filter::Box { size: 1.0 },
-                                Filter::Box { size: 1.0 }.display_name(),
-                            )
-                        })
-                        .inner
-                        .map(|r| r.changed())
-                        .unwrap_or(false)
+                    if SliderTextEdit::new(&mut self.filter, 0.4..=6.0, "filter slider")
+                        .clamp_min(0.1)
+                        .clamp_max(120.0)
+                        .desired_text_edit_width(30.0)
+                        .display_precision(4)
+                        .step_by(0.1)
+                        .show(ui)
+                        .changed()
                     {
                         self.update_plot();
                     }
-                });
-                let value_range = self.filter.recommended_value_range();
-                bottom_ui.horizontal(|ui| {
-                    if SliderTextEdit::new(
-                        &mut self.filter.value_mut(),
-                        value_range,
-                        "filter slider",
-                    )
-                    .clamp_min(0.1)
-                    .clamp_max(120.0)
-                    .desired_text_edit_width(30.0)
-                    .display_precision(4)
-                    .step_by(0.1)
-                    .show(ui)
-                    .changed()
-                    {
-                        self.update_plot();
-                    }
-                    ui.label(self.filter.display_value_name());
+                    ui.label("Gauss Filter Standard Deviation (how much to smooth the DPS graph)");
                 });
 
                 if let Some(selected_plot) = &mut self.dps_selection_plot {
@@ -107,7 +70,7 @@ impl DamageTab {
             });
     }
 
-    fn make_selection_plot(part: Option<&TablePart>, filter: Filter) -> Option<DpsPlot> {
+    fn make_selection_plot(part: Option<&TablePart>, filter: f64) -> Option<DpsPlot> {
         let part = part?;
         if part.sub_parts.len() == 0 {
             return Some(DpsPlot::from_data(
