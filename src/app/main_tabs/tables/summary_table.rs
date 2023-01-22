@@ -6,10 +6,9 @@ use egui_extras::*;
 
 use crate::{
     analyzer::{Combat, Player as AnalyzedPlayer},
+    app::main_tabs::common::*,
     helpers::number_formatting::NumberFormatter,
 };
-
-use super::common::*;
 
 pub struct SummaryTable {
     players: Vec<Player>,

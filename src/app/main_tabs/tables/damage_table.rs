@@ -2,12 +2,10 @@ use bitflags::bitflags;
 use eframe::egui::*;
 use egui_extras::{Column, TableBody, TableBuilder, TableRow};
 
-use crate::{analyzer::*, helpers::number_formatting::NumberFormatter};
-
-use super::common::*;
+use crate::{analyzer::*, app::main_tabs::common::*, helpers::number_formatting::NumberFormatter};
 
 pub struct DamageTable {
-    players: Vec<TablePart>,
+    players: Vec<DamageTablePart>,
     selected_id: Option<u32>,
 }
 
@@ -25,7 +23,7 @@ bitflags! {
     }
 }
 
-pub struct TablePart {
+pub struct DamageTablePart {
     pub name: String,
     total_damage: ShieldAndHullTextValue,
     dps: ShieldAndHullTextValue,
@@ -35,7 +33,7 @@ pub struct TablePart {
     critical_chance: TextValue,
     flanking: TextValue,
     hits: Hits,
-    pub sub_parts: Vec<TablePart>,
+    pub sub_parts: Vec<DamageTablePart>,
 
     pub source_hits: Vec<Hit>,
 
@@ -71,7 +69,9 @@ impl DamageTable {
             players: combat
                 .players
                 .values()
-                .map(|p| TablePart::new(damage_group(p), &mut number_formatter, &mut id_source))
+                .map(|p| {
+                    DamageTablePart::new(damage_group(p), &mut number_formatter, &mut id_source)
+                })
                 .collect(),
             selected_id: None,
         };
@@ -80,7 +80,7 @@ impl DamageTable {
         table
     }
 
-    pub fn show(&mut self, ui: &mut Ui, mut on_selected: impl FnMut(Option<&TablePart>)) {
+    pub fn show(&mut self, ui: &mut Ui, mut on_selected: impl FnMut(Option<&DamageTablePart>)) {
         ScrollArea::horizontal()
             .min_scrolled_width(0.0)
             .show(ui, |ui| {
@@ -144,21 +144,21 @@ impl DamageTable {
         }
     }
 
-    fn sort_by(&mut self, mut key: impl FnMut(&TablePart) -> f64 + Copy) {
+    fn sort_by(&mut self, mut key: impl FnMut(&DamageTablePart) -> f64 + Copy) {
         self.players
             .sort_unstable_by(|p1, p2| key(p1).total_cmp(&key(p2)).reverse());
 
         self.players.iter_mut().for_each(|p| p.sort_by(key));
     }
 
-    fn sort_by_key<K: Ord>(&mut self, mut key: impl FnMut(&TablePart) -> K + Copy) {
+    fn sort_by_key<K: Ord>(&mut self, mut key: impl FnMut(&DamageTablePart) -> K + Copy) {
         self.players.sort_unstable_by_key(|p| key(p));
 
         self.players.iter_mut().for_each(|p| p.sort_by_key(key));
     }
 }
 
-impl TablePart {
+impl DamageTablePart {
     fn new(
         source: &DamageGroup,
         number_formatter: &mut NumberFormatter,
@@ -169,7 +169,7 @@ impl TablePart {
         let sub_parts = source
             .sub_groups
             .values()
-            .map(|s| TablePart::new(s, number_formatter, id_source))
+            .map(|s| DamageTablePart::new(s, number_formatter, id_source))
             .collect();
         Self {
             name: source.name.clone(),
@@ -210,7 +210,7 @@ impl TablePart {
         table: &mut TableBody,
         indent: f32,
         selected_id: &mut Option<u32>,
-        on_selected: &mut impl FnMut(Option<&TablePart>),
+        on_selected: &mut impl FnMut(Option<&DamageTablePart>),
     ) {
         table.row(ROW_HEIGHT, |mut r| {
             r.col(|ui| {
@@ -270,7 +270,7 @@ impl TablePart {
         self.sub_parts.iter_mut().for_each(|p| p.sort_by(key));
     }
 
-    fn sort_by_key<K: Ord>(&mut self, mut key: impl FnMut(&TablePart) -> K + Copy) {
+    fn sort_by_key<K: Ord>(&mut self, mut key: impl FnMut(&DamageTablePart) -> K + Copy) {
         self.sub_parts.sort_unstable_by_key(|p| key(p));
 
         self.sub_parts.iter_mut().for_each(|p| p.sort_by_key(key));

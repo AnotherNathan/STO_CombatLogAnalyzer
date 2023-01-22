@@ -3,13 +3,12 @@ use egui_extras::*;
 
 use crate::{analyzer::Combat, helpers::number_formatting::NumberFormatter};
 
-use self::{common::*, damage_tab::DamageTab, summary_table::SummaryTable};
+use self::{common::*, damage_tab::DamageTab, tables::SummaryTable};
 
 mod common;
 mod damage_tab;
-mod damage_table;
-mod dps_plot;
-mod summary_table;
+mod diagrams;
+mod tables;
 
 pub struct MainTabs {
     pub identifier: String,

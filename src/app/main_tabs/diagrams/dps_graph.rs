@@ -1,30 +1,26 @@
-use std::{f64::consts::PI, ops::RangeInclusive};
+use std::f64::consts::PI;
 
 use eframe::egui::{widgets::plot::*, *};
 
-use crate::{
-    analyzer::{DamageGroup, Hit},
-    helpers::number_formatting::NumberFormatter,
-};
+use crate::analyzer::Hit;
+
+use super::common::*;
 
 const SAMPLE_RATE: f64 = 10.0;
 
-pub struct DpsPlot {
-    lines: Vec<PreparedLine>,
+pub struct DpsGraph {
+    lines: Vec<DpsLine>,
     largest_point: f64,
     newly_created: bool,
     updated_filter: Option<f64>,
 }
 
-pub struct PreparedLine {
-    name: String,
+pub struct DpsLine {
     points: Vec<[f64; 2]>,
-    summed_and_sorted_hits: Vec<Hit>,
-    start_time_s: f64,
-    duration_s: f64,
+    data: PreparedDataSet,
 }
 
-impl DpsPlot {
+impl DpsGraph {
     pub fn empty() -> Self {
         Self {
             lines: Vec::new(),
@@ -34,34 +30,14 @@ impl DpsPlot {
         }
     }
 
-    pub fn from_damage_groups<'a>(
-        groups: impl Iterator<Item = &'a DamageGroup>,
-        filter: f64,
-    ) -> Self {
-        Self::from_data(
-            groups.map(|g| {
-                (
-                    g.name.as_str(),
-                    g.hull_hits.iter().chain(g.shield_hits.iter()),
-                )
-            }),
-            filter,
-        )
-    }
-
-    pub fn from_data<'a>(
-        lines: impl Iterator<Item = (&'a str, impl Iterator<Item = &'a Hit>)>,
-        filter: f64,
-    ) -> Self {
-        let lines: Vec<_> = lines
-            .map(|(n, h)| PreparedLine::new(n, h, filter))
-            .collect();
+    pub fn from_data<'a>(lines: impl Iterator<Item = PreparedDataSet>, filter: f64) -> Self {
+        let lines: Vec<_> = lines.map(|l| DpsLine::new(l)).collect();
         let largest_point = Self::compute_largest_point(&lines);
         Self {
             lines,
             largest_point,
             newly_created: true,
-            updated_filter: None,
+            updated_filter: Some(filter),
         }
     }
 
@@ -75,10 +51,10 @@ impl DpsPlot {
             self.largest_point = Self::compute_largest_point(&self.lines);
         }
 
-        let mut plot = Plot::new("dps plot")
-            .y_axis_formatter(Self::format_axis)
-            .x_axis_formatter(Self::format_axis)
-            .label_formatter(Self::format_label)
+        let mut plot = Plot::new("dps graph")
+            .y_axis_formatter(format_axis)
+            .x_axis_formatter(format_axis)
+            .label_formatter(format_label)
             .include_y(self.largest_point)
             .legend(Legend::default());
 
@@ -98,26 +74,7 @@ impl DpsPlot {
         });
     }
 
-    fn format_axis(value: f64, _: &RangeInclusive<f64>) -> String {
-        if value < 0.0 {
-            return String::new();
-        }
-        let mut formatter = NumberFormatter::new();
-        formatter.format(value, 0)
-    }
-
-    fn format_label(name: &str, point: &PlotPoint) -> String {
-        if point.x < 0.0 || point.y < 0.0 {
-            return String::new();
-        }
-
-        let mut formatter = NumberFormatter::new();
-        let x = formatter.format(point.x, 2);
-        let y = formatter.format(point.y, 2);
-        format!("{}\nDPS: {}\nTime: {}", name, y, x)
-    }
-
-    fn compute_largest_point(lines: &[PreparedLine]) -> f64 {
+    fn compute_largest_point(lines: &[DpsLine]) -> f64 {
         lines
             .iter()
             .flat_map(|l| l.points.iter())
@@ -127,62 +84,23 @@ impl DpsPlot {
     }
 }
 
-impl PreparedLine {
-    fn new<'a>(name: &str, hits: impl Iterator<Item = &'a Hit>, filter: f64) -> Self {
-        let summed_and_sorted_hits = Self::sum_up_and_sort_hits(hits);
-
-        let start_time_s = summed_and_sorted_hits
-            .iter()
-            .map(|h| h.times_millis)
-            .min()
-            .unwrap_or(0) as f64
-            / 1e3;
-        let end_time_s = summed_and_sorted_hits
-            .iter()
-            .map(|h| h.times_millis)
-            .max()
-            .unwrap_or(0) as f64
-            / 1e3;
-
-        let duration_s = end_time_s - start_time_s;
-
-        let mut prepared_line = Self {
-            name: name.to_string(),
+impl DpsLine {
+    fn new<'a>(data: PreparedDataSet) -> Self {
+        Self {
             points: Vec::new(),
-            start_time_s,
-            duration_s,
-            summed_and_sorted_hits,
-        };
-
-        prepared_line.update(filter);
-
-        prepared_line
-    }
-
-    fn sum_up_and_sort_hits<'a>(hits: impl Iterator<Item = &'a Hit>) -> Vec<Hit> {
-        let mut hits = Vec::from_iter(hits.copied());
-        hits.sort_unstable_by_key(|h| h.times_millis);
-        hits.dedup_by(|h1, h2| {
-            if h1.times_millis != h2.times_millis {
-                return false;
-            }
-
-            h2.damage += h1.damage;
-            true
-        });
-        hits.shrink_to_fit();
-        hits
+            data,
+        }
     }
 
     fn update(&mut self, filter: f64) {
-        let points_count = (self.duration_s * SAMPLE_RATE).round() as _;
+        let points_count = (self.data.duration_s * SAMPLE_RATE).round() as _;
         let mut points = Vec::with_capacity(points_count);
         for i in 0..points_count {
             let start_offset = i as f64 / (points_count - 1) as f64;
-            let time = self.start_time_s + self.duration_s * start_offset;
+            let time = self.data.start_time_s + self.data.duration_s * start_offset;
             let point = [
                 time,
-                Self::get_sample_gauss_filtered(&self.summed_and_sorted_hits, time, filter),
+                Self::get_sample_gauss_filtered(&self.data.hits, time, filter),
             ];
             points.push(point);
         }
@@ -254,7 +172,7 @@ impl PreparedLine {
             hits,
             time_seconds,
             sigma_seconds,
-            entry_index - 1,
+            entry_index.saturating_sub(1),
             |i| i.checked_sub(1),
         ) + Self::get_gauss_value(hits, entry_index, time_seconds, sigma_seconds).unwrap_or(0.0)
             + Self::get_get_sample_gauss_filtered_half(
@@ -267,14 +185,8 @@ impl PreparedLine {
     }
 
     fn to_line(&self) -> Line {
-        Line::new(self.points.clone()).name(&self.name).width(2.0)
+        Line::new(self.points.clone())
+            .name(&self.data.name)
+            .width(2.0)
     }
-}
-
-fn seconds_to_millis(seconds: f64) -> u32 {
-    (seconds * 1e3).round() as _
-}
-
-fn millis_to_seconds(millis: u32) -> f64 {
-    millis as f64 * (1.0 / 1e3)
 }
