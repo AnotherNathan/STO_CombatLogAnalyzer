@@ -63,20 +63,10 @@ impl SummaryTab {
         self.active_duration = TextDuration::new(time_range_to_duration(&combat.active_time));
 
         let mut number_formatter = NumberFormatter::new();
-        self.total_damage_out = ShieldAndHullTextValue::new(
-            combat.total_damage_out.all,
-            combat.total_damage_out.shield,
-            combat.total_damage_out.hull,
-            2,
-            &mut number_formatter,
-        );
-        self.total_damage_in = ShieldAndHullTextValue::new(
-            combat.total_damage_in.all,
-            combat.total_damage_in.shield,
-            combat.total_damage_in.hull,
-            2,
-            &mut number_formatter,
-        );
+        self.total_damage_out =
+            ShieldAndHullTextValue::new(&combat.total_damage_out, 2, &mut number_formatter);
+        self.total_damage_in =
+            ShieldAndHullTextValue::new(&combat.total_damage_in, 2, &mut number_formatter);
         self.total_kills = TextCount::new(combat.total_kills);
         self.total_deaths = TextCount::new(combat.total_deaths);
 
@@ -86,7 +76,7 @@ impl SummaryTab {
             combat
                 .players
                 .values()
-                .map(|p| (p.damage_out.name.as_str(), p.damage_out.dps)),
+                .map(|p| (p.damage_out.name.as_str(), p.damage_out.dps.all)),
         );
         self.summary_damage_out_chart = SummaryChart::from_data(
             "summary damage in chart",

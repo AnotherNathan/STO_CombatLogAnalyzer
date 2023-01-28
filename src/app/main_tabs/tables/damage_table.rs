@@ -29,7 +29,7 @@ pub struct DamageTablePart {
     dps: ShieldAndHullTextValue,
     damage_percentage: TextValue,
     max_one_hit: MaxOneHit,
-    average_hit: TextValue,
+    average_hit: ShieldAndHullTextValue,
     critical_chance: TextValue,
     flanking: TextValue,
     hits: Hits,
@@ -132,7 +132,7 @@ impl DamageTable {
         } else if by_column.contains(TableColumns::MAX_ONE_HIT) {
             self.sort_by(|p| p.max_one_hit.damage.value);
         } else if by_column.contains(TableColumns::AVERAGE_HIT) {
-            self.sort_by(|p| p.average_hit.value);
+            self.sort_by(|p| p.average_hit.all.value);
         } else if by_column.contains(TableColumns::CRITICAL_CHANCE) {
             self.sort_by(|p| p.critical_chance.value);
         } else if by_column.contains(TableColumns::FLANKING) {
@@ -173,22 +173,10 @@ impl DamageTablePart {
             .collect();
         Self {
             name: source.name.clone(),
-            total_damage: ShieldAndHullTextValue::new(
-                source.total_damage.all,
-                source.total_damage.shield,
-                source.total_damage.hull,
-                2,
-                number_formatter,
-            ),
-            dps: ShieldAndHullTextValue::new(
-                source.dps,
-                source.shield_dps,
-                source.hull_dps,
-                2,
-                number_formatter,
-            ),
+            total_damage: ShieldAndHullTextValue::new(&source.total_damage, 2, number_formatter),
+            dps: ShieldAndHullTextValue::new(&source.dps, 2, number_formatter),
             damage_percentage: TextValue::new(source.damage_percentage, 3, number_formatter),
-            average_hit: TextValue::new(source.average_hit, 2, number_formatter),
+            average_hit: ShieldAndHullTextValue::new(&source.average_hit, 2, number_formatter),
             critical_chance: TextValue::new(source.critical_chance, 3, number_formatter),
             flanking: TextValue::new(source.flanking, 3, number_formatter),
             max_one_hit: MaxOneHit::new(source, number_formatter),

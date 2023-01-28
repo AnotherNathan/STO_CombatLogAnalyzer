@@ -40,7 +40,7 @@ impl DamageDiagrams {
         let data = groups.map(|g| {
             PreparedDamageDataSet::new(
                 g.name.as_str(),
-                g.dps,
+                g.dps.all,
                 g.total_damage.all,
                 g.hull_hits.iter().chain(g.shield_hits.iter()),
             )

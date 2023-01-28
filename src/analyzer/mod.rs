@@ -26,8 +26,8 @@ pub struct Combat {
     pub names: FxHashSet<String>,
     pub combat_time: Option<Range<NaiveDateTime>>,
     pub active_time: Range<NaiveDateTime>,
-    pub total_damage_out: TotalDamage,
-    pub total_damage_in: TotalDamage,
+    pub total_damage_out: ShieldHullValues,
+    pub total_damage_in: ShieldHullValues,
     pub players: Players,
     pub log_pos: Option<Range<u64>>,
     pub total_deaths: u64,
@@ -47,14 +47,12 @@ pub struct Player {
 #[derive(Clone, Debug)]
 pub struct DamageGroup {
     pub name: String,
-    pub total_damage: TotalDamage,
+    pub total_damage: ShieldHullValues,
     pub max_one_hit: MaxOneHit,
-    pub average_hit: f64,
+    pub average_hit: ShieldHullValues,
     pub critical_chance: f64,
     pub flanking: f64,
-    pub dps: f64,
-    pub shield_dps: f64,
-    pub hull_dps: f64,
+    pub dps: ShieldHullValues,
     pub damage_percentage: f64,
     pub hull_hits: Vec<Hit>,
     pub shield_hits: Vec<Hit>,
@@ -65,7 +63,7 @@ pub struct DamageGroup {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-pub struct TotalDamage {
+pub struct ShieldHullValues {
     pub all: f64,
     pub shield: f64,
     pub hull: f64,
@@ -239,7 +237,7 @@ impl Combat {
     fn recalculate_total_damage(
         &self,
         mut group: impl FnMut(&Player) -> &DamageGroup,
-    ) -> TotalDamage {
+    ) -> ShieldHullValues {
         let (shield, hull, all) = self.players.values().fold((0.0, 0.0, 0.0), |(s, h, a), p| {
             let total_damage = &group(p).total_damage;
             (
@@ -248,12 +246,12 @@ impl Combat {
                 total_damage.all + a,
             )
         });
-        TotalDamage { all, shield, hull }
+        ShieldHullValues { all, shield, hull }
     }
 
     fn recalculate_damage_group_percentage(
         &mut self,
-        total_damage: TotalDamage,
+        total_damage: ShieldHullValues,
         mut group: impl FnMut(&mut Player) -> &mut DamageGroup,
     ) {
         self.players
@@ -444,14 +442,12 @@ impl DamageGroup {
             name: name.to_string(),
             total_damage: Default::default(),
             max_one_hit: MaxOneHit::default(),
-            average_hit: 0.0,
+            average_hit: Default::default(),
             critical_chance: 0.0,
             flanking: 0.0,
             hull_hits: Vec::new(),
             shield_hits: Vec::new(),
-            dps: 0.0,
-            shield_dps: 0.0,
-            hull_dps: 0.0,
+            dps: Default::default(),
             damage_percentage: 0.0,
             sub_groups: Default::default(),
             is_pool,
@@ -511,11 +507,6 @@ impl DamageGroup {
 
         self.total_damage.all = self.total_damage.hull + self.total_damage.shield;
 
-        let average_hit = if self.hits() == 0 {
-            0.0
-        } else {
-            self.total_damage.all / self.hits() as f64
-        };
         let critical_chance = if crits_count == 0 {
             0.0
         } else {
@@ -527,12 +518,26 @@ impl DamageGroup {
             flanks_count as f64 / self.hull_hits() as f64
         };
 
-        self.average_hit = average_hit;
+        self.average_hit.all = if self.hits() == 0 {
+            0.0
+        } else {
+            self.total_damage.all / self.hits() as f64
+        };
+        self.average_hit.shield = if self.shield_hits() == 0 {
+            0.0
+        } else {
+            self.total_damage.shield / self.shield_hits() as f64
+        };
+        self.average_hit.hull = if self.hull_hits() == 0 {
+            0.0
+        } else {
+            self.total_damage.hull / self.hull_hits() as f64
+        };
         self.critical_chance = critical_chance * 100.0;
         self.flanking = flanking * 100.0;
-        self.dps = self.total_damage.all / combat_duration.max(1.0); // avoid absurd high numbers
-        self.shield_dps = self.total_damage.shield / combat_duration.max(1.0); // avoid absurd high numbers
-        self.hull_dps = self.total_damage.hull / combat_duration.max(1.0); // avoid absurd high numbers
+        self.dps.all = self.total_damage.all / combat_duration.max(1.0); // avoid absurd high numbers
+        self.dps.shield = self.total_damage.shield / combat_duration.max(1.0); // avoid absurd high numbers
+        self.dps.hull = self.total_damage.hull / combat_duration.max(1.0); // avoid absurd high numbers
     }
 
     fn recalculate_damage_percentage(&mut self, parent_total_damage: f64) {

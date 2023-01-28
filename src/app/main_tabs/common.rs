@@ -4,7 +4,7 @@ use chrono::{Duration, NaiveDateTime, NaiveTime};
 use eframe::egui::*;
 use egui_extras::*;
 
-use crate::helpers::number_formatting::NumberFormatter;
+use crate::{analyzer::ShieldHullValues, helpers::number_formatting::NumberFormatter};
 
 pub const ROW_HEIGHT: f32 = 20.0;
 
@@ -34,16 +34,14 @@ pub struct TextDuration {
 
 impl ShieldAndHullTextValue {
     pub fn new(
-        all: f64,
-        shield: f64,
-        hull: f64,
+        value: &ShieldHullValues,
         precision: usize,
         number_formatter: &mut NumberFormatter,
     ) -> Self {
         Self {
-            all: TextValue::new(all, precision, number_formatter),
-            shield: number_formatter.format(shield, precision),
-            hull: number_formatter.format(hull, precision),
+            all: TextValue::new(value.all, precision, number_formatter),
+            shield: number_formatter.format(value.shield, precision),
+            hull: number_formatter.format(value.hull, precision),
         }
     }
 

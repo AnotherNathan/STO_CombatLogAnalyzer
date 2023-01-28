@@ -147,9 +147,7 @@ impl Player {
         Self {
             name: player.damage_out.name.clone(),
             total_out_damage: ShieldAndHullTextValue::new(
-                player.damage_out.total_damage.all,
-                player.damage_out.total_damage.shield,
-                player.damage_out.total_damage.hull,
+                &player.damage_out.total_damage,
                 2,
                 number_formatter,
             ),
@@ -158,17 +156,9 @@ impl Player {
                 3,
                 number_formatter,
             ),
-            dps_out: ShieldAndHullTextValue::new(
-                player.damage_out.dps,
-                player.damage_out.shield_dps,
-                player.damage_out.hull_dps,
-                2,
-                number_formatter,
-            ),
+            dps_out: ShieldAndHullTextValue::new(&player.damage_out.dps, 2, number_formatter),
             total_in_damage: ShieldAndHullTextValue::new(
-                player.damage_in.total_damage.all,
-                player.damage_in.total_damage.shield,
-                player.damage_in.total_damage.hull,
+                &player.damage_in.total_damage,
                 2,
                 number_formatter,
             ),
