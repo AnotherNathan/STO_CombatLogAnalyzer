@@ -315,7 +315,7 @@ impl Player {
         settings: &AnalysisSettings,
     ) {
         match record.value {
-            RecordValue::Damage(damage) => {
+            RecordValue::Damage(damage) if !record.target.is_none() => {
                 let path = Self::build_grouping_path(record, settings);
 
                 self.damage_out.add_damage(
@@ -332,7 +332,7 @@ impl Player {
                     self.kills += 1;
                 }
             }
-            RecordValue::Heal(_) => (),
+            _ => (),
         }
     }
 

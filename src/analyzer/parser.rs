@@ -259,6 +259,13 @@ impl<'a> Entity<'a> {
             _ => false,
         }
     }
+
+    pub fn is_none(&self) -> bool {
+        match self {
+            Entity::None { .. } => true,
+            _ => false,
+        }
+    }
 }
 
 impl RecordValue {
