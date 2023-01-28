@@ -1,6 +1,8 @@
 # STO_CombatLogAnalyzer
 Tool to parse and analyze the combat log file from Star Trek Online.
-![Summary Tab](images/summary_tab.png) ![Summary Tab](images/damage_tab.png)
+| Combat Summary                         | Outgoing Damage                       |
+| -------------------------------------- | ------------------------------------- |
+| ![Summary Tab](images/summary_tab.png) | ![Summary Tab](images/damage_tab.png) |
 
 ---
 ## Getting started
