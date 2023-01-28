@@ -21,7 +21,7 @@ impl SummaryChart {
         players.sort_unstable_by(|p1, p2| p1.value.total_cmp(&p2.value).reverse());
 
         players.iter_mut().enumerate().for_each(|(i, p)| {
-            p.argument = i as f64 + 0.5;
+            p.argument = i as f64 + 1.0;
         });
 
         Self {
@@ -36,6 +36,7 @@ impl SummaryChart {
             .x_axis_formatter(format_axis)
             .label_formatter(format_label)
             .legend(Legend::default())
+            .include_y(0.0)
             .show(ui, |p| {
                 for player in self.players.iter() {
                     let chart = BarChart::new(vec![player.clone()])
