@@ -1,6 +1,6 @@
 use std::{ops::RangeInclusive, sync::Arc};
 
-use eframe::egui::plot::PlotPoint;
+use eframe::egui::plot::*;
 
 use crate::{analyzer::Hit, helpers::number_formatting::NumberFormatter};
 
@@ -64,4 +64,9 @@ pub fn format_label(name: &str, point: &PlotPoint) -> String {
     let x = formatter.format(point.x, 2);
     let y = formatter.format(point.y, 2);
     format!("{}\nDPS: {}\nTime: {}", name, y, x)
+}
+
+pub fn format_element(bar: &Bar, _: &BarChart) -> String {
+    let mut formatter = NumberFormatter::new();
+    format!("{}\n{}", bar.name, formatter.format(bar.value, 2))
 }

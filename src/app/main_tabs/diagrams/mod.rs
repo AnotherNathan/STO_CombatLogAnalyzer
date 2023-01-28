@@ -1,11 +1,13 @@
 mod common;
 mod damage_chart;
 mod dps_graph;
+mod summary_chart;
 
 pub use common::PreparedDataSet;
 pub use dps_graph::DpsGraph;
 use eframe::egui::Ui;
 use itertools::Itertools;
+pub use summary_chart::SummaryChart;
 
 use crate::analyzer::DamageGroup;
 

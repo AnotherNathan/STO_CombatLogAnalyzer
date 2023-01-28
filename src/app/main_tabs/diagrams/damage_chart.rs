@@ -1,7 +1,5 @@
 use eframe::egui::{plot::*, *};
 
-use crate::helpers::number_formatting::NumberFormatter;
-
 use super::common::*;
 
 pub struct DamageChart {
@@ -109,12 +107,7 @@ impl DamageBars {
 
     fn chart(&self) -> BarChart {
         BarChart::new(self.bars.clone())
-            .element_formatter(Box::new(Self::format_element))
+            .element_formatter(Box::new(format_element))
             .name(&self.data.name)
-    }
-
-    fn format_element(bar: &Bar, _: &BarChart) -> String {
-        let mut formatter = NumberFormatter::new();
-        format!("{}\n{}", bar.name, formatter.format(bar.value, 2))
     }
 }
