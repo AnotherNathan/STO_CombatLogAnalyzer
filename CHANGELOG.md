@@ -1,6 +1,8 @@
 # Change Log
 
 ## Unreleased
+### Fixes
+- fixed some abilities (e.g. concentrate firepower) not being counter as outgoing damage
 
 ## v0.2.0 (28.01.2023)
 ### Major changes
