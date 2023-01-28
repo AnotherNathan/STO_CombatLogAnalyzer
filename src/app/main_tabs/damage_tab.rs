@@ -55,26 +55,34 @@ impl DamageTab {
     }
 
     fn make_selection_diagrams(
-        part: Option<&DamageTablePart>,
+        selection: TableSelection,
         dps_filter: f64,
         damage_time_slice: f64,
     ) -> Option<DamageDiagrams> {
-        let part = part?;
-        if part.sub_parts.len() == 0 {
-            return Some(DamageDiagrams::from_data(
-                [PreparedDamageDataSet::new(
-                    &part.name,
-                    part.dps(),
-                    part.total_damage(),
-                    part.source_hits.iter(),
-                )]
-                .into_iter(),
+        match selection {
+            TableSelection::SubPartsOrSingle(part) if part.sub_parts.len() == 0 => Some(
+                Self::make_single_diagram_selection(part, dps_filter, damage_time_slice),
+            ),
+            TableSelection::Single(part) => Some(Self::make_single_diagram_selection(
+                part,
                 dps_filter,
                 damage_time_slice,
-            ));
+            )),
+            TableSelection::SubPartsOrSingle(part) => Some(Self::make_sub_parts_diagram_selection(
+                part,
+                dps_filter,
+                damage_time_slice,
+            )),
+            TableSelection::Unselect => None,
         }
+    }
 
-        Some(DamageDiagrams::from_data(
+    fn make_sub_parts_diagram_selection(
+        part: &DamageTablePart,
+        dps_filter: f64,
+        damage_time_slice: f64,
+    ) -> DamageDiagrams {
+        DamageDiagrams::from_data(
             part.sub_parts.iter().map(|p| {
                 PreparedDamageDataSet::new(
                     &p.name,
@@ -85,7 +93,25 @@ impl DamageTab {
             }),
             dps_filter,
             damage_time_slice,
-        ))
+        )
+    }
+
+    fn make_single_diagram_selection(
+        part: &DamageTablePart,
+        dps_filter: f64,
+        damage_time_slice: f64,
+    ) -> DamageDiagrams {
+        return DamageDiagrams::from_data(
+            [PreparedDamageDataSet::new(
+                &part.name,
+                part.dps(),
+                part.total_damage(),
+                part.source_hits.iter(),
+            )]
+            .into_iter(),
+            dps_filter,
+            damage_time_slice,
+        );
     }
 
     fn update_diagrams(&mut self) {

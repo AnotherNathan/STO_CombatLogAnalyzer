@@ -42,6 +42,12 @@ pub struct DamageTablePart {
     open: bool,
 }
 
+pub enum TableSelection<'a> {
+    SubPartsOrSingle(&'a DamageTablePart),
+    Single(&'a DamageTablePart),
+    Unselect,
+}
+
 struct MaxOneHit {
     damage: TextValue,
     name: String,
@@ -80,7 +86,7 @@ impl DamageTable {
         table
     }
 
-    pub fn show(&mut self, ui: &mut Ui, mut on_selected: impl FnMut(Option<&DamageTablePart>)) {
+    pub fn show(&mut self, ui: &mut Ui, mut on_selected: impl FnMut(TableSelection)) {
         ScrollArea::horizontal()
             .min_scrolled_width(0.0)
             .show(ui, |ui| {
@@ -206,7 +212,7 @@ impl DamageTablePart {
         table: &mut TableBody,
         indent: f32,
         selected_id: &mut Option<u32>,
-        on_selected: &mut impl FnMut(Option<&DamageTablePart>),
+        on_selected: &mut impl FnMut(TableSelection),
     ) {
         table.row(ROW_HEIGHT, |mut r| {
             r.col(|ui| {
@@ -225,18 +231,29 @@ impl DamageTablePart {
                     if name_response.clicked() {
                         if *selected_id == Some(self.id) {
                             *selected_id = None;
-                            on_selected(None);
+                            on_selected(TableSelection::Unselect);
                         } else {
                             *selected_id = Some(self.id);
-                            on_selected(Some(self));
+                            on_selected(TableSelection::SubPartsOrSingle(self));
                         }
                     }
+
                     name_response.context_menu(|ui| {
                         if ui
                             .selectable_label(false, "copy name to clipboard")
                             .clicked()
                         {
                             ui.output().copied_text = self.name.clone();
+                            ui.close_menu();
+                        }
+
+                        if ui
+                            .selectable_label(false, "show diagrams for this")
+                            .clicked()
+                        {
+                            *selected_id = Some(self.id);
+                            on_selected(TableSelection::Single(self));
+                            ui.close_menu();
                         }
                     });
                 });
