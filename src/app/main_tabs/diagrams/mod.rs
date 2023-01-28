@@ -3,7 +3,7 @@ mod damage_chart;
 mod dps_graph;
 mod summary_chart;
 
-pub use common::PreparedDataSet;
+pub use common::PreparedDamageDataSet;
 pub use dps_graph::DpsGraph;
 use eframe::egui::Ui;
 use itertools::Itertools;
@@ -38,8 +38,10 @@ impl DamageDiagrams {
         damage_time_slice: f64,
     ) -> Self {
         let data = groups.map(|g| {
-            PreparedDataSet::new(
+            PreparedDamageDataSet::new(
                 g.name.as_str(),
+                g.dps,
+                g.total_damage.all,
                 g.hull_hits.iter().chain(g.shield_hits.iter()),
             )
         });
@@ -48,7 +50,7 @@ impl DamageDiagrams {
     }
 
     pub fn from_data(
-        data: impl Iterator<Item = PreparedDataSet>,
+        data: impl Iterator<Item = PreparedDamageDataSet>,
         dps_filter: f64,
         damage_time_slice: f64,
     ) -> Self {

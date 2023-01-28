@@ -5,15 +5,22 @@ use eframe::egui::plot::*;
 use crate::{analyzer::Hit, helpers::number_formatting::NumberFormatter};
 
 #[derive(Clone)]
-pub struct PreparedDataSet {
+pub struct PreparedDamageDataSet {
     pub name: String,
+    pub dps: f64,
+    pub total_damage: f64,
     pub hits: Arc<[Hit]>,
     pub start_time_s: f64,
     pub duration_s: f64,
 }
 
-impl PreparedDataSet {
-    pub fn new<'a>(name: &str, hits: impl Iterator<Item = &'a Hit>) -> PreparedDataSet {
+impl PreparedDamageDataSet {
+    pub fn new<'a>(
+        name: &str,
+        dps: f64,
+        total_damage: f64,
+        hits: impl Iterator<Item = &'a Hit>,
+    ) -> PreparedDamageDataSet {
         let mut hits = Vec::from_iter(hits.copied());
         hits.sort_unstable_by_key(|h| h.times_millis);
         hits.dedup_by(|h1, h2| {
@@ -32,6 +39,8 @@ impl PreparedDataSet {
 
         Self {
             name: name.to_string(),
+            dps,
+            total_damage,
             hits: Arc::from(hits),
             start_time_s,
             duration_s,

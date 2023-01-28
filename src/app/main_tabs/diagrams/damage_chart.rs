@@ -9,7 +9,7 @@ pub struct DamageChart {
 }
 
 struct DamageBars {
-    data: PreparedDataSet,
+    data: PreparedDamageDataSet,
     bars: Vec<Bar>,
 }
 
@@ -22,8 +22,17 @@ impl DamageChart {
         }
     }
 
-    pub fn from_data<'a>(bars: impl Iterator<Item = PreparedDataSet>, time_slice: f64) -> Self {
-        let bars = bars.map(|d| DamageBars::new(d)).collect();
+    pub fn from_data<'a>(
+        bars: impl Iterator<Item = PreparedDamageDataSet>,
+        time_slice: f64,
+    ) -> Self {
+        let mut bars: Vec<_> = bars.map(|d| DamageBars::new(d)).collect();
+        bars.sort_unstable_by(|b1, b2| {
+            b1.data
+                .total_damage
+                .total_cmp(&b2.data.total_damage)
+                .reverse()
+        });
         Self {
             newly_created: true,
             bars,
@@ -64,7 +73,7 @@ impl DamageChart {
 }
 
 impl DamageBars {
-    fn new(data: PreparedDataSet) -> Self {
+    fn new(data: PreparedDamageDataSet) -> Self {
         Self {
             data,
             bars: Vec::new(),

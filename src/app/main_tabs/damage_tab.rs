@@ -62,16 +62,27 @@ impl DamageTab {
         let part = part?;
         if part.sub_parts.len() == 0 {
             return Some(DamageDiagrams::from_data(
-                [PreparedDataSet::new(&part.name, part.source_hits.iter())].into_iter(),
+                [PreparedDamageDataSet::new(
+                    &part.name,
+                    part.dps(),
+                    part.total_damage(),
+                    part.source_hits.iter(),
+                )]
+                .into_iter(),
                 dps_filter,
                 damage_time_slice,
             ));
         }
 
         Some(DamageDiagrams::from_data(
-            part.sub_parts
-                .iter()
-                .map(|p| PreparedDataSet::new(&p.name, p.source_hits.iter())),
+            part.sub_parts.iter().map(|p| {
+                PreparedDamageDataSet::new(
+                    &p.name,
+                    part.dps(),
+                    part.total_damage(),
+                    p.source_hits.iter(),
+                )
+            }),
             dps_filter,
             damage_time_slice,
         ))

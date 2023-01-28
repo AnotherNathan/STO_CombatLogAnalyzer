@@ -205,6 +205,14 @@ impl DamageTablePart {
         }
     }
 
+    pub fn dps(&self) -> f64 {
+        self.dps.all.value
+    }
+
+    pub fn total_damage(&self) -> f64 {
+        self.total_damage.all.value
+    }
+
     fn show(
         &mut self,
         table: &mut TableBody,

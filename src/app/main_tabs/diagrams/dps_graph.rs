@@ -17,7 +17,7 @@ pub struct DpsGraph {
 
 pub struct DpsLine {
     points: Vec<[f64; 2]>,
-    data: PreparedDataSet,
+    data: PreparedDamageDataSet,
 }
 
 impl DpsGraph {
@@ -30,7 +30,7 @@ impl DpsGraph {
         }
     }
 
-    pub fn from_data<'a>(lines: impl Iterator<Item = PreparedDataSet>, filter: f64) -> Self {
+    pub fn from_data<'a>(lines: impl Iterator<Item = PreparedDamageDataSet>, filter: f64) -> Self {
         let lines: Vec<_> = lines.map(|l| DpsLine::new(l)).collect();
         let largest_point = Self::compute_largest_point(&lines);
         Self {
@@ -85,7 +85,7 @@ impl DpsGraph {
 }
 
 impl DpsLine {
-    fn new<'a>(data: PreparedDataSet) -> Self {
+    fn new<'a>(data: PreparedDamageDataSet) -> Self {
         Self {
             points: Vec::new(),
             data,
