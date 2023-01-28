@@ -32,3 +32,6 @@ itertools = "0.10.5"
 
 [profile.release]
 lto = "thin"
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"
