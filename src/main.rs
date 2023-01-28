@@ -22,6 +22,7 @@ fn main() {
     logging::initialize();
     let native_options = eframe::NativeOptions {
         initial_window_size: Some(vec2(1280.0, 720.0)),
+        min_window_size: Some(vec2(480.0, 270.0)),
         ..Default::default()
     };
 
