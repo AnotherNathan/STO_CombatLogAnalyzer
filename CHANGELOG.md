@@ -1,6 +1,8 @@
 # Change Log
 
 ## Unreleased
+
+## v0.2.1 (29.01.2023)
 ### Fixes
 - fixed some abilities (e.g. concentrate firepower) not being counted as outgoing damage
 
