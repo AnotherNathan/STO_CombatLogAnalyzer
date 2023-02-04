@@ -22,9 +22,9 @@ impl PreparedDamageDataSet {
         hits: impl Iterator<Item = &'a Hit>,
     ) -> PreparedDamageDataSet {
         let mut hits = Vec::from_iter(hits.copied());
-        hits.sort_unstable_by_key(|h| h.times_millis);
+        hits.sort_unstable_by_key(|h| h.time_millis);
         hits.dedup_by(|h1, h2| {
-            if h1.times_millis != h2.times_millis {
+            if h1.time_millis != h2.time_millis {
                 return false;
             }
 
@@ -32,8 +32,8 @@ impl PreparedDamageDataSet {
             true
         });
 
-        let start_time_s = hits.iter().map(|h| h.times_millis).min().unwrap_or(0) as f64 / 1e3;
-        let end_time_s = hits.iter().map(|h| h.times_millis).max().unwrap_or(0) as f64 / 1e3;
+        let start_time_s = hits.iter().map(|h| h.time_millis).min().unwrap_or(0) as f64 / 1e3;
+        let end_time_s = hits.iter().map(|h| h.time_millis).max().unwrap_or(0) as f64 / 1e3;
 
         let duration_s = end_time_s - start_time_s;
 

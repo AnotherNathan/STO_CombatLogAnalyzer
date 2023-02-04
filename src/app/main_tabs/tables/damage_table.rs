@@ -1,26 +1,84 @@
-use bitflags::bitflags;
+use std::cmp::Reverse;
+
 use eframe::egui::*;
 use egui_extras::{Column, TableBody, TableBuilder, TableRow};
 
-use crate::{analyzer::*, app::main_tabs::common::*, helpers::number_formatting::NumberFormatter};
+use crate::{
+    analyzer::*,
+    app::main_tabs::common::*,
+    helpers::{number_formatting::NumberFormatter, F64TotalOrd},
+};
+
+macro_rules! col {
+    ($name:expr, $sort:expr, $show:expr $(,)?) => {
+        ColumnDescriptor {
+            name: $name,
+            sort: $sort,
+            show: $show,
+        }
+    };
+}
+
+static COLUMNS: &[ColumnDescriptor] = &[
+    col!(
+        "Total Damage",
+        |t| t.sort_by_option_f64_desc(|p| p.total_damage.all.value),
+        |t, r| t.total_damage.show(r),
+    ),
+    col!(
+        "DPS",
+        |t| t.sort_by_option_f64_desc(|p| p.dps.all.value),
+        |t, r| t.dps.show(r),
+    ),
+    col!(
+        "Damage %",
+        |t| t.sort_by_option_f64_desc(|p| p.damage_percentage.value),
+        |t, r| {
+            t.damage_percentage.show(r);
+        },
+    ),
+    col!(
+        "Damage Resistance %",
+        |t| t.sort_by_option_f64_asc(|p| p.damage_resistance_percentage.all.value),
+        |t, r| t.damage_resistance_percentage.show(r),
+    ),
+    col!(
+        "Damage Resistance",
+        |t| t.sort_by_option_f64_asc(|p| p.damage_resistance.all.value),
+        |t, r| t.damage_resistance.show(r),
+    ),
+    col!(
+        "Max One-Hit",
+        |t| t.sort_by_option_f64_desc(|p| p.max_one_hit.damage.value),
+        |t, r| t.max_one_hit.show(r),
+    ),
+    col!(
+        "Average Hit",
+        |t| t.sort_by_option_f64_desc(|p| p.average_hit.all.value),
+        |t, r| t.average_hit.show(r),
+    ),
+    col!(
+        "Critical Chance %",
+        |t| t.sort_by_option_f64_desc(|p| p.critical_chance.value),
+        |t, r| {
+            t.critical_chance.show(r);
+        },
+    ),
+    col!(
+        "Flanking %",
+        |t| t.sort_by_option_f64_desc(|p| p.flanking.value),
+        |t, r| {
+            t.flanking.show(r);
+        },
+    ),
+    col!("Hits", |t| t.sort_by_desc(|p| p.hits.all), |t, r| {
+        t.hits.show(r);
+    },),
+];
 
 pub struct DamageTable {
     players: Vec<DamageTablePart>,
     selected_id: Option<u32>,
-}
-
-bitflags! {
-    pub struct TableColumns: u32{
-        const NONE = 0;
-        const TOTAL_DAMAGE = 1<<0;
-        const DPS = 1<<1;
-        const MAX_ONE_HIT = 1<<2;
-        const AVERAGE_HIT = 1<<3;
-        const CRITICAL_CHANCE = 1<<4;
-        const FLANKING = 1<<5;
-        const HITS = 1<<6;
-        const DAMAGE_PERCENTAGE = 1<<7;
-    }
 }
 
 pub struct DamageTablePart {
@@ -32,6 +90,8 @@ pub struct DamageTablePart {
     average_hit: ShieldAndHullTextValue,
     critical_chance: TextValue,
     flanking: TextValue,
+    damage_resistance_percentage: ShieldAndHullTextValue,
+    damage_resistance: ShieldAndHullTextValue,
     hits: Hits,
     pub sub_parts: Vec<DamageTablePart>,
 
@@ -54,10 +114,16 @@ struct MaxOneHit {
 }
 
 struct Hits {
-    all: usize,
+    all: u64,
     all_text: String,
     shield: String,
     hull: String,
+}
+
+struct ColumnDescriptor {
+    name: &'static str,
+    sort: fn(&mut DamageTable),
+    show: fn(&mut DamageTablePart, &mut TableRow),
 }
 
 impl DamageTable {
@@ -81,7 +147,7 @@ impl DamageTable {
                 .collect(),
             selected_id: None,
         };
-        table.sort(TableColumns::TOTAL_DAMAGE);
+        (COLUMNS[0].sort)(&mut table);
 
         table
     }
@@ -91,7 +157,7 @@ impl DamageTable {
             .min_scrolled_width(0.0)
             .show(ui, |ui| {
                 TableBuilder::new(ui)
-                    .columns(Column::auto(), 9)
+                    .columns(Column::auto(), COLUMNS.len() + 1)
                     .striped(true)
                     .min_scrolled_height(0.0)
                     .max_scroll_height(f32::MAX)
@@ -99,18 +165,10 @@ impl DamageTable {
                         r.col(|ui| {
                             ui.label("Name");
                         });
-                        self.show_column_header(&mut r, "Total Damage", TableColumns::TOTAL_DAMAGE);
-                        self.show_column_header(&mut r, "DPS", TableColumns::DPS);
-                        self.show_column_header(&mut r, "Damage %", TableColumns::DPS);
-                        self.show_column_header(&mut r, "Max One-Hit", TableColumns::MAX_ONE_HIT);
-                        self.show_column_header(&mut r, "Average Hit", TableColumns::AVERAGE_HIT);
-                        self.show_column_header(
-                            &mut r,
-                            "Critical Chance %",
-                            TableColumns::CRITICAL_CHANCE,
-                        );
-                        self.show_column_header(&mut r, "Flanking %", TableColumns::FLANKING);
-                        self.show_column_header(&mut r, "Hits", TableColumns::HITS);
+
+                        for column in COLUMNS.iter() {
+                            self.show_column_header(&mut r, column);
+                        }
                     })
                     .body(|mut t| {
                         for player in self.players.iter_mut() {
@@ -120,47 +178,40 @@ impl DamageTable {
             });
     }
 
-    fn show_column_header(&mut self, row: &mut TableRow, column_name: &str, column: TableColumns) {
+    fn show_column_header(&mut self, row: &mut TableRow, column: &ColumnDescriptor) {
         row.col(|ui| {
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if ui.selectable_label(false, column_name).clicked() {
-                    self.sort(column);
+                if ui.selectable_label(false, column.name).clicked() {
+                    (column.sort)(self);
                 }
             });
         });
     }
 
-    pub fn sort(&mut self, by_column: TableColumns) {
-        if by_column.contains(TableColumns::TOTAL_DAMAGE) {
-            self.sort_by(|p| p.total_damage.all.value);
-        } else if by_column.contains(TableColumns::DPS) {
-            self.sort_by(|p| p.dps.all.value);
-        } else if by_column.contains(TableColumns::MAX_ONE_HIT) {
-            self.sort_by(|p| p.max_one_hit.damage.value);
-        } else if by_column.contains(TableColumns::AVERAGE_HIT) {
-            self.sort_by(|p| p.average_hit.all.value);
-        } else if by_column.contains(TableColumns::CRITICAL_CHANCE) {
-            self.sort_by(|p| p.critical_chance.value);
-        } else if by_column.contains(TableColumns::FLANKING) {
-            self.sort_by(|p| p.flanking.value);
-        } else if by_column.contains(TableColumns::HITS) {
-            self.sort_by_key(|p| p.hits.all);
-        } else if by_column.contains(TableColumns::DAMAGE_PERCENTAGE) {
-            self.sort_by(|p| p.damage_percentage.value);
-        }
+    fn sort_by_option_f64_desc(
+        &mut self,
+        mut key: impl FnMut(&DamageTablePart) -> Option<f64> + Copy,
+    ) {
+        self.sort_by_desc(move |p| key(p).map(|v| F64TotalOrd(v)));
     }
 
-    fn sort_by(&mut self, mut key: impl FnMut(&DamageTablePart) -> f64 + Copy) {
-        self.players
-            .sort_unstable_by(|p1, p2| key(p1).total_cmp(&key(p2)).reverse());
-
-        self.players.iter_mut().for_each(|p| p.sort_by(key));
+    fn sort_by_option_f64_asc(
+        &mut self,
+        mut key: impl FnMut(&DamageTablePart) -> Option<f64> + Copy,
+    ) {
+        self.sort_by_asc(move |p| key(p).map(|v| F64TotalOrd(v)));
     }
 
-    fn sort_by_key<K: Ord>(&mut self, mut key: impl FnMut(&DamageTablePart) -> K + Copy) {
-        self.players.sort_unstable_by_key(|p| key(p));
+    fn sort_by_desc<K: Ord>(&mut self, mut key: impl FnMut(&DamageTablePart) -> K + Copy) {
+        self.players.sort_unstable_by_key(|p| Reverse(key(p)));
 
-        self.players.iter_mut().for_each(|p| p.sort_by_key(key));
+        self.players.iter_mut().for_each(|p| p.sort_by_desc(key));
+    }
+
+    fn sort_by_asc<K: Ord>(&mut self, key: impl FnMut(&DamageTablePart) -> K + Copy) {
+        self.players.sort_unstable_by_key(key);
+
+        self.players.iter_mut().for_each(|p| p.sort_by_asc(key));
     }
 }
 
@@ -182,29 +233,39 @@ impl DamageTablePart {
             total_damage: ShieldAndHullTextValue::new(&source.total_damage, 2, number_formatter),
             dps: ShieldAndHullTextValue::new(&source.dps, 2, number_formatter),
             damage_percentage: TextValue::new(source.damage_percentage, 3, number_formatter),
-            average_hit: ShieldAndHullTextValue::new(&source.average_hit, 2, number_formatter),
+            average_hit: ShieldAndHullTextValue::option(&source.average_hit, 2, number_formatter),
             critical_chance: TextValue::new(source.critical_chance, 3, number_formatter),
             flanking: TextValue::new(source.flanking, 3, number_formatter),
             max_one_hit: MaxOneHit::new(source, number_formatter),
+            damage_resistance_percentage: ShieldAndHullTextValue::option(
+                &source.damage_resistance_percentage,
+                3,
+                number_formatter,
+            ),
+            damage_resistance: ShieldAndHullTextValue::option(
+                &source.damage_resistance,
+                2,
+                number_formatter,
+            ),
             hits: Hits::new(source),
             sub_parts,
             open: false,
             id,
             source_hits: source
-                .hull_hits
+                .hits
                 .iter()
-                .chain(source.hull_hits.iter())
+                .chain(source.hits.iter())
                 .copied()
                 .collect(),
         }
     }
 
     pub fn dps(&self) -> f64 {
-        self.dps.all.value
+        self.dps.all.value.unwrap()
     }
 
     pub fn total_damage(&self) -> f64 {
-        self.total_damage.all.value
+        self.total_damage.all.value.unwrap()
     }
 
     fn show(
@@ -259,14 +320,9 @@ impl DamageTablePart {
                 });
             });
 
-            self.total_damage.show(&mut r);
-            self.dps.show(&mut r);
-            self.damage_percentage.show(&mut r);
-            self.max_one_hit.show(&mut r);
-            self.average_hit.show(&mut r);
-            self.critical_chance.show(&mut r);
-            self.flanking.show(&mut r);
-            self.hits.show(&mut r);
+            for column in COLUMNS.iter() {
+                (column.show)(self, &mut r);
+            }
         });
 
         if self.open {
@@ -276,17 +332,16 @@ impl DamageTablePart {
         }
     }
 
-    fn sort_by(&mut self, mut key: impl FnMut(&Self) -> f64 + Copy) {
-        self.sub_parts
-            .sort_unstable_by(|p1, p2| key(p1).total_cmp(&key(p2)).reverse());
+    fn sort_by_desc<K: Ord>(&mut self, mut key: impl FnMut(&DamageTablePart) -> K + Copy) {
+        self.sub_parts.sort_unstable_by_key(|p| Reverse(key(p)));
 
-        self.sub_parts.iter_mut().for_each(|p| p.sort_by(key));
+        self.sub_parts.iter_mut().for_each(|p| p.sort_by_desc(key));
     }
 
-    fn sort_by_key<K: Ord>(&mut self, mut key: impl FnMut(&DamageTablePart) -> K + Copy) {
-        self.sub_parts.sort_unstable_by_key(|p| key(p));
+    fn sort_by_asc<K: Ord>(&mut self, key: impl FnMut(&DamageTablePart) -> K + Copy) {
+        self.sub_parts.sort_unstable_by_key(key);
 
-        self.sub_parts.iter_mut().for_each(|p| p.sort_by_key(key));
+        self.sub_parts.iter_mut().for_each(|p| p.sort_by_asc(key));
     }
 }
 
@@ -299,17 +354,19 @@ impl MaxOneHit {
     }
 
     fn show(&self, row: &mut TableRow) {
-        self.damage.show(row).on_hover_text(&self.name);
+        if let Some(response) = self.damage.show(row) {
+            response.on_hover_text(&self.name);
+        }
     }
 }
 
 impl Hits {
     fn new(source: &DamageGroup) -> Self {
         Self {
-            all: source.hits(),
-            all_text: source.hits().to_string(),
-            shield: source.shield_hits().to_string(),
-            hull: source.hull_hits().to_string(),
+            all: source.damage_metrics.hits,
+            all_text: source.damage_metrics.hits.to_string(),
+            shield: source.shield_hits.to_string(),
+            hull: source.hull_hits.to_string(),
         }
     }
 

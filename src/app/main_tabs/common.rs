@@ -4,14 +4,17 @@ use chrono::{Duration, NaiveDateTime, NaiveTime};
 use eframe::egui::*;
 use egui_extras::*;
 
-use crate::{analyzer::ShieldHullValues, helpers::number_formatting::NumberFormatter};
+use crate::{
+    analyzer::{ShieldHullOptionalValues, ShieldHullValues},
+    helpers::number_formatting::NumberFormatter,
+};
 
 pub const ROW_HEIGHT: f32 = 20.0;
 
 #[derive(Default)]
 pub struct TextValue {
-    pub text: String,
-    pub value: f64,
+    pub text: Option<String>,
+    pub value: Option<f64>,
 }
 
 #[derive(Default)]
@@ -45,22 +48,65 @@ impl ShieldAndHullTextValue {
         }
     }
 
+    pub fn option(
+        value: &ShieldHullOptionalValues,
+        precision: usize,
+        number_formatter: &mut NumberFormatter,
+    ) -> Self {
+        Self {
+            all: TextValue::option(value.all, precision, number_formatter),
+            shield: value
+                .shield
+                .map(|s| number_formatter.format(s, precision))
+                .unwrap_or_default(),
+            hull: value
+                .hull
+                .map(|h| number_formatter.format(h, precision))
+                .unwrap_or_default(),
+        }
+    }
+
     pub fn show(&self, row: &mut TableRow) {
         let response = self.all.show(row);
-        show_shield_hull_values_tool_tip(response, &self.shield, &self.hull);
+        if let Some(response) = response {
+            show_shield_hull_values_tool_tip(response, &self.shield, &self.hull);
+        }
     }
 }
 
 impl TextValue {
     pub fn new(value: f64, precision: usize, number_formatter: &mut NumberFormatter) -> Self {
         Self {
-            text: number_formatter.format(value, precision),
-            value,
+            text: Some(number_formatter.format(value, precision)),
+            value: Some(value),
         }
     }
 
-    pub fn show(&self, row: &mut TableRow) -> Response {
-        show_value_text(row, &self.text)
+    pub fn option(
+        value: Option<f64>,
+        precision: usize,
+        number_formatter: &mut NumberFormatter,
+    ) -> Self {
+        if let Some(value) = value {
+            return Self {
+                text: Some(number_formatter.format(value, precision)),
+                value: Some(value),
+            };
+        }
+
+        return Self {
+            text: None,
+            value: None,
+        };
+    }
+
+    pub fn show(&self, row: &mut TableRow) -> Option<Response> {
+        if let Some(text) = &self.text {
+            return Some(show_value_text(row, text));
+        }
+
+        row.col(|_| {});
+        None
     }
 }
 

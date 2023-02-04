@@ -134,59 +134,57 @@ impl SummaryTab {
             .striped(true)
             .max_scroll_height(f32::MAX)
             .body(|mut t| {
-                Self::summary_row(&mut t, "Combat Duration", &self.combat_duration.text);
-                Self::summary_row(
+                Self::simple_summary_row(&mut t, "Combat Duration", &self.combat_duration.text);
+                Self::simple_summary_row(
                     &mut t,
                     "Active Duration (duration of everything)",
                     &self.active_duration.text,
                 );
 
-                let response = Self::summary_row(
+                Self::hull_shield_summary_row(
                     &mut t,
                     "Total Outgoing Damage",
-                    &self.total_damage_out.all.text,
-                );
-                show_shield_hull_values_tool_tip(
-                    response,
-                    &self.total_damage_out.shield,
-                    &self.total_damage_out.hull,
+                    &self.total_damage_out,
                 );
 
-                let response = Self::summary_row(
+                Self::hull_shield_summary_row(
                     &mut t,
                     "Total Incoming Damage",
-                    &self.total_damage_in.all.text,
-                );
-                show_shield_hull_values_tool_tip(
-                    response,
-                    &self.total_damage_in.shield,
-                    &self.total_damage_in.hull,
+                    &self.total_damage_in,
                 );
 
-                Self::summary_row(&mut t, "Total Kills", &self.total_kills.text);
-                Self::summary_row(&mut t, "Total Deaths", &self.total_deaths.text);
+                Self::simple_summary_row(&mut t, "Total Kills", &self.total_kills.text);
+                Self::simple_summary_row(&mut t, "Total Deaths", &self.total_deaths.text);
             });
     }
 
-    fn summary_row(table: &mut TableBody, description: &str, value: &str) -> Response {
-        let mut response = None;
+    fn simple_summary_row(table: &mut TableBody, description: &str, value: &str) {
         table.row(ROW_HEIGHT, |mut r| {
+            Self::show_description(&mut r, description);
             r.col(|ui| {
-                ui.horizontal(|ui| {
-                    ui.label(description);
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    ui.label(value);
                 });
             });
-
-            response = Some(
-                r.col(|ui| {
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.label(value);
-                    });
-                })
-                .1,
-            );
         });
+    }
 
-        response.unwrap()
+    fn hull_shield_summary_row(
+        table: &mut TableBody,
+        description: &str,
+        value: &ShieldAndHullTextValue,
+    ) {
+        table.row(ROW_HEIGHT, |mut r| {
+            Self::show_description(&mut r, description);
+            value.show(&mut r);
+        });
+    }
+
+    fn show_description(row: &mut TableRow, description: &str) {
+        row.col(|ui| {
+            ui.horizontal(|ui| {
+                ui.label(description);
+            });
+        });
     }
 }

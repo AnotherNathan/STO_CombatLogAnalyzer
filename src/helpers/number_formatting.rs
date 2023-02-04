@@ -14,6 +14,8 @@ impl NumberFormatter {
     pub fn format(&mut self, number: f64, precision: usize) -> String {
         let mut result = String::new();
 
+        let is_negative = number.is_sign_negative();
+
         let mut number = number.abs();
         let fract = number.fract();
 
@@ -45,6 +47,10 @@ impl NumberFormatter {
         self.buffer.remove(0);
         result.push_str(&self.buffer);
 
+        if is_negative {
+            result.insert(0, '-');
+        }
+
         result
     }
 }
@@ -62,13 +68,12 @@ mod tests {
         assert_eq!(formatter.format(12345.123, 2), "12'345.12");
         assert_eq!(formatter.format(123456789.0, 2), "123'456'789.00");
 
-        assert_eq!(formatter.format(-123456789.0, 2), "123'456'789.00");
-
         assert_eq!(formatter.format(12012.0, 2), "12'012.00");
         assert_eq!(formatter.format(12012012.0, 2), "12'012'012.00");
 
         assert_eq!(formatter.format(12012012.0, 0), "12'012'012");
 
         assert_eq!(formatter.format(1.567, 2), "1.57");
+        assert_eq!(formatter.format(-1.567, 2), "-1.57");
     }
 }

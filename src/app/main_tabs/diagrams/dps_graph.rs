@@ -109,7 +109,7 @@ impl DpsLine {
     }
 
     fn get_sample_entry(hits: &[Hit], time_millis: u32) -> usize {
-        match hits.binary_search_by_key(&time_millis, |h| h.times_millis) {
+        match hits.binary_search_by_key(&time_millis, |h| h.time_millis) {
             Ok(i) => i,
             Err(i) => i,
         }
@@ -128,7 +128,7 @@ impl DpsLine {
         sigma_seconds: f64,
     ) -> Option<f64> {
         let hit = hits.get(index)?;
-        let t = millis_to_seconds(hit.times_millis);
+        let t = millis_to_seconds(hit.time_millis);
         let finite_hack_value = 1e-3;
         let weight = (Self::gauss_probability_density_function(t, time_seconds, sigma_seconds)
             - finite_hack_value)

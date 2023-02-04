@@ -95,7 +95,7 @@ impl DamageBars {
                 }
             };
 
-            if hit.times_millis < time_slice_end {
+            if hit.time_millis < time_slice_end {
                 index += 1;
                 damage += hit.damage;
                 continue;

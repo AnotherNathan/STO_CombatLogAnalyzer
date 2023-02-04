@@ -29,6 +29,10 @@ simplelog = "0.12.0"
 notify = "5.0.0"
 timer = "0.2.0"
 itertools = "0.10.5"
+educe = { version = "0.4.20", default-features = false, features = [
+    "Deref",
+    "DerefMut",
+] }
 
 [profile.release]
 lto = "thin"

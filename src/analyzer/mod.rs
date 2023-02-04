@@ -1,13 +1,16 @@
-use std::{fmt::Write, ops::Range};
+use std::ops::Range;
 
 use chrono::{Duration, NaiveDateTime};
+use educe::Educe;
 use itertools::Itertools;
 use log::warn;
 use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::SmallVec;
 
+mod damage;
 mod parser;
 pub mod settings;
+pub use damage::*;
 
 use self::{parser::*, settings::*};
 
@@ -44,42 +47,19 @@ pub struct Player {
     pub kills: u64,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Educe)]
+#[educe(Deref, DerefMut)]
 pub struct DamageGroup {
     pub name: String,
-    pub total_damage: ShieldHullValues,
+    #[educe(Deref, DerefMut)]
+    pub damage_metrics: DamageMetrics,
     pub max_one_hit: MaxOneHit,
-    pub average_hit: ShieldHullValues,
-    pub critical_chance: f64,
-    pub flanking: f64,
-    pub dps: ShieldHullValues,
     pub damage_percentage: f64,
-    pub hull_hits: Vec<Hit>,
-    pub shield_hits: Vec<Hit>,
+    pub hits: Vec<Hit>,
 
     is_pool: bool,
 
     pub sub_groups: FxHashMap<String, DamageGroup>,
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-pub struct ShieldHullValues {
-    pub all: f64,
-    pub shield: f64,
-    pub hull: f64,
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Hit {
-    pub damage: f64,
-    pub flags: ValueFlags,
-    pub times_millis: u32, // offset to start of combat
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct MaxOneHit {
-    pub name: String,
-    pub damage: f64,
 }
 
 impl Analyzer {
@@ -134,7 +114,7 @@ impl Analyzer {
 
         combat.update_meta_data(&record, &self.settings);
 
-        if record.value.get() == 0.0 {
+        if record.value.is_all_zero() {
             return Ok(());
         }
 
@@ -315,9 +295,7 @@ impl Player {
         settings: &AnalysisSettings,
     ) {
         match record.value {
-            RecordValue::Damage(damage)
-                if !record.sub_source.is_none() || !record.target.is_none() =>
-            {
+            RecordValue::Damage(damage) if !record.is_direct_self_damage() => {
                 let path = Self::build_grouping_path(record, settings);
 
                 self.damage_out.add_damage(
@@ -442,104 +420,31 @@ impl DamageGroup {
     fn new(name: &str, is_pool: bool) -> Self {
         Self {
             name: name.to_string(),
-            total_damage: Default::default(),
-            max_one_hit: MaxOneHit::default(),
-            average_hit: Default::default(),
-            critical_chance: 0.0,
-            flanking: 0.0,
-            hull_hits: Vec::new(),
-            shield_hits: Vec::new(),
-            dps: Default::default(),
+            damage_metrics: DamageMetrics::default(),
+            hits: Vec::new(),
+            max_one_hit: Default::default(),
             damage_percentage: 0.0,
             sub_groups: Default::default(),
             is_pool,
         }
     }
 
-    pub fn shield_hits(&self) -> usize {
-        self.shield_hits.len()
-    }
-
-    pub fn hull_hits(&self) -> usize {
-        self.hull_hits.len()
-    }
-
-    pub fn hits(&self) -> usize {
-        self.shield_hits() + self.hull_hits()
-    }
-
     fn recalculate_metrics(&mut self, combat_duration: f64) {
-        self.max_one_hit.reset();
-        self.total_damage.hull = 0.0;
-        self.total_damage.shield = 0.0;
-
-        let mut crits_count = 0;
-        let mut flanks_count = 0;
-
         if self.sub_groups.len() > 0 {
-            self.shield_hits.clear();
-            self.hull_hits.clear();
+            self.max_one_hit.reset();
+            self.hits.clear();
 
             for sub_group in self.sub_groups.values_mut() {
                 sub_group.recalculate_metrics(combat_duration);
-                self.shield_hits.extend_from_slice(&sub_group.shield_hits);
-                self.hull_hits.extend_from_slice(&sub_group.hull_hits);
+                self.hits.extend_from_slice(&sub_group.hits);
                 self.max_one_hit
                     .update(&sub_group.max_one_hit.name, sub_group.max_one_hit.damage);
             }
+        } else {
+            self.max_one_hit = MaxOneHit::from_hits(&self.name, &self.hits);
         }
 
-        for hit in self.hull_hits.iter() {
-            self.max_one_hit.update(&self.name, hit.damage);
-            self.total_damage.hull += hit.damage;
-
-            if hit.flags.contains(ValueFlags::CRITICAL) {
-                crits_count += 1;
-            }
-
-            if hit.flags.contains(ValueFlags::FLANK) {
-                flanks_count += 1;
-            }
-        }
-
-        for hit in self.shield_hits.iter().copied() {
-            self.max_one_hit.update(&self.name, hit.damage);
-            self.total_damage.shield += hit.damage;
-        }
-
-        self.total_damage.all = self.total_damage.hull + self.total_damage.shield;
-
-        let critical_chance = if crits_count == 0 {
-            0.0
-        } else {
-            crits_count as f64 / self.hull_hits() as f64
-        };
-        let flanking = if flanks_count == 0 {
-            0.0
-        } else {
-            flanks_count as f64 / self.hull_hits() as f64
-        };
-
-        self.average_hit.all = if self.hits() == 0 {
-            0.0
-        } else {
-            self.total_damage.all / self.hits() as f64
-        };
-        self.average_hit.shield = if self.shield_hits() == 0 {
-            0.0
-        } else {
-            self.total_damage.shield / self.shield_hits() as f64
-        };
-        self.average_hit.hull = if self.hull_hits() == 0 {
-            0.0
-        } else {
-            self.total_damage.hull / self.hull_hits() as f64
-        };
-        self.critical_chance = critical_chance * 100.0;
-        self.flanking = flanking * 100.0;
-        self.dps.all = self.total_damage.all / combat_duration.max(1.0); // avoid absurd high numbers
-        self.dps.shield = self.total_damage.shield / combat_duration.max(1.0); // avoid absurd high numbers
-        self.dps.hull = self.total_damage.hull / combat_duration.max(1.0); // avoid absurd high numbers
+        self.damage_metrics = DamageMetrics::calculate(&self.hits, combat_duration);
     }
 
     fn recalculate_damage_percentage(&mut self, parent_total_damage: f64) {
@@ -550,30 +455,19 @@ impl DamageGroup {
         };
         self.sub_groups
             .values_mut()
-            .for_each(|s| s.recalculate_damage_percentage(self.total_damage.all));
+            .for_each(|s| s.recalculate_damage_percentage(self.damage_metrics.total_damage.all));
     }
 
     fn add_damage(
         &mut self,
         path: &[&str],
-        damage: Value,
+        hit: BaseHit,
         flags: ValueFlags,
         combat_start_offset_millis: u32,
     ) {
         if path.len() == 1 {
             let sub_source = self.get_non_pool_sub_group(path[0]);
-            match damage {
-                Value::Shield(shield_damage) => sub_source.shield_hits.push(Hit {
-                    damage: shield_damage,
-                    flags,
-                    times_millis: combat_start_offset_millis,
-                }),
-                Value::Hull(hull_damage) => sub_source.hull_hits.push(Hit {
-                    damage: hull_damage,
-                    flags,
-                    times_millis: combat_start_offset_millis,
-                }),
-            }
+            sub_source.hits.push(hit.to_hit(combat_start_offset_millis));
 
             return;
         }
@@ -581,7 +475,7 @@ impl DamageGroup {
         let sub_source = self.get_pool_sub_group(path.last().unwrap());
         sub_source.add_damage(
             &path[..path.len() - 1],
-            damage,
+            hit,
             flags,
             combat_start_offset_millis,
         );
@@ -619,21 +513,6 @@ impl DamageGroup {
         }
 
         self.sub_groups.get_mut(sub_group).unwrap()
-    }
-}
-
-impl MaxOneHit {
-    fn update(&mut self, name: &str, damage: f64) {
-        if self.damage < damage {
-            self.damage = damage;
-            self.name.clear();
-            self.name.write_str(name).unwrap();
-        }
-    }
-
-    fn reset(&mut self) {
-        self.name.clear();
-        self.damage = Default::default();
     }
 }
 

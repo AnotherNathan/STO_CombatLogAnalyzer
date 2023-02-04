@@ -6,10 +6,11 @@ use std::{
     path::Path,
 };
 
-use bitflags::bitflags;
 use chrono::NaiveDateTime;
 use lazy_static::lazy_static;
 use regex::Regex;
+
+use super::*;
 
 #[derive(Debug)]
 pub struct Record<'a> {
@@ -41,29 +42,14 @@ pub enum Entity<'a> {
 
 #[derive(Debug, Clone, Copy)]
 pub enum RecordValue {
-    Damage(Value),
-    Heal(Value),
+    Damage(BaseHit),
+    Heal(RecordHeal),
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum Value {
+pub enum RecordHeal {
     Shield(f64),
     Hull(f64),
-}
-
-bitflags! {
-    pub struct ValueFlags: u8{
-        const NONE = 0;
-        const CRITICAL = 1;
-        const FLANK = 1 << 1;
-        const KILL = 1 << 2;
-    }
-}
-
-impl Default for ValueFlags {
-    fn default() -> Self {
-        Self::NONE
-    }
 }
 
 pub struct Parser {
@@ -143,10 +129,10 @@ impl Parser {
         let value_type = parts.next()?.trim();
         let value_flags = parts.next()?.trim();
         let value_flags = ValueFlags::parse(value_flags);
-        let damage_or_heal = parts.next()?.trim();
-        let damage_or_heal_pre_modifiers = parts.next()?.trim();
+        let value1 = parts.next()?.trim();
+        let value2 = parts.next()?.trim();
 
-        let value = RecordValue::new(value_type, damage_or_heal, damage_or_heal_pre_modifiers)?;
+        let value = RecordValue::new(value_type, value1, value2, value_flags)?;
 
         let record = Record {
             time,
@@ -183,21 +169,9 @@ impl<'a> Record<'a> {
     pub fn is_player_out_damage(&self) -> bool {
         self.source.is_player() && self.value.is_damage()
     }
-}
 
-impl ValueFlags {
-    fn parse(input: &str) -> Self {
-        let mut flags = ValueFlags::NONE;
-        for flag in input.split('|') {
-            flags |= match flag {
-                "Critical" => ValueFlags::CRITICAL,
-                "Flank" => ValueFlags::FLANK,
-                "Kill" => ValueFlags::KILL,
-                _ => ValueFlags::NONE,
-            };
-        }
-
-        flags
+    pub fn is_direct_self_damage(&self) -> bool {
+        self.target.is_none() && self.sub_source.is_none() && self.value.is_damage()
     }
 }
 
@@ -269,34 +243,44 @@ impl<'a> Entity<'a> {
 }
 
 impl RecordValue {
-    pub fn new(
-        value_type: &str,
-        damage_or_heal: &str,
-        damage_or_heal_pre_modifiers: &str,
-    ) -> Option<Self> {
-        let damage_or_heal = str::parse::<f64>(damage_or_heal).ok()?;
+    pub fn new(value_type: &str, value1: &str, value2: &str, flags: ValueFlags) -> Option<Self> {
+        let value1 = str::parse::<f64>(value1).ok()?;
+        let value2 = str::parse::<f64>(value2).ok()?;
 
-        if damage_or_heal < 0.0 && value_type == "HitPoints" {
-            if damage_or_heal < 0.0 {
-                return Some(Self::Heal(Value::Hull(damage_or_heal.abs())));
+        if value1 < 0.0 && value_type == "HitPoints" {
+            if value1 < 0.0 {
+                return Some(Self::Heal(RecordHeal::Hull(value1.abs())));
             }
-            return Some(Self::Damage(Value::Hull(damage_or_heal.abs())));
+            return Some(Self::Damage(BaseHit::hull(value1, flags, value2)));
         }
 
         if value_type == "Shield" {
-            if damage_or_heal < 0.0 && damage_or_heal_pre_modifiers == "0" {
-                return Some(Self::Heal(Value::Shield(damage_or_heal.abs())));
+            if value1 < 0.0 && value2 == 0.0 {
+                return Some(Self::Heal(RecordHeal::Shield(value1.abs())));
             }
 
-            return Some(Self::Damage(Value::Shield(damage_or_heal.abs())));
+            if value1 > 0.0 && value2 == 0.0 {
+                return Some(Self::Damage(BaseHit::shield_drain(value1, flags)));
+            }
+            return Some(Self::Damage(BaseHit::shield(value1, flags, value2)));
         }
 
-        return Some(Self::Damage(Value::Hull(damage_or_heal.abs())));
+        return Some(Self::Damage(BaseHit::hull(value1, flags, value2)));
     }
 
-    pub fn get(&self) -> f64 {
+    pub fn is_all_zero(&self) -> bool {
         match self {
-            RecordValue::Damage(v) | RecordValue::Heal(v) => v.get(),
+            RecordValue::Damage(v) => {
+                v.damage == 0.0
+                    && match v.specific {
+                        SpecificHit::Shield {
+                            damage_prevented_to_hull,
+                        } => damage_prevented_to_hull == 0.0,
+                        SpecificHit::ShieldDrain => true,
+                        SpecificHit::Hull { base_damage } => base_damage == 0.0,
+                    }
+            }
+            RecordValue::Heal(v) => v.get() == 0.0,
         }
     }
 
@@ -308,10 +292,10 @@ impl RecordValue {
     }
 }
 
-impl Value {
+impl RecordHeal {
     pub fn get(&self) -> f64 {
         match self {
-            Value::Shield(v) | Value::Hull(v) => *v,
+            RecordHeal::Shield(v) | RecordHeal::Hull(v) => *v,
         }
     }
 }
@@ -368,7 +352,7 @@ mod tests {
     #[test]
     fn list_all_names() {
         let mut parser = Parser::new(&PathBuf::from(
-            r"D:\Rust\STO_CombatLogAnalyzer\target\release\swarm.log",
+            r"D:\Games\Star Trek Online_en\Star Trek Online\Live\logs\GameClient\combatlog.log",
         ))
         .unwrap();
 

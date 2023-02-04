@@ -7,7 +7,7 @@ use egui_extras::*;
 use crate::{
     analyzer::{Combat, Player as AnalyzedPlayer},
     app::main_tabs::common::*,
-    helpers::number_formatting::NumberFormatter,
+    helpers::{number_formatting::NumberFormatter, F64TotalOrd},
 };
 
 pub struct SummaryTable {
@@ -45,7 +45,7 @@ impl SummaryTable {
                 .map(|p| Player::new(combat_duration, p, &mut number_formatter))
                 .collect(),
         };
-        table.sort_by_f64(|p| p.total_out_damage.all.value);
+        table.sort_by_option_f64(|p| p.total_out_damage.all.value);
         table
     }
 
@@ -62,23 +62,23 @@ impl SummaryTable {
                         });
                     });
                     Self::show_column_header(&mut r, "Total Outgoing Damage", || {
-                        self.sort_by_f64(|p| p.total_out_damage.all.value)
+                        self.sort_by_option_f64(|p| p.total_out_damage.all.value)
                     });
 
                     Self::show_column_header(&mut r, "Outgoing DPS", || {
-                        self.sort_by_f64(|p| p.dps_out.all.value)
+                        self.sort_by_option_f64(|p| p.dps_out.all.value)
                     });
 
                     Self::show_column_header(&mut r, "Outgoing Damage %", || {
-                        self.sort_by_f64(|p| p.total_out_damage_percentage.value)
+                        self.sort_by_option_f64(|p| p.total_out_damage_percentage.value)
                     });
 
                     Self::show_column_header(&mut r, "Total Incoming Damage", || {
-                        self.sort_by_f64(|p| p.total_in_damage.all.value)
+                        self.sort_by_option_f64(|p| p.total_in_damage.all.value)
                     });
 
                     Self::show_column_header(&mut r, "Incoming Damage %", || {
-                        self.sort_by_f64(|p| p.total_in_damage_percentage.value)
+                        self.sort_by_option_f64(|p| p.total_in_damage_percentage.value)
                     });
 
                     Self::show_column_header(&mut r, "Combat Duration", || {
@@ -86,7 +86,7 @@ impl SummaryTable {
                     });
 
                     Self::show_column_header(&mut r, "Combat Duration %", || {
-                        self.sort_by_f64(|p| p.combat_duration_percentage.value)
+                        self.sort_by_option_f64(|p| p.combat_duration_percentage.value)
                     });
 
                     Self::show_column_header(&mut r, "Active Duration", || {
@@ -119,9 +119,9 @@ impl SummaryTable {
         });
     }
 
-    fn sort_by_f64(&mut self, mut value: impl FnMut(&Player) -> f64) {
+    fn sort_by_option_f64(&mut self, mut value: impl FnMut(&Player) -> Option<f64>) {
         self.players
-            .sort_unstable_by(|p1, p2| value(p1).total_cmp(&value(p2)).reverse())
+            .sort_unstable_by_key(|p| Reverse(value(p).map(|v| F64TotalOrd(v))))
     }
 
     fn sort_by_key<K: Ord>(&mut self, mut key: impl FnMut(&Player) -> K) {
