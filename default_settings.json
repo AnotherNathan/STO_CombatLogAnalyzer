@@ -378,6 +378,36 @@
           }
         ],
         "enabled": true
+      },
+      {
+        "name": "Breach",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Msn_Dys_Event_Breach",
+            "method": "StartsWith",
+            "enabled": true
+          },
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Msn_Space_Voth_Boss_Power_Core",
+            "method": "Equals",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Iuppiter Iratus",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetName",
+            "expression": "Data Thief",
+            "method": "Equals",
+            "enabled": true
+          }
+        ],
+        "enabled": true
       }
     ]
   },
