@@ -13,6 +13,16 @@ macro_rules! col {
     ($name:expr, $sort:expr, $show:expr $(,)?) => {
         ColumnDescriptor {
             name: $name,
+            name_info: None,
+            sort: $sort,
+            show: $show,
+        }
+    };
+
+    ($name:expr, $name_info:expr, $sort:expr, $show:expr $(,)?) => {
+        ColumnDescriptor {
+            name: $name,
+            name_info: Some($name_info),
             sort: $sort,
             show: $show,
         }
@@ -27,6 +37,7 @@ static COLUMNS: &[ColumnDescriptor] = &[
     ),
     col!(
         "DPS",
+        "Damage Per Second",
         |t| t.sort_by_option_f64_desc(|p| p.dps.all.value),
         |t, r| t.dps.show(r),
     ),
@@ -44,6 +55,7 @@ static COLUMNS: &[ColumnDescriptor] = &[
     ),
     col!(
         "Damage Resistance",
+        "Damage Resistance (Points)",
         |t| t.sort_by_option_f64_asc(|p| p.damage_resistance.all.value),
         |t, r| t.damage_resistance.show(r),
     ),
@@ -122,6 +134,7 @@ struct Hits {
 
 struct ColumnDescriptor {
     name: &'static str,
+    name_info: Option<&'static str>,
     sort: fn(&mut DamageTable),
     show: fn(&mut DamageTablePart, &mut TableRow),
 }
@@ -181,8 +194,12 @@ impl DamageTable {
     fn show_column_header(&mut self, row: &mut TableRow, column: &ColumnDescriptor) {
         row.col(|ui| {
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if ui.selectable_label(false, column.name).clicked() {
+                let response = ui.selectable_label(false, column.name);
+                if response.clicked() {
                     (column.sort)(self);
+                }
+                if let Some(info) = column.name_info {
+                    response.on_hover_text(info);
                 }
             });
         });
