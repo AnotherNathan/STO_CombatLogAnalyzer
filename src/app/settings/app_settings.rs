@@ -38,11 +38,13 @@ pub struct DebugSettings {
     pub log_level_filter: log::LevelFilter,
 }
 
+static DEFAULT_SETTINGS: &str = include_str!("STO_CombatLogAnalyzer_Settings.json");
+
 impl Settings {
     fn file_path() -> Option<PathBuf> {
         let mut path = std::env::current_exe().ok()?;
         path.pop();
-        path.push("settings.json");
+        path.push("STO_CombatLogAnalyzer_Settings.json");
         Some(path)
     }
 
@@ -51,6 +53,7 @@ impl Settings {
             .and_then(|f| std::fs::read_to_string(&f).ok())
             .map(|d| serde_json::from_str(&d).ok())
             .flatten()
+            .unwrap_or_else(|| serde_json::from_str(DEFAULT_SETTINGS).ok())
             .unwrap_or_else(|| Self::default())
     }
 
