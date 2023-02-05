@@ -408,6 +408,24 @@
           }
         ],
         "enabled": true
+      },
+      {
+        "name": "Operation Riposte",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Msn_Dsc_Priors_System_Tfo",
+            "method": "StartsWith",
+            "enabled": true
+          },
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Priors_World_Tfo",
+            "method": "EndsWith",
+            "enabled": true
+          }
+        ],
+        "enabled": true
       }
     ]
   },
