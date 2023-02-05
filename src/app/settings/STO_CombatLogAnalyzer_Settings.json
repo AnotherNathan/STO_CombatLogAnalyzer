@@ -8,6 +8,18 @@
         "expression": "Spore-Infused Anomalies",
         "method": "Equals",
         "enabled": false
+      },
+      {
+        "aspect": "DamageName",
+        "expression": "Plasma Storm",
+        "method": "Equals",
+        "enabled": true
+      },
+      {
+        "aspect": "DamageName",
+        "expression": "Distributed Targeting",
+        "method": "StartsWith",
+        "enabled": true
       }
     ],
     "custom_group_rules": [
