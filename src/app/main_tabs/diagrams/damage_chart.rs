@@ -22,10 +22,7 @@ impl DamageChart {
         }
     }
 
-    pub fn from_data<'a>(
-        bars: impl Iterator<Item = PreparedDamageDataSet>,
-        time_slice: f64,
-    ) -> Self {
+    pub fn from_data(bars: impl Iterator<Item = PreparedDamageDataSet>, time_slice: f64) -> Self {
         let mut bars: Vec<_> = bars.map(|d| DamageBars::new(d)).collect();
         bars.sort_unstable_by(|b1, b2| {
             b1.data
@@ -52,7 +49,6 @@ impl DamageChart {
         let mut plot = Plot::new("damage chart")
             .y_axis_formatter(format_axis)
             .x_axis_formatter(format_axis)
-            .label_formatter(format_label)
             .legend(Legend::default());
 
         if self.newly_created {

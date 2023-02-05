@@ -34,7 +34,6 @@ impl SummaryChart {
         Plot::new(&self.identifier)
             .y_axis_formatter(|_, _| String::new())
             .x_axis_formatter(format_axis)
-            .label_formatter(format_label)
             .legend(Legend::default())
             .include_y(0.0)
             .show(ui, |p| {

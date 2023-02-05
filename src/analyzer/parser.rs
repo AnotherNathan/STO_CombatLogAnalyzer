@@ -170,6 +170,10 @@ impl<'a> Record<'a> {
         self.source.is_player() && self.value.is_damage()
     }
 
+    pub fn is_immune_or_zero(&self) -> bool {
+        self.value.is_all_zero() || self.value_flags.contains(ValueFlags::IMMUNE)
+    }
+
     pub fn is_direct_self_damage(&self) -> bool {
         self.target.is_none() && self.sub_source.is_none() && self.value.is_damage()
     }
@@ -255,16 +259,21 @@ impl RecordValue {
         }
 
         if value_type == "Shield" {
-            if value1 < 0.0 && value2 == 0.0 {
-                return Some(Self::Heal(RecordHeal::Shield(value1.abs())));
-            }
+            if value2 == 0.0 {
+                if value1 < 0.0 {
+                    return Some(Self::Heal(RecordHeal::Shield(value1.abs())));
+                }
 
-            if value1 > 0.0 && value2 == 0.0 {
-                return Some(Self::Damage(BaseHit::shield_drain(value1, flags)));
+                if value1 > 0.0 {
+                    return Some(Self::Damage(BaseHit::shield_drain(value1, flags)));
+                }
             }
             return Some(Self::Damage(BaseHit::shield(value1, flags, value2)));
         }
 
+        if value2 == 0.0 {
+            return Some(Self::Damage(BaseHit::hull(value1, flags, value1)));
+        }
         return Some(Self::Damage(BaseHit::hull(value1, flags, value2)));
     }
 

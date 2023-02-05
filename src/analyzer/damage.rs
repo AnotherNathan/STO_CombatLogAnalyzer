@@ -61,7 +61,7 @@ bitflags! {
         const CRITICAL = 1;
         const FLANK = 1 << 1;
         const KILL = 1 << 2;
-        const IMMUNE = 1 << 2;
+        const IMMUNE = 1 << 3;
     }
 }
 
@@ -171,20 +171,26 @@ impl DamageMetrics {
 
         for hit in hits.iter() {
             match hit.specific {
+                SpecificHit::Shield { .. } | SpecificHit::ShieldDrain => shield_hits += 1,
+                SpecificHit::Hull { .. } => hull_hits += 1,
+            }
+
+            if hit.flags.contains(ValueFlags::IMMUNE) {
+                continue;
+            }
+
+            match hit.specific {
                 SpecificHit::Shield {
                     damage_prevented_to_hull,
                 } => {
-                    shield_hits += 1;
                     total_shield_damage += hit.damage;
                     total_damage_prevented_to_hull_by_shields += damage_prevented_to_hull;
                 }
                 SpecificHit::Hull { base_damage } => {
-                    hull_hits += 1;
                     total_hull_damage += hit.damage;
                     total_base_damage += base_damage;
                 }
                 SpecificHit::ShieldDrain => {
-                    shield_hits += 1;
                     total_shield_damage += hit.damage;
                     total_shield_drain += hit.damage;
                 }
@@ -295,7 +301,7 @@ impl ShieldHullOptionalValues {
         }
     }
 
-    fn damage_resistance_percentage(
+    pub fn damage_resistance_percentage(
         total_damage: &ShieldHullValues,
         total_base_damage: f64,
         total_damage_prevented_to_hull_by_shields: f64,
@@ -345,29 +351,29 @@ impl ShieldHullOptionalValues {
         Self { all, shield, hull }
     }
 
-    fn damage_resistance(damage_resistance_percentage: &Self) -> Self {
+    pub fn damage_resistance(damage_resistance_percentage: &Self) -> Self {
         Self {
             all: damage_resistance_percentage
                 .all
-                .map(|a| calc_damage_resistance_point_from_percentage(a)),
+                .map(|a| calc_damage_resistance_points_from_percentage(a)),
             shield: damage_resistance_percentage
                 .shield
-                .map(|s| calc_damage_resistance_point_from_percentage(s)),
+                .map(|s| calc_damage_resistance_points_from_percentage(s)),
             hull: damage_resistance_percentage
                 .hull
-                .map(|h| calc_damage_resistance_point_from_percentage(h)),
+                .map(|h| calc_damage_resistance_points_from_percentage(h)),
         }
     }
 }
 
-fn calc_damage_resistance_point_from_percentage(resistance_percentage: f64) -> f64 {
+pub fn calc_damage_resistance_points_from_percentage(resistance_percentage: f64) -> f64 {
     if resistance_percentage >= 0.0 {
-        return calc_positive_damage_resistance_point_from_percentage(resistance_percentage);
+        return calc_positive_damage_resistance_points_from_percentage(resistance_percentage);
     }
-    calc_negative_damage_resistance_point_from_percentage(resistance_percentage)
+    calc_negative_damage_resistance_points_from_percentage(resistance_percentage)
 }
 
-fn calc_positive_damage_resistance_point_from_percentage(resistance_percentage: f64) -> f64 {
+fn calc_positive_damage_resistance_points_from_percentage(resistance_percentage: f64) -> f64 {
     let g = 1.0 - resistance_percentage / 100.0;
 
     let _75_2 = 75.0 * 75.0;
@@ -381,7 +387,7 @@ fn calc_positive_damage_resistance_point_from_percentage(resistance_percentage: 
     r
 }
 
-fn calc_negative_damage_resistance_point_from_percentage(resistance_percentage: f64) -> f64 {
+fn calc_negative_damage_resistance_points_from_percentage(resistance_percentage: f64) -> f64 {
     let g = 1.0 - resistance_percentage / 100.0;
 
     let _75_2 = 75.0 * 75.0;
@@ -445,7 +451,7 @@ mod tests {
 
     fn assert_damage_resistance(resistance_percentage: f64, expected_resistance_points: f64) {
         let calculated_resistance_points =
-            calc_damage_resistance_point_from_percentage(resistance_percentage);
+            calc_damage_resistance_points_from_percentage(resistance_percentage);
         assert!(
             (calculated_resistance_points - expected_resistance_points).abs() < 1.0e-3,
             "%: {} | calc: {} | expect: {}",

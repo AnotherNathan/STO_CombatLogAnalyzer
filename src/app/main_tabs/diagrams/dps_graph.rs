@@ -2,7 +2,7 @@ use std::f64::consts::PI;
 
 use eframe::egui::{widgets::plot::*, *};
 
-use crate::analyzer::Hit;
+use crate::helpers::number_formatting::NumberFormatter;
 
 use super::common::*;
 
@@ -54,7 +54,7 @@ impl DpsGraph {
         let mut plot = Plot::new("dps graph")
             .y_axis_formatter(format_axis)
             .x_axis_formatter(format_axis)
-            .label_formatter(format_label)
+            .label_formatter(Self::format_label)
             .include_y(self.largest_point)
             .legend(Legend::default());
 
@@ -72,6 +72,17 @@ impl DpsGraph {
                 p.line(line.to_line());
             }
         });
+    }
+
+    pub fn format_label(name: &str, point: &PlotPoint) -> String {
+        if point.x < 0.0 || point.y < 0.0 {
+            return String::new();
+        }
+
+        let mut formatter = NumberFormatter::new();
+        let x = formatter.format(point.x, 2);
+        let y = formatter.format(point.y, 2);
+        format!("{}\nDPS: {}\nTime: {}", name, y, x)
     }
 
     fn compute_largest_point(lines: &[DpsLine]) -> f64 {
@@ -108,7 +119,7 @@ impl DpsLine {
         self.points = points;
     }
 
-    fn get_sample_entry(hits: &[Hit], time_millis: u32) -> usize {
+    fn get_sample_entry(hits: &[PreparedHit], time_millis: u32) -> usize {
         match hits.binary_search_by_key(&time_millis, |h| h.time_millis) {
             Ok(i) => i,
             Err(i) => i,
@@ -122,7 +133,7 @@ impl DpsLine {
     }
 
     fn get_gauss_value(
-        hits: &[Hit],
+        hits: &[PreparedHit],
         index: usize,
         time_seconds: f64,
         sigma_seconds: f64,
@@ -141,7 +152,7 @@ impl DpsLine {
     }
 
     fn get_get_sample_gauss_filtered_half(
-        hits: &[Hit],
+        hits: &[PreparedHit],
         time_seconds: f64,
         sigma_seconds: f64,
         entry_index: usize,
@@ -163,7 +174,11 @@ impl DpsLine {
         value
     }
 
-    fn get_sample_gauss_filtered(hits: &[Hit], time_seconds: f64, sigma_seconds: f64) -> f64 {
+    fn get_sample_gauss_filtered(
+        hits: &[PreparedHit],
+        time_seconds: f64,
+        sigma_seconds: f64,
+    ) -> f64 {
         let time_millis = seconds_to_millis(time_seconds);
 
         let entry_index = Self::get_sample_entry(hits, time_millis);

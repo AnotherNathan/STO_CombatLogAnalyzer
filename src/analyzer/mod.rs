@@ -114,10 +114,6 @@ impl Analyzer {
 
         combat.update_meta_data(&record, &self.settings);
 
-        if record.value.is_all_zero() {
-            return Ok(());
-        }
-
         let combat_start_offset_millis = record
             .time
             .signed_duration_since(combat.active_time.start)
@@ -258,7 +254,7 @@ impl Combat {
     }
 
     fn update_time(&mut self, record: &Record) {
-        if record.is_player_out_damage() {
+        if record.is_player_out_damage() && !record.is_immune_or_zero() {
             let combat_time = self
                 .combat_time
                 .get_or_insert_with(|| record.time..record.time);
@@ -385,6 +381,9 @@ impl Player {
     }
 
     fn update_combat_time(&mut self, record: &Record) {
+        if record.is_immune_or_zero() {
+            return;
+        }
         let combat_time = self
             .combat_time
             .get_or_insert_with(|| record.time..record.time);

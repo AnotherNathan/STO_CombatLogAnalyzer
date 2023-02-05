@@ -13,8 +13,9 @@ pub struct DamageTab {
     dmg_selection_diagrams: Option<DamageDiagrams>,
     damage_group: fn(&Player) -> &DamageGroup,
     dps_filter: f64,
-    damage_time_slice: f64,
+    diagram_time_slice: f64,
     active_diagram: ActiveDamageDiagram,
+    damage_resistance_selection: DamageResistanceSelection,
 }
 
 impl DamageTab {
@@ -24,9 +25,10 @@ impl DamageTab {
             dmg_main_diagrams: DamageDiagrams::empty(),
             damage_group: damage_group,
             dps_filter: 0.4,
-            damage_time_slice: 1.0,
+            diagram_time_slice: 1.0,
             dmg_selection_diagrams: None,
             active_diagram: ActiveDamageDiagram::Damage,
+            damage_resistance_selection: Default::default(),
         }
     }
 
@@ -35,7 +37,7 @@ impl DamageTab {
         self.dmg_main_diagrams = DamageDiagrams::from_damage_groups(
             combat.players.values().map(self.damage_group),
             self.dps_filter,
-            self.damage_time_slice,
+            self.diagram_time_slice,
         );
         self.dmg_selection_diagrams = None;
     }
@@ -47,7 +49,7 @@ impl DamageTab {
             .show(ui, |top_ui, bottom_ui| {
                 self.table.show(top_ui, |p| {
                     self.dmg_selection_diagrams =
-                        Self::make_selection_diagrams(p, self.dps_filter, self.damage_time_slice);
+                        Self::make_selection_diagrams(p, self.dps_filter, self.diagram_time_slice);
                 });
 
                 self.show_diagrams(bottom_ui);
@@ -116,9 +118,9 @@ impl DamageTab {
 
     fn update_diagrams(&mut self) {
         self.dmg_main_diagrams
-            .update(self.dps_filter, self.damage_time_slice);
+            .update(self.dps_filter, self.diagram_time_slice);
         if let Some(selection_plot) = &mut self.dmg_selection_diagrams {
-            selection_plot.update(self.dps_filter, self.damage_time_slice);
+            selection_plot.update(self.dps_filter, self.diagram_time_slice);
         }
     }
 
@@ -134,51 +136,81 @@ impl DamageTab {
                 ActiveDamageDiagram::Dps,
                 ActiveDamageDiagram::Dps.display(),
             );
+            ui.selectable_value(
+                &mut self.active_diagram,
+                ActiveDamageDiagram::DamageResistance,
+                ActiveDamageDiagram::DamageResistance.display(),
+            );
         });
 
         match self.active_diagram {
             ActiveDamageDiagram::Damage => {
-                ui.horizontal(|ui| {
-                    if SliderTextEdit::new(
-                        &mut self.damage_time_slice,
-                        0.1..=6.0,
-                        "damage slice slider",
-                    )
-                    .clamp_min(0.1)
-                    .clamp_max(120.0)
-                    .desired_text_edit_width(30.0)
-                    .display_precision(4)
-                    .step_by(0.1)
-                    .show(ui)
-                    .changed()
-                    {
-                        self.update_diagrams();
-                    }
-                    ui.label("Damage Time Slice (s)");
-                });
+                self.show_time_slice_setting(ui);
             }
             ActiveDamageDiagram::Dps => {
+                self.show_time_filter_setting(ui);
+            }
+            ActiveDamageDiagram::DamageResistance => {
+                self.show_time_slice_setting(ui);
                 ui.horizontal(|ui| {
-                    if SliderTextEdit::new(&mut self.dps_filter, 0.4..=6.0, "filter slider")
-                        .clamp_min(0.1)
-                        .clamp_max(120.0)
-                        .desired_text_edit_width(30.0)
-                        .display_precision(4)
-                        .step_by(0.1)
-                        .show(ui)
-                        .changed()
-                    {
-                        self.update_diagrams();
-                    }
-                    ui.label("Gauss Filter Standard Deviation (how much to smooth the DPS graph)");
+                    ui.selectable_value(
+                        &mut self.damage_resistance_selection,
+                        DamageResistanceSelection::All,
+                        DamageResistanceSelection::All.display(),
+                    );
+                    ui.selectable_value(
+                        &mut self.damage_resistance_selection,
+                        DamageResistanceSelection::Hull,
+                        DamageResistanceSelection::Hull.display(),
+                    );
+                    ui.selectable_value(
+                        &mut self.damage_resistance_selection,
+                        DamageResistanceSelection::Shield,
+                        DamageResistanceSelection::Shield.display(),
+                    );
                 });
             }
         }
 
         if let Some(selection_diagrams) = &mut self.dmg_selection_diagrams {
-            selection_diagrams.show(ui, self.active_diagram);
+            selection_diagrams.show(ui, self.active_diagram, self.damage_resistance_selection);
         } else {
-            self.dmg_main_diagrams.show(ui, self.active_diagram);
+            self.dmg_main_diagrams
+                .show(ui, self.active_diagram, self.damage_resistance_selection);
         }
+    }
+
+    fn show_time_slice_setting(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            if SliderTextEdit::new(&mut self.diagram_time_slice, 0.1..=6.0, "time slice slider")
+                .clamp_min(0.1)
+                .clamp_max(120.0)
+                .desired_text_edit_width(30.0)
+                .display_precision(4)
+                .step_by(0.1)
+                .show(ui)
+                .changed()
+            {
+                self.update_diagrams();
+            }
+            ui.label("Time Slice (s)");
+        });
+    }
+
+    fn show_time_filter_setting(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            if SliderTextEdit::new(&mut self.dps_filter, 0.4..=6.0, "filter slider")
+                .clamp_min(0.1)
+                .clamp_max(120.0)
+                .desired_text_edit_width(30.0)
+                .display_precision(4)
+                .step_by(0.1)
+                .show(ui)
+                .changed()
+            {
+                self.update_diagrams();
+            }
+            ui.label("Gauss Filter Standard Deviation (how much to smooth the DPS graph)");
+        });
     }
 }

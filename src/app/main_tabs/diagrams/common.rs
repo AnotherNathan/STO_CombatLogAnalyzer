@@ -2,16 +2,29 @@ use std::{ops::RangeInclusive, sync::Arc};
 
 use eframe::egui::plot::*;
 
-use crate::{analyzer::Hit, helpers::number_formatting::NumberFormatter};
+use crate::{
+    analyzer::{Hit, SpecificHit, ValueFlags},
+    helpers::number_formatting::NumberFormatter,
+};
 
 #[derive(Clone)]
 pub struct PreparedDamageDataSet {
     pub name: String,
     pub dps: f64,
     pub total_damage: f64,
-    pub hits: Arc<[Hit]>,
+    pub hits: Arc<[PreparedHit]>,
     pub start_time_s: f64,
     pub duration_s: f64,
+}
+
+pub struct PreparedHit {
+    pub damage: f64,
+    pub hull_damage: f64,
+    pub shield_damage: f64,
+    pub damage_prevented_to_hull_by_shields: f64,
+    pub base_damage: f64,
+    pub drain_damage: f64,
+    pub time_millis: u32, // offset to start of combat
 }
 
 impl PreparedDamageDataSet {
@@ -21,14 +34,17 @@ impl PreparedDamageDataSet {
         total_damage: f64,
         hits: impl Iterator<Item = &'a Hit>,
     ) -> PreparedDamageDataSet {
-        let mut hits = Vec::from_iter(hits.copied());
+        let mut hits = Vec::from_iter(
+            hits.filter(|h| !h.flags.contains(ValueFlags::IMMUNE))
+                .map(|h| PreparedHit::new(h)),
+        );
         hits.sort_unstable_by_key(|h| h.time_millis);
         hits.dedup_by(|h1, h2| {
             if h1.time_millis != h2.time_millis {
                 return false;
             }
 
-            h2.damage += h1.damage;
+            h2.merge(h1);
             true
         });
 
@@ -48,6 +64,51 @@ impl PreparedDamageDataSet {
     }
 }
 
+impl PreparedHit {
+    fn new(hit: &Hit) -> Self {
+        match hit.specific {
+            SpecificHit::Shield {
+                damage_prevented_to_hull,
+            } => Self {
+                damage: hit.damage,
+                shield_damage: hit.damage,
+                hull_damage: 0.0,
+                damage_prevented_to_hull_by_shields: damage_prevented_to_hull,
+                base_damage: 0.0,
+                drain_damage: 0.0,
+                time_millis: hit.time_millis,
+            },
+            SpecificHit::ShieldDrain => Self {
+                damage: hit.damage,
+                shield_damage: hit.damage,
+                hull_damage: 0.0,
+                damage_prevented_to_hull_by_shields: 0.0,
+                base_damage: 0.0,
+                drain_damage: hit.damage,
+                time_millis: hit.time_millis,
+            },
+            SpecificHit::Hull { base_damage } => Self {
+                damage: hit.damage,
+                shield_damage: 0.0,
+                hull_damage: hit.damage,
+                damage_prevented_to_hull_by_shields: 0.0,
+                base_damage,
+                drain_damage: 0.0,
+                time_millis: hit.time_millis,
+            },
+        }
+    }
+
+    fn merge(&mut self, other: &Self) {
+        self.damage += other.damage;
+        self.shield_damage += other.shield_damage;
+        self.hull_damage += other.hull_damage;
+        self.base_damage += other.base_damage;
+        self.damage_prevented_to_hull_by_shields += other.damage_prevented_to_hull_by_shields;
+        self.drain_damage += other.drain_damage;
+    }
+}
+
 pub fn seconds_to_millis(seconds: f64) -> u32 {
     (seconds * 1e3).round() as _
 }
@@ -62,17 +123,6 @@ pub fn format_axis(value: f64, _: &RangeInclusive<f64>) -> String {
     }
     let mut formatter = NumberFormatter::new();
     formatter.format(value, 0)
-}
-
-pub fn format_label(name: &str, point: &PlotPoint) -> String {
-    if point.x < 0.0 || point.y < 0.0 {
-        return String::new();
-    }
-
-    let mut formatter = NumberFormatter::new();
-    let x = formatter.format(point.x, 2);
-    let y = formatter.format(point.y, 2);
-    format!("{}\nDPS: {}\nTime: {}", name, y, x)
 }
 
 pub fn format_element(bar: &Bar, _: &BarChart) -> String {
