@@ -52,7 +52,6 @@ pub struct DamageMetrics {
     pub critical_chance: f64,
     pub flanking: f64,
     pub damage_resistance_percentage: ShieldHullOptionalValues,
-    pub damage_resistance: ShieldHullOptionalValues,
 }
 
 bitflags! {
@@ -238,9 +237,6 @@ impl DamageMetrics {
             total_shield_drain,
         );
 
-        let damage_resistance =
-            ShieldHullOptionalValues::damage_resistance(&damage_resistance_percentage);
-
         Self {
             shield_hits,
             hull_hits,
@@ -253,7 +249,6 @@ impl DamageMetrics {
             critical_chance,
             flanking,
             damage_resistance_percentage,
-            damage_resistance,
         }
     }
 }
@@ -349,115 +344,5 @@ impl ShieldHullOptionalValues {
         let shield = Some(shield_res * 100.0);
 
         Self { all, shield, hull }
-    }
-
-    pub fn damage_resistance(damage_resistance_percentage: &Self) -> Self {
-        Self {
-            all: damage_resistance_percentage
-                .all
-                .map(|a| calc_damage_resistance_points_from_percentage(a)),
-            shield: damage_resistance_percentage
-                .shield
-                .map(|s| calc_damage_resistance_points_from_percentage(s)),
-            hull: damage_resistance_percentage
-                .hull
-                .map(|h| calc_damage_resistance_points_from_percentage(h)),
-        }
-    }
-}
-
-pub fn calc_damage_resistance_points_from_percentage(resistance_percentage: f64) -> f64 {
-    if resistance_percentage >= 0.0 {
-        return calc_positive_damage_resistance_points_from_percentage(resistance_percentage);
-    }
-    calc_negative_damage_resistance_points_from_percentage(resistance_percentage)
-}
-
-fn calc_positive_damage_resistance_points_from_percentage(resistance_percentage: f64) -> f64 {
-    let g = 1.0 - resistance_percentage / 100.0;
-
-    let _75_2 = 75.0 * 75.0;
-    let _150_2 = 150.0 * 150.0;
-
-    let a = g - 0.25;
-    let b = 300.0 * g - 0.25 * 300.0;
-    let c = _150_2 * g - 0.25 * _150_2 - 3.0 * _75_2;
-
-    let r = (-b + f64::sqrt(b * b - 4.0 * a * c)) / (2.0 * a);
-    r
-}
-
-fn calc_negative_damage_resistance_points_from_percentage(resistance_percentage: f64) -> f64 {
-    let g = 1.0 - resistance_percentage / 100.0;
-
-    let _75_2 = 75.0 * 75.0;
-    let _150_2 = 150.0 * 150.0;
-
-    let a = 1.0 - 0.25 * g;
-    let b = -300.0 + 0.25 * g * 300.0;
-    let c = _150_2 - 0.25 * g * _150_2 - 3.0 * g * _75_2;
-
-    let r = (-b - f64::sqrt(b * b - 4.0 * a * c)) / (2.0 * a);
-    r
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn calc_positive_damage_resistance() {
-        // see drr.png
-        assert_positive_damage_resistance(calc_positive_resistance_percentage(0.0));
-        assert_positive_damage_resistance(calc_positive_resistance_percentage(5.0));
-        assert_positive_damage_resistance(calc_positive_resistance_percentage(10.0));
-        assert_positive_damage_resistance(calc_positive_resistance_percentage(40.0));
-        assert_positive_damage_resistance(calc_positive_resistance_percentage(200.0));
-        assert_positive_damage_resistance(calc_positive_resistance_percentage(600.0));
-    }
-
-    #[test]
-    fn calc_negative_damage_resistance() {
-        // see drr.png
-        assert_negative_damage_resistance(calc_negative_resistance_percentage(-0.0));
-        assert_negative_damage_resistance(calc_negative_resistance_percentage(-5.0));
-        assert_negative_damage_resistance(calc_negative_resistance_percentage(-10.0));
-        assert_negative_damage_resistance(calc_negative_resistance_percentage(-40.0));
-        assert_negative_damage_resistance(calc_negative_resistance_percentage(-200.0));
-        assert_negative_damage_resistance(calc_negative_resistance_percentage(-600.0));
-    }
-
-    fn calc_positive_resistance_percentage(resistance_points: f64) -> f64 {
-        let a = 75.0 / (150.0 + resistance_points);
-        let dr = 3.0 * (0.25 - a * a);
-        dr * 100.0
-    }
-
-    fn calc_negative_resistance_percentage(resistance_points: f64) -> f64 {
-        let a = 75.0 / (150.0 - resistance_points);
-        let g = 1.0 / (0.25 + 3.0 * a * a);
-        (1.0 - g) * 100.0
-    }
-
-    fn assert_positive_damage_resistance(expected_resistance_points: f64) {
-        let resistance_percentage = calc_positive_resistance_percentage(expected_resistance_points);
-        assert_damage_resistance(resistance_percentage, expected_resistance_points);
-    }
-
-    fn assert_negative_damage_resistance(expected_resistance_points: f64) {
-        let resistance_percentage = calc_negative_resistance_percentage(expected_resistance_points);
-        assert_damage_resistance(resistance_percentage, expected_resistance_points);
-    }
-
-    fn assert_damage_resistance(resistance_percentage: f64, expected_resistance_points: f64) {
-        let calculated_resistance_points =
-            calc_damage_resistance_points_from_percentage(resistance_percentage);
-        assert!(
-            (calculated_resistance_points - expected_resistance_points).abs() < 1.0e-3,
-            "%: {} | calc: {} | expect: {}",
-            resistance_percentage,
-            calculated_resistance_points,
-            expected_resistance_points
-        );
     }
 }
