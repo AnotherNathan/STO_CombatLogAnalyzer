@@ -91,14 +91,6 @@ impl<'a> SliderTextEdit<'a> {
 
             let slider_response = slider.ui(ui);
 
-            if let Some(clamp_min) = clamp_min {
-                *value = value.max(clamp_min);
-            }
-
-            if let Some(clamp_max) = clamp_max {
-                *value = value.min(clamp_max);
-            }
-
             let mut text_edit = TextEdit::singleline(&mut state.value_text);
             if let Some(desired_text_edit_width) = desired_text_edit_width {
                 text_edit = text_edit.desired_width(desired_text_edit_width);
@@ -109,6 +101,14 @@ impl<'a> SliderTextEdit<'a> {
                 if let Ok(new_value) = state.value_text.parse::<f64>() {
                     *value = new_value;
                 }
+            }
+
+            if let Some(clamp_min) = clamp_min {
+                *value = value.max(clamp_min);
+            }
+
+            if let Some(clamp_max) = clamp_max {
+                *value = value.min(clamp_max);
             }
 
             if slider_response.changed() || text_edit_response.lost_focus() {
