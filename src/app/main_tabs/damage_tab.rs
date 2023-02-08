@@ -15,7 +15,6 @@ pub struct DamageTab {
     dps_filter: f64,
     diagram_time_slice: f64,
     active_diagram: ActiveDamageDiagram,
-    damage_resistance_selection: DamageResistanceSelection,
 }
 
 impl DamageTab {
@@ -28,7 +27,6 @@ impl DamageTab {
             diagram_time_slice: 1.0,
             dmg_selection_diagrams: None,
             active_diagram: ActiveDamageDiagram::Damage,
-            damage_resistance_selection: Default::default(),
         }
     }
 
@@ -144,39 +142,18 @@ impl DamageTab {
         });
 
         match self.active_diagram {
-            ActiveDamageDiagram::Damage => {
+            ActiveDamageDiagram::Damage | ActiveDamageDiagram::DamageResistance => {
                 self.show_time_slice_setting(ui);
             }
             ActiveDamageDiagram::Dps => {
                 self.show_time_filter_setting(ui);
             }
-            ActiveDamageDiagram::DamageResistance => {
-                self.show_time_slice_setting(ui);
-                ui.horizontal(|ui| {
-                    ui.selectable_value(
-                        &mut self.damage_resistance_selection,
-                        DamageResistanceSelection::All,
-                        DamageResistanceSelection::All.display(),
-                    );
-                    ui.selectable_value(
-                        &mut self.damage_resistance_selection,
-                        DamageResistanceSelection::Hull,
-                        DamageResistanceSelection::Hull.display(),
-                    );
-                    ui.selectable_value(
-                        &mut self.damage_resistance_selection,
-                        DamageResistanceSelection::Shield,
-                        DamageResistanceSelection::Shield.display(),
-                    );
-                });
-            }
         }
 
         if let Some(selection_diagrams) = &mut self.dmg_selection_diagrams {
-            selection_diagrams.show(ui, self.active_diagram, self.damage_resistance_selection);
+            selection_diagrams.show(ui, self.active_diagram);
         } else {
-            self.dmg_main_diagrams
-                .show(ui, self.active_diagram, self.damage_resistance_selection);
+            self.dmg_main_diagrams.show(ui, self.active_diagram);
         }
     }
 

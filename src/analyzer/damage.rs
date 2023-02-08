@@ -51,7 +51,7 @@ pub struct DamageMetrics {
     pub average_hit: ShieldHullOptionalValues,
     pub critical_chance: f64,
     pub flanking: f64,
-    pub damage_resistance_percentage: ShieldHullOptionalValues,
+    pub damage_resistance_percentage: Option<f64>,
 }
 
 bitflags! {
@@ -230,12 +230,8 @@ impl DamageMetrics {
         let average_hit =
             ShieldHullOptionalValues::average_hit(&total_damage, shield_hits, hull_hits, hits);
 
-        let damage_resistance_percentage = ShieldHullOptionalValues::damage_resistance_percentage(
-            &total_damage,
-            total_base_damage,
-            total_damage_prevented_to_hull_by_shields,
-            total_shield_drain,
-        );
+        let damage_resistance_percentage =
+            damage_resistance_percentage(&total_damage, total_base_damage, total_shield_drain);
 
         Self {
             shield_hits,
@@ -265,12 +261,6 @@ impl ShieldHullValues {
 }
 
 impl ShieldHullOptionalValues {
-    const NONE: Self = Self {
-        all: None,
-        hull: None,
-        shield: None,
-    };
-
     fn average_hit(
         total_damage: &ShieldHullValues,
         shield_hits: u64,
@@ -295,54 +285,19 @@ impl ShieldHullOptionalValues {
             },
         }
     }
+}
 
-    pub fn damage_resistance_percentage(
-        total_damage: &ShieldHullValues,
-        total_base_damage: f64,
-        total_damage_prevented_to_hull_by_shields: f64,
-        total_shield_drain: f64,
-    ) -> Self {
-        if total_base_damage == 0.0 {
-            return Self::NONE;
-        }
-
-        let total_damage_without_drain = total_damage.all - total_shield_drain;
-
-        let all_res = 1.0 - total_damage_without_drain / total_base_damage;
-        let all = Some(all_res * 100.0);
-
-        let total_damage_if_there_were_no_shields =
-            total_damage.hull + total_damage_prevented_to_hull_by_shields;
-        let hull_res = 1.0 - total_damage_if_there_were_no_shields / total_base_damage;
-
-        let hull = Some(hull_res * 100.0);
-
-        let hull_gain = 1.0 - hull_res;
-
-        let total_shield_damage_without_drain = total_damage.shield - total_shield_drain;
-        if hull_gain == 0.0 || total_shield_damage_without_drain == 0.0 {
-            return Self {
-                all,
-                hull,
-                ..Self::NONE
-            };
-        }
-
-        let base_damage_to_hull = total_damage.hull / hull_gain;
-        let base_damage_to_shield = total_base_damage - base_damage_to_hull;
-
-        let shield_res = if base_damage_to_shield == 0.0 {
-            return Self {
-                all,
-                hull,
-                ..Self::NONE
-            };
-        } else {
-            1.0 - total_shield_damage_without_drain / base_damage_to_shield
-        };
-
-        let shield = Some(shield_res * 100.0);
-
-        Self { all, shield, hull }
+pub fn damage_resistance_percentage(
+    total_damage: &ShieldHullValues,
+    total_base_damage: f64,
+    total_shield_drain: f64,
+) -> Option<f64> {
+    if total_base_damage == 0.0 {
+        return None;
     }
+
+    let total_damage_without_drain = total_damage.all - total_shield_drain;
+
+    let res = 1.0 - total_damage_without_drain / total_base_damage;
+    Some(res * 100.0)
 }

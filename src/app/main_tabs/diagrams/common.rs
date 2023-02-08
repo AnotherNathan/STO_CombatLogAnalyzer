@@ -21,7 +21,6 @@ pub struct PreparedHit {
     pub damage: f64,
     pub hull_damage: f64,
     pub shield_damage: f64,
-    pub damage_prevented_to_hull_by_shields: f64,
     pub base_damage: f64,
     pub drain_damage: f64,
     pub time_millis: u32, // offset to start of combat
@@ -67,13 +66,10 @@ impl PreparedDamageDataSet {
 impl PreparedHit {
     fn new(hit: &Hit) -> Self {
         match hit.specific {
-            SpecificHit::Shield {
-                damage_prevented_to_hull,
-            } => Self {
+            SpecificHit::Shield { .. } => Self {
                 damage: hit.damage,
                 shield_damage: hit.damage,
                 hull_damage: 0.0,
-                damage_prevented_to_hull_by_shields: damage_prevented_to_hull,
                 base_damage: 0.0,
                 drain_damage: 0.0,
                 time_millis: hit.time_millis,
@@ -82,7 +78,6 @@ impl PreparedHit {
                 damage: hit.damage,
                 shield_damage: hit.damage,
                 hull_damage: 0.0,
-                damage_prevented_to_hull_by_shields: 0.0,
                 base_damage: 0.0,
                 drain_damage: hit.damage,
                 time_millis: hit.time_millis,
@@ -91,7 +86,6 @@ impl PreparedHit {
                 damage: hit.damage,
                 shield_damage: 0.0,
                 hull_damage: hit.damage,
-                damage_prevented_to_hull_by_shields: 0.0,
                 base_damage,
                 drain_damage: 0.0,
                 time_millis: hit.time_millis,
@@ -104,7 +98,6 @@ impl PreparedHit {
         self.shield_damage += other.shield_damage;
         self.hull_damage += other.hull_damage;
         self.base_damage += other.base_damage;
-        self.damage_prevented_to_hull_by_shields += other.damage_prevented_to_hull_by_shields;
         self.drain_damage += other.drain_damage;
     }
 }

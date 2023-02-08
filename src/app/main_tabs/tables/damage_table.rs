@@ -50,8 +50,10 @@ static COLUMNS: &[ColumnDescriptor] = &[
     ),
     col!(
         "Damage Resistance %",
-        |t| t.sort_by_option_f64_asc(|p| p.damage_resistance_percentage.all.value),
-        |t, r| t.damage_resistance_percentage.show(r),
+        |t| t.sort_by_option_f64_asc(|p| p.damage_resistance_percentage.value),
+        |t, r| {
+            t.damage_resistance_percentage.show(r);
+        },
     ),
     col!(
         "Max One-Hit",
@@ -96,7 +98,7 @@ pub struct DamageTablePart {
     average_hit: ShieldAndHullTextValue,
     critical_chance: TextValue,
     flanking: TextValue,
-    damage_resistance_percentage: ShieldAndHullTextValue,
+    damage_resistance_percentage: TextValue,
     hits: Hits,
     pub sub_parts: Vec<DamageTablePart>,
 
@@ -247,8 +249,8 @@ impl DamageTablePart {
             critical_chance: TextValue::new(source.critical_chance, 3, number_formatter),
             flanking: TextValue::new(source.flanking, 3, number_formatter),
             max_one_hit: MaxOneHit::new(source, number_formatter),
-            damage_resistance_percentage: ShieldAndHullTextValue::option(
-                &source.damage_resistance_percentage,
+            damage_resistance_percentage: TextValue::option(
+                source.damage_resistance_percentage,
                 3,
                 number_formatter,
             ),

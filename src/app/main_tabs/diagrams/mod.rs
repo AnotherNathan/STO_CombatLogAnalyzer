@@ -5,7 +5,6 @@ mod dps_graph;
 mod summary_chart;
 
 pub use common::PreparedDamageDataSet;
-pub use damage_resistance_chart::DamageResistanceSelection;
 pub use dps_graph::DpsGraph;
 use eframe::egui::Ui;
 use itertools::Itertools;
@@ -76,18 +75,11 @@ impl DamageDiagrams {
         self.damage_resistance_chart.update(time_slice);
     }
 
-    pub fn show(
-        &mut self,
-        ui: &mut Ui,
-        active_diagram: ActiveDamageDiagram,
-        damage_resistance_selection: DamageResistanceSelection,
-    ) {
+    pub fn show(&mut self, ui: &mut Ui, active_diagram: ActiveDamageDiagram) {
         match active_diagram {
             ActiveDamageDiagram::Damage => self.damage_chart.show(ui),
             ActiveDamageDiagram::Dps => self.dps_graph.show(ui),
-            ActiveDamageDiagram::DamageResistance => self
-                .damage_resistance_chart
-                .show(ui, damage_resistance_selection),
+            ActiveDamageDiagram::DamageResistance => self.damage_resistance_chart.show(ui),
         }
     }
 }
