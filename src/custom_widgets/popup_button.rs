@@ -48,7 +48,8 @@ impl PopupButton {
 
         let inner = Area::new(id)
             .order(Order::Foreground)
-            .fixed_pos(button_response.rect.min)
+            .default_pos(button_response.rect.min)
+            .movable(true)
             .interactable(true)
             .drag_bounds(Rect::EVERYTHING)
             .show(ui.ctx(), |ui| {

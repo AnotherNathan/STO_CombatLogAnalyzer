@@ -74,8 +74,6 @@ impl FileTab {
         .desired_text_edit_width(40.0)
         .clamp_min(0.1)
         .show(ui);
-
-        ui.add_space(100.0);
     }
 
     pub fn initialize(&mut self) {

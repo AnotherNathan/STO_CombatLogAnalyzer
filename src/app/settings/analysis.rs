@@ -21,7 +21,6 @@ impl AnalysisTab {
 
         ui.separator();
         self.show_combat_name_rules(modified_settings, ui);
-        ui.add_space(20.0);
     }
 
     fn show_sub_source_grouping_reversal_rules(

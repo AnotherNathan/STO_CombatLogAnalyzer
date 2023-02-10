@@ -56,7 +56,8 @@ impl SettingsWindow {
         }
         Window::new("Settings")
             .collapsible(false)
-            .default_size([800.0, 400.0])
+            .fixed_size([800.0, 400.0])
+            .constrain(true)
             .show(ui.ctx(), |ui| {
                 ui.horizontal(|ui| {
                     ui.selectable_value(&mut self.selected_tab, SettingsTab::File, "File");
@@ -66,8 +67,7 @@ impl SettingsWindow {
                 });
 
                 ui.separator();
-
-                match self.selected_tab {
+                ScrollArea::both().show(ui, |ui| match self.selected_tab {
                     SettingsTab::File => {
                         self.file_tab
                             .show(&state.analysis_handler, &mut self.modified_settings, ui)
@@ -80,7 +80,7 @@ impl SettingsWindow {
                             .show(&mut self.modified_settings, ui, frame)
                     }
                     SettingsTab::Debug => self.debug_tab.show(&mut self.modified_settings, ui),
-                }
+                });
 
                 ui.separator();
 

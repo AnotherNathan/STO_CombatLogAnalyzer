@@ -104,10 +104,11 @@ impl VisualsTab {
             bg_fill: Rgba::from_rgb(0.2, 0.2, 0.7).into(),
             ..Default::default()
         };
-        theme.popup_shadow = Shadow::NONE;
+        theme.popup_shadow = Shadow::big_light();
 
         theme.window_fill = background;
-        theme.window_shadow = Shadow::NONE;
+        theme.window_stroke.color = Rgba::from_rgb(0.9, 0.9, 0.9).into();
+        theme.window_shadow = Shadow::big_light();
         theme
     }
 }
