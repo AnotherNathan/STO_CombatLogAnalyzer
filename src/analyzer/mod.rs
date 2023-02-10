@@ -184,7 +184,6 @@ impl Combat {
             self.active_time.start.time().format("%T"),
             self.active_time.end.time().format("%T")
         );
-
         let name = self.name();
         format!("{} | {}", name, date_times)
     }
@@ -195,6 +194,17 @@ impl Combat {
         }
 
         self.names.iter().join(", ")
+    }
+
+    pub fn file_identifier(&self) -> String {
+        let date_times = format!(
+            "{} {} - {}",
+            self.active_time.start.date(),
+            self.active_time.start.time().format("%H-%M-%S"),
+            self.active_time.end.time().format("%H-%M-%S")
+        );
+        let name = self.name();
+        format!("{} {}", name, date_times)
     }
 
     fn recalculate_metrics(&mut self) {

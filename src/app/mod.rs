@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use eframe::egui::*;
+use rfd::FileDialog;
 
 use self::{analysis_handling::AnalysisInfo, main_tabs::*, settings::*, state::AppState};
 
@@ -64,8 +65,24 @@ impl eframe::App for App {
                         }
                     });
 
-                if ui.button("Refresh now").clicked() {
+                if ui.button("Refresh Now").clicked() {
                     self.state.analysis_handler.refresh();
+                }
+
+                if ui
+                    .add_enabled(self.selected_combat.is_some(), Button::new("Save Combat"))
+                    .clicked()
+                {
+                    if let Some(file) = FileDialog::new()
+                        .set_title("Save Combat")
+                        .add_filter("log", &["log"])
+                        .set_file_name(&self.main_tabs.file_identifier)
+                        .save_file()
+                    {
+                        self.state
+                            .analysis_handler
+                            .save_combat(self.selected_combat.unwrap(), file);
+                    }
                 }
 
                 if self.state.analysis_handler.is_busy() {
@@ -89,7 +106,7 @@ impl App {
                 } => {
                     self.main_tabs.update(&latest_combat);
                     self.combats = combats;
-                    self.selected_combat = Some(self.combats.len());
+                    self.selected_combat = Some(self.combats.len() - 1);
                 }
             }
         }

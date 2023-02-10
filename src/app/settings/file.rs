@@ -29,6 +29,7 @@ impl FileTab {
             if ui.button("Browse").clicked() {
                 // TODO find out how to set the parent
                 if let Some(new_combatlog_file) = FileDialog::new()
+                    .set_title("Choose combatlog File")
                     .add_filter("combatlog", &["log"])
                     .pick_file()
                 {

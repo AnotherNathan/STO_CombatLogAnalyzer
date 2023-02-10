@@ -16,7 +16,10 @@ use log::info;
 use notify::{recommended_watcher, RecommendedWatcher, Watcher};
 use timer::{Guard, Timer};
 
-use crate::analyzer::{settings::AnalysisSettings, Analyzer, Combat};
+use crate::{
+    analyzer::{settings::AnalysisSettings, Analyzer, Combat},
+    unwrap_or_return,
+};
 
 pub struct AnalysisHandler {
     tx: Sender<Instruction>,
@@ -52,6 +55,7 @@ enum Instruction {
     AutoRefresh,
     GetCombat(usize),
     ClearLog,
+    SaveCombat(usize, PathBuf),
 }
 
 pub enum AnalysisInfo {
@@ -110,6 +114,12 @@ impl AnalysisHandler {
     pub fn clear_log(&self) {
         self.tx.send(Instruction::ClearLog).unwrap();
     }
+
+    pub fn save_combat(&self, combat_index: usize, file: PathBuf) {
+        self.tx
+            .send(Instruction::SaveCombat(combat_index, file))
+            .unwrap();
+    }
 }
 
 impl AnalysisContext {
@@ -151,6 +161,7 @@ impl AnalysisContext {
                     self.get_combat(combat_index);
                 }
                 Instruction::ClearLog => self.clear_log(),
+                Instruction::SaveCombat(combat_index, file) => self.save_combat(combat_index, file),
             }
 
             Self::set_is_busy(&self.is_busy, false);
@@ -253,6 +264,22 @@ impl AnalysisContext {
         drop(file);
         self.analyzer = Analyzer::new(settings);
         self.refresh();
+    }
+
+    fn save_combat(&self, combat_index: usize, file: PathBuf) {
+        let analyzer = unwrap_or_return!(&self.analyzer);
+        let combat = unwrap_or_return!(analyzer.result().get(combat_index));
+        Self::set_is_busy(&self.is_busy, true);
+        let combat_data =
+            match Self::read_log_combat_data(analyzer.settings().combatlog_file(), combat) {
+                Some(d) => d,
+                None => {
+                    Self::set_is_busy(&self.is_busy, false);
+                    return;
+                }
+            };
+        let _ = std::fs::write(file, combat_data.as_bytes());
+        Self::set_is_busy(&self.is_busy, false);
     }
 
     fn read_log_combat_data(file_path: &Path, combat: &Combat) -> Option<String> {

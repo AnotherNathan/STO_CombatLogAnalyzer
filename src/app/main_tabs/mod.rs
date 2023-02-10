@@ -12,6 +12,7 @@ mod tables;
 
 pub struct MainTabs {
     pub identifier: String,
+    pub file_identifier: String,
     pub summary_tab: SummaryTab,
     pub damage_out_tab: DamageTab,
     pub damage_in_tab: DamageTab,
@@ -31,6 +32,7 @@ impl MainTabs {
     pub fn empty() -> Self {
         Self {
             identifier: String::new(),
+            file_identifier: String::new(),
             damage_out_tab: DamageTab::empty(|p| &p.damage_out),
             damage_in_tab: DamageTab::empty(|p| &p.damage_in),
             active_tab: Default::default(),
@@ -40,6 +42,7 @@ impl MainTabs {
 
     pub fn update(&mut self, combat: &Combat) {
         self.identifier = combat.identifier();
+        self.file_identifier = combat.file_identifier();
         self.summary_tab.update(combat);
         self.damage_out_tab.update(combat);
         self.damage_in_tab.update(combat);
