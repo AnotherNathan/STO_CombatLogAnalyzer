@@ -364,7 +364,8 @@ impl Player {
                 Entity::NonPlayer { name, .. }
                 | Entity::Player {
                     full_name: name, ..
-                },
+                }
+                | Entity::NonPlayerCharacter { name, .. },
                 _,
             ) => {
                 if settings

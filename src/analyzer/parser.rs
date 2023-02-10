@@ -38,6 +38,10 @@ pub enum Entity<'a> {
         id: u64,
         unique_name: &'a str,
     },
+    NonPlayerCharacter {
+        id: u64,
+        name: &'a str,
+    },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -180,9 +184,10 @@ impl<'a> Record<'a> {
 }
 
 lazy_static! {
-    static ref ID_AND_UNIQUE_NAME_REGEX: Regex =
-        Regex::new(r"(?P<type>P|C)\[(?P<id>\d+)(@(?P<player_id>\d+))? (?P<unique_name>[^\]]+)\]")
-            .unwrap();
+    static ref ID_AND_UNIQUE_NAME_REGEX: Regex = Regex::new(
+        r"(?P<type>P|C|S)\[(?P<id>\d+)(@(?P<player_id>\d+))?(\s+(?P<unique_name>[^\]]+))?\]"
+    )
+    .unwrap();
 }
 impl<'a> Entity<'a> {
     fn parse(name: &'a str, id_and_unique_name: &'a str) -> Option<Self> {
@@ -194,23 +199,27 @@ impl<'a> Entity<'a> {
         let entity_type = captures.name("type")?.as_str();
         let id = captures.name("id")?.as_str();
         let id = str::parse::<u64>(id).ok()?;
-        let unique_name = captures.name("unique_name")?.as_str();
 
         match entity_type {
             "P" => {
                 let player_id = captures.name("player_id")?.as_str();
                 let player_id = str::parse::<u64>(player_id).ok()?;
+                let unique_name = captures.name("unique_name")?.as_str();
 
                 Some(Self::Player {
                     full_name: unique_name,
                     id: (id, player_id),
                 })
             }
-            "C" => Some(Self::NonPlayer {
-                name,
-                id,
-                unique_name,
-            }),
+            "C" => {
+                let unique_name = captures.name("unique_name")?.as_str();
+                Some(Self::NonPlayer {
+                    name,
+                    id,
+                    unique_name,
+                })
+            }
+            "S" => Some(Self::NonPlayerCharacter { id, name }),
             _ => None,
         }
     }
@@ -220,6 +229,7 @@ impl<'a> Entity<'a> {
             Entity::None => None,
             Entity::Player { full_name, .. } => Some(full_name),
             Entity::NonPlayer { name, .. } => Some(name),
+            Entity::NonPlayerCharacter { name, .. } => Some(name),
         }
     }
 
@@ -228,6 +238,7 @@ impl<'a> Entity<'a> {
             Entity::None => None,
             Entity::Player { full_name, .. } => Some(full_name),
             Entity::NonPlayer { unique_name, .. } => Some(unique_name),
+            Entity::NonPlayerCharacter { .. } => None,
         }
     }
 
@@ -327,7 +338,7 @@ mod tests {
     #[test]
     fn read_log() {
         let mut parser = Parser::new(&PathBuf::from(
-            r"D:\Games\Star Trek Online_en\Star Trek Online\Live\logs\GameClient\combatlog.log",
+            r"D:\Games\Star Trek Online_en\Star Trek Online\Live\logs\GameClient\saved_combats\Combat 2023-02-10 20-36-00 - 20-37-05.log",
         ))
         .unwrap();
 
