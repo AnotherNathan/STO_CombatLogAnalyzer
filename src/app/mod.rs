@@ -3,19 +3,27 @@ use std::sync::Arc;
 use eframe::egui::*;
 use rfd::FileDialog;
 
-use self::{analysis_handling::AnalysisInfo, main_tabs::*, settings::*, state::AppState};
+use crate::analyzer::Combat;
+
+use self::{
+    analysis_handling::AnalysisInfo, main_tabs::*, settings::*, state::AppState,
+    summary_copy::SummaryCopy,
+};
 
 mod analysis_handling;
 pub mod logging;
 mod main_tabs;
 mod settings;
 mod state;
+mod summary_copy;
 
 pub struct App {
     settings_window: SettingsWindow,
     combats: Vec<String>,
-    selected_combat: Option<usize>,
+    selected_combat_index: Option<usize>,
+    selected_combat: Option<Combat>,
     main_tabs: MainTabs,
+    summary_copy: SummaryCopy,
     state: AppState,
 }
 
@@ -30,8 +38,10 @@ impl App {
         Self {
             settings_window,
             combats: Default::default(),
+            selected_combat_index: None,
             selected_combat: None,
             main_tabs: MainTabs::empty(),
+            summary_copy: Default::default(),
             state,
         }
     }
@@ -52,13 +62,13 @@ impl eframe::App for App {
                         for (i, combat) in self.combats.iter().enumerate().rev() {
                             if ui
                                 .selectable_value(
-                                    &mut self.selected_combat,
+                                    &mut self.selected_combat_index,
                                     Some(i),
                                     combat.as_str(),
                                 )
                                 .changed()
                             {
-                                if let Some(combat_index) = self.selected_combat {
+                                if let Some(combat_index) = self.selected_combat_index {
                                     self.state.analysis_handler.get_combat(combat_index);
                                 }
                             }
@@ -76,18 +86,22 @@ impl eframe::App for App {
                     if let Some(file) = FileDialog::new()
                         .set_title("Save Combat")
                         .add_filter("log", &["log"])
-                        .set_file_name(&self.main_tabs.file_identifier)
+                        .set_file_name(&self.selected_combat.as_ref().unwrap().file_identifier())
                         .save_file()
                     {
                         self.state
                             .analysis_handler
-                            .save_combat(self.selected_combat.unwrap(), file);
+                            .save_combat(self.selected_combat_index.unwrap(), file);
                     }
                 }
 
                 if self.state.analysis_handler.is_busy() {
                     ui.label("⏳ Working..");
                 }
+
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    self.summary_copy.show(self.selected_combat.as_ref(), ui);
+                });
             });
 
             self.main_tabs.show(ui);
@@ -99,14 +113,18 @@ impl App {
     fn handle_analysis_infos(&mut self) {
         for info in self.state.analysis_handler.check_for_info() {
             match info {
-                AnalysisInfo::Combat(combat) => self.main_tabs.update(&combat),
+                AnalysisInfo::Combat(combat) => {
+                    self.main_tabs.update(&combat);
+                    self.selected_combat = Some(combat);
+                }
                 AnalysisInfo::Refreshed {
                     latest_combat,
                     combats,
                 } => {
                     self.main_tabs.update(&latest_combat);
                     self.combats = combats;
-                    self.selected_combat = Some(self.combats.len() - 1);
+                    self.selected_combat_index = Some(self.combats.len() - 1);
+                    self.selected_combat = Some(latest_combat);
                 }
             }
         }

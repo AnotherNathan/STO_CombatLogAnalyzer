@@ -1,10 +1,6 @@
 use std::hash::Hash;
 
-use eframe::{
-    egui::{Area, Frame, Id, InnerResponse, Layout, Order, Ui, WidgetText},
-    emath::Align,
-    epaint::Rect,
-};
+use eframe::egui::{Id, InnerResponse, Ui, WidgetText, Window};
 
 pub struct PopupButton {
     title: WidgetText,
@@ -46,20 +42,16 @@ impl PopupButton {
             return InnerResponse::new(None, button_response);
         }
 
-        let inner = Area::new(id)
-            .order(Order::Foreground)
-            .default_pos(button_response.rect.min)
-            .movable(true)
-            .interactable(true)
-            .drag_bounds(Rect::EVERYTHING)
-            .show(ui.ctx(), |ui| {
-                Frame::menu(ui.style())
-                    .show(ui, |ui| {
-                        ui.with_layout(Layout::top_down_justified(Align::LEFT), add_contents)
-                            .inner
-                    })
-                    .inner
-            });
+        let inner = Window::new("")
+            .id(id.with("__popup_window"))
+            .title_bar(false)
+            .collapsible(false)
+            .auto_sized()
+            .resizable(false)
+            .constrain(true)
+            .default_pos([button_response.rect.min.x, button_response.rect.max.y])
+            .show(ui.ctx(), add_contents)
+            .unwrap();
 
         if !button_response.clicked() && inner.response.clicked_elsewhere() {
             // TODO find a way not to close when something inside was clicked (e.g. a combo box)
@@ -67,7 +59,7 @@ impl PopupButton {
         }
 
         state.store(ui, id);
-        InnerResponse::new(Some(inner.inner), button_response)
+        InnerResponse::new(Some(inner.inner.unwrap()), button_response)
     }
 }
 

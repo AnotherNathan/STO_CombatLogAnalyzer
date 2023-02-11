@@ -7,7 +7,7 @@ use egui_extras::*;
 use crate::{
     analyzer::{Combat, Player as AnalyzedPlayer},
     app::main_tabs::common::*,
-    helpers::{number_formatting::NumberFormatter, F64TotalOrd},
+    helpers::{number_formatting::NumberFormatter, *},
 };
 
 pub struct SummaryTable {

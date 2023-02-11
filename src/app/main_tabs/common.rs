@@ -1,12 +1,10 @@
-use std::ops::Range;
-
-use chrono::{Duration, NaiveDateTime, NaiveTime};
+use chrono::Duration;
 use eframe::egui::*;
 use egui_extras::*;
 
 use crate::{
     analyzer::{ShieldHullOptionalValues, ShieldHullValues},
-    helpers::number_formatting::NumberFormatter,
+    helpers::{format_duration, number_formatting::NumberFormatter},
 };
 
 pub const ROW_HEIGHT: f32 = 20.0;
@@ -126,17 +124,9 @@ impl TextCount {
 impl TextDuration {
     pub fn new(duration: Duration) -> Self {
         Self {
-            text: Self::format(duration),
+            text: format_duration(duration),
             duration,
         }
-    }
-
-    fn format(duration: Duration) -> String {
-        let time = NaiveTime::from_hms_opt(0, 0, 0).unwrap() + duration;
-        if duration >= Duration::hours(1) {
-            return format!("{}", time.format("%T%.3f"));
-        }
-        format!("{}", time.format("%M:%S%.3f"))
     }
 
     pub fn show(&self, row: &mut TableRow) -> Response {
@@ -173,17 +163,6 @@ pub fn show_shield_hull_values_tool_tip(response: Response, shield_value: &str, 
                 });
             });
     });
-}
-
-pub fn time_range_to_duration(time_range: &Range<NaiveDateTime>) -> Duration {
-    time_range.end.signed_duration_since(time_range.start)
-}
-
-pub fn time_range_to_duration_or_zero(time_range: &Option<Range<NaiveDateTime>>) -> Duration {
-    time_range
-        .as_ref()
-        .map(time_range_to_duration)
-        .unwrap_or(Duration::zero())
 }
 
 impl Default for TextDuration {

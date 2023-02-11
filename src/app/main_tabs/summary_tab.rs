@@ -2,8 +2,9 @@ use eframe::egui::*;
 use egui_extras::*;
 
 use crate::{
-    analyzer::Combat, custom_widgets::splitter::Splitter,
-    helpers::number_formatting::NumberFormatter,
+    analyzer::Combat,
+    custom_widgets::splitter::Splitter,
+    helpers::{number_formatting::NumberFormatter, *},
 };
 
 use super::{common::*, diagrams::SummaryChart, tables::SummaryTable};
