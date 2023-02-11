@@ -47,6 +47,7 @@ pub struct DamageMetrics {
     pub total_damage: ShieldHullValues,
     pub total_damage_prevented_to_hull_by_shields: f64,
     pub total_base_damage: f64,
+    pub base_dps: f64,
     pub dps: ShieldHullValues,
     pub average_hit: ShieldHullOptionalValues,
     pub critical_chance: f64,
@@ -233,6 +234,8 @@ impl DamageMetrics {
         let damage_resistance_percentage =
             damage_resistance_percentage(&total_damage, total_base_damage, total_shield_drain);
 
+        let base_dps = total_base_damage / combat_duration;
+
         Self {
             shield_hits,
             hull_hits,
@@ -240,6 +243,7 @@ impl DamageMetrics {
             total_damage,
             total_damage_prevented_to_hull_by_shields,
             total_base_damage,
+            base_dps,
             dps,
             average_hit,
             critical_chance,

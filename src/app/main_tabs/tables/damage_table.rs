@@ -50,6 +50,7 @@ static COLUMNS: &[ColumnDescriptor] = &[
     ),
     col!(
         "Damage Resistance %",
+        "Damage Resistance % excluding any drain damage",
         |t| t.sort_by_option_f64_asc(|p| p.damage_resistance_percentage.value),
         |t, r| {
             t.damage_resistance_percentage.show(r);
@@ -82,6 +83,22 @@ static COLUMNS: &[ColumnDescriptor] = &[
     col!("Hits", |t| t.sort_by_desc(|p| p.hits.all), |t, r| {
         t.hits.show(r);
     },),
+    col!(
+        "Base Damage",
+        "Damage If there were no shields and no damage resistances",
+        |t| t.sort_by_option_f64_asc(|p| p.base_damage.value),
+        |t, r| {
+            t.base_damage.show(r);
+        },
+    ),
+    col!(
+        "Base DPS",
+        "Damage Per Second If there were no shields and no damage resistances",
+        |t| t.sort_by_option_f64_asc(|p| p.base_dps.value),
+        |t, r| {
+            t.base_dps.show(r);
+        },
+    ),
 ];
 
 pub struct DamageTable {
@@ -99,6 +116,8 @@ pub struct DamageTablePart {
     critical_chance: TextValue,
     flanking: TextValue,
     damage_resistance_percentage: TextValue,
+    base_damage: TextValue,
+    base_dps: TextValue,
     hits: Hits,
     pub sub_parts: Vec<DamageTablePart>,
 
@@ -254,6 +273,8 @@ impl DamageTablePart {
                 3,
                 number_formatter,
             ),
+            base_damage: TextValue::new(source.total_base_damage, 2, number_formatter),
+            base_dps: TextValue::new(source.base_dps, 2, number_formatter),
             hits: Hits::new(source),
             sub_parts,
             open: false,
