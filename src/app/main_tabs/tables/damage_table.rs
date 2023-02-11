@@ -85,7 +85,7 @@ static COLUMNS: &[ColumnDescriptor] = &[
     },),
     col!(
         "Base Damage",
-        "Damage If there were no shields and no damage resistances",
+        "Damage If there were no shields and no damage resistances\nThis excludes any drain damage",
         |t| t.sort_by_option_f64_asc(|p| p.base_damage.value),
         |t, r| {
             t.base_damage.show(r);
@@ -93,7 +93,7 @@ static COLUMNS: &[ColumnDescriptor] = &[
     ),
     col!(
         "Base DPS",
-        "Damage Per Second If there were no shields and no damage resistances",
+        "Damage Per Second If there were no shields and no damage resistances\nThis excludes any drain damage",
         |t| t.sort_by_option_f64_asc(|p| p.base_dps.value),
         |t, r| {
             t.base_dps.show(r);
