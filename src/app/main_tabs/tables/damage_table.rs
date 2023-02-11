@@ -311,7 +311,7 @@ impl DamageTablePart {
                             .selectable_label(false, "copy name to clipboard")
                             .clicked()
                         {
-                            ui.output().copied_text = self.name.clone();
+                            ui.output_mut(|o| o.copied_text = self.name.clone());
                             ui.close_menu();
                         }
 

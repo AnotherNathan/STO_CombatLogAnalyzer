@@ -137,20 +137,21 @@ impl<'a> SliderTextEdit<'a> {
 
 impl State {
     fn load(ctx: &Context, id: Id, value: &f64, display_precision: Option<i32>) -> Self {
-        let mut data = ctx.data();
-        let state = data.get_temp_mut_or_default::<Self>(id);
+        ctx.data_mut(|data| {
+            let state = data.get_temp_mut_or_default::<Self>(id);
 
-        if state.is_editing_value_text {
-            return state.clone();
-        }
+            if state.is_editing_value_text {
+                return state.clone();
+            }
 
-        Self {
-            value_text: SliderTextEdit::format_value(*value, display_precision),
-            is_editing_value_text: false,
-        }
+            Self {
+                value_text: SliderTextEdit::format_value(*value, display_precision),
+                is_editing_value_text: false,
+            }
+        })
     }
 
     fn store(self, ctx: &Context, id: Id) {
-        ctx.data().insert_temp(id, self);
+        ctx.data_mut(|d| d.insert_temp(id, self));
     }
 }

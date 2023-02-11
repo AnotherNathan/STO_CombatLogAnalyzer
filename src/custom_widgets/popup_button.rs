@@ -66,12 +66,10 @@ impl PopupButton {
 impl PopupButtonState {
     fn load(ui: &mut Ui, id: Id) -> Self {
         ui.ctx()
-            .data()
-            .get_temp::<PopupButtonState>(id)
-            .unwrap_or_default()
+            .data_mut(|d| d.get_temp::<PopupButtonState>(id).unwrap_or_default())
     }
 
     fn store(self, ui: &mut Ui, id: Id) {
-        ui.ctx().data().insert_temp(id, self);
+        ui.ctx().data_mut(|d| d.insert_temp(id, self));
     }
 }

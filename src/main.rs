@@ -26,9 +26,13 @@ fn main() {
         ..Default::default()
     };
 
-    eframe::run_native(
+    let res = eframe::run_native(
         "STO_CombatLogAnalyzer",
         native_options,
         Box::new(|cc| Box::new(app::App::new(cc))),
     );
+
+    if let Err(err) = res {
+        log::error!("eframe crashed: {}", err);
+    }
 }

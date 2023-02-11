@@ -93,7 +93,9 @@ impl Splitter {
         } = self;
 
         let id = ui.id().with(module_path!());
-        let ratio = ui.ctx().data().get_temp::<f32>(id).unwrap_or(initial_ratio);
+        let ratio = ui
+            .ctx()
+            .data_mut(|d| d.get_temp::<f32>(id).unwrap_or(initial_ratio));
 
         let (rect, response) =
             ui.allocate_exact_size(ui.available_size_before_wrap(), Sense::hover());
@@ -161,7 +163,7 @@ impl Splitter {
         let ratio = ratio + drag_delta;
         let ratio = ratio.clamp(*ratio_bounds.start(), *ratio_bounds.end());
 
-        ui.ctx().data().insert_temp(id, ratio);
+        ui.ctx().data_mut(|d| d.insert_temp(id, ratio));
 
         let line_pos_1 = ui.painter().round_pos_to_pixels(line_pos_1);
         let line_pos_2 = ui.painter().round_pos_to_pixels(line_pos_2);
@@ -172,10 +174,10 @@ impl Splitter {
         };
 
         let visuals = if splitter_response.dragged() {
-            ui.output().cursor_icon = cursor_icon;
+            ui.output_mut(|o| o.cursor_icon = cursor_icon);
             &ui.visuals().widgets.active
         } else if splitter_response.hovered() {
-            ui.output().cursor_icon = cursor_icon;
+            ui.output_mut(|o| o.cursor_icon = cursor_icon);
             &ui.visuals().widgets.hovered
         } else {
             &ui.visuals().widgets.noninteractive

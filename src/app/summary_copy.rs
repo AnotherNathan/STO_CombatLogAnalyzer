@@ -35,7 +35,7 @@ impl SummaryCopy {
             });
 
             if ui.button("Copy Combat Summary").clicked() {
-                ui.output().copied_text = self.build_summary(combat.unwrap());
+                ui.output_mut(|o|o.copied_text = self.build_summary(combat.unwrap()));
             }
         });
     }
