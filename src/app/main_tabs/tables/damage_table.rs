@@ -1,11 +1,11 @@
 use std::cmp::Reverse;
 
 use eframe::egui::*;
-use egui_extras::{Column, TableBody, TableBuilder, TableRow};
 
 use crate::{
     analyzer::*,
     app::main_tabs::common::*,
+    custom_widgets::table::*,
     helpers::{number_formatting::NumberFormatter, F64TotalOrd},
 };
 
@@ -31,15 +31,15 @@ macro_rules! col {
 
 static COLUMNS: &[ColumnDescriptor] = &[
     col!(
-        "Total Damage",
-        |t| t.sort_by_option_f64_desc(|p| p.total_damage.all.value),
-        |t, r| t.total_damage.show(r),
-    ),
-    col!(
         "DPS",
         "Damage Per Second",
         |t| t.sort_by_option_f64_desc(|p| p.dps.all.value),
         |t, r| t.dps.show(r),
+    ),
+    col!(
+        "Total Damage",
+        |t| t.sort_by_option_f64_desc(|p| p.total_damage.all.value),
+        |t, r| t.total_damage.show(r),
     ),
     col!(
         "Damage %",
@@ -84,19 +84,19 @@ static COLUMNS: &[ColumnDescriptor] = &[
         t.hits.show(r);
     },),
     col!(
-        "Base Damage",
-        "Damage If there were no shields and no damage resistances\nThis excludes any drain damage",
-        |t| t.sort_by_option_f64_asc(|p| p.base_damage.value),
-        |t, r| {
-            t.base_damage.show(r);
-        },
-    ),
-    col!(
         "Base DPS",
         "Damage Per Second If there were no shields and no damage resistances\nThis excludes any drain damage",
         |t| t.sort_by_option_f64_asc(|p| p.base_dps.value),
         |t, r| {
             t.base_dps.show(r);
+        },
+    ),
+    col!(
+        "Base Damage",
+        "Damage If there were no shields and no damage resistances\nThis excludes any drain damage",
+        |t| t.sort_by_option_f64_asc(|p| p.base_damage.value),
+        |t, r| {
+            t.base_damage.show(r);
         },
     ),
 ];
@@ -180,33 +180,28 @@ impl DamageTable {
     }
 
     pub fn show(&mut self, ui: &mut Ui, mut on_selected: impl FnMut(TableSelection)) {
-        ScrollArea::horizontal()
-            .min_scrolled_width(0.0)
-            .show(ui, |ui| {
-                TableBuilder::new(ui)
-                    .columns(Column::auto(), COLUMNS.len() + 1)
-                    .striped(true)
-                    .min_scrolled_height(0.0)
-                    .max_scroll_height(f32::MAX)
-                    .header(0.0, |mut r| {
-                        r.col(|ui| {
-                            ui.label("Name");
-                        });
-
-                        for column in COLUMNS.iter() {
-                            self.show_column_header(&mut r, column);
-                        }
-                    })
-                    .body(|mut t| {
-                        for player in self.players.iter_mut() {
-                            player.show(&mut t, 0.0, &mut self.selected_id, &mut on_selected);
-                        }
+        ScrollArea::horizontal().show(ui, |ui| {
+            Table::new(ui)
+                .cell_spacing(10.0)
+                .header(HEADER_HEIGHT, |mut r| {
+                    r.column(|ui| {
+                        ui.label("Name");
                     });
-            });
+
+                    for column in COLUMNS.iter() {
+                        self.show_column_header(&mut r, column);
+                    }
+                })
+                .body(ROW_HEIGHT, |mut t| {
+                    for player in self.players.iter_mut() {
+                        player.show(&mut t, 0.0, &mut self.selected_id, &mut on_selected);
+                    }
+                });
+        });
     }
 
     fn show_column_header(&mut self, row: &mut TableRow, column: &ColumnDescriptor) {
-        row.col(|ui| {
+        row.column(|ui| {
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 let response = ui.selectable_label(false, column.name);
                 if response.clicked() {
@@ -303,8 +298,8 @@ impl DamageTablePart {
         selected_id: &mut Option<u32>,
         on_selected: &mut impl FnMut(TableSelection),
     ) {
-        table.row(ROW_HEIGHT, |mut r| {
-            r.col(|ui| {
+        let response = table.selectable_row(Some(self.id) == *selected_id, |mut r| {
+            r.column(|ui| {
                 ui.horizontal(|ui| {
                     ui.add_space(indent * 30.0);
                     let symbol = if self.open { "⏷" } else { "⏵" };
@@ -315,41 +310,42 @@ impl DamageTablePart {
                     {
                         self.open = !self.open;
                     }
-                    let name_response =
-                        ui.selectable_label(Some(self.id) == *selected_id, &self.name);
-                    if name_response.clicked() {
-                        if *selected_id == Some(self.id) {
-                            *selected_id = None;
-                            on_selected(TableSelection::Unselect);
-                        } else {
-                            *selected_id = Some(self.id);
-                            on_selected(TableSelection::SubPartsOrSingle(self));
-                        }
-                    }
 
-                    name_response.context_menu(|ui| {
-                        if ui
-                            .selectable_label(false, "copy name to clipboard")
-                            .clicked()
-                        {
-                            ui.output_mut(|o| o.copied_text = self.name.clone());
-                            ui.close_menu();
-                        }
-
-                        if ui
-                            .selectable_label(false, "show diagrams for this")
-                            .clicked()
-                        {
-                            *selected_id = Some(self.id);
-                            on_selected(TableSelection::Single(self));
-                            ui.close_menu();
-                        }
-                    });
+                    ui.label(&self.name);
                 });
             });
 
             for column in COLUMNS.iter() {
                 (column.show)(self, &mut r);
+            }
+        });
+
+        if response.clicked() {
+            if *selected_id == Some(self.id) {
+                *selected_id = None;
+                on_selected(TableSelection::Unselect);
+            } else {
+                *selected_id = Some(self.id);
+                on_selected(TableSelection::SubPartsOrSingle(self));
+            }
+        }
+
+        response.context_menu(|ui| {
+            if ui
+                .selectable_label(false, "copy name to clipboard")
+                .clicked()
+            {
+                ui.output_mut(|o| o.copied_text = self.name.clone());
+                ui.close_menu();
+            }
+
+            if ui
+                .selectable_label(false, "show diagrams for this")
+                .clicked()
+            {
+                *selected_id = Some(self.id);
+                on_selected(TableSelection::Single(self));
+                ui.close_menu();
             }
         });
 
@@ -399,13 +395,11 @@ impl Hits {
     }
 
     fn show(&self, row: &mut TableRow) {
-        let response = row
-            .col(|ui| {
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    ui.label(&self.all_text);
-                });
-            })
-            .1;
+        let response = row.column(|ui| {
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                ui.label(&self.all_text);
+            });
+        });
 
         show_shield_hull_values_tool_tip(response, &self.shield, &self.hull);
     }

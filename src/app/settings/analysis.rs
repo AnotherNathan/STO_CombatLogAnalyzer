@@ -1,9 +1,11 @@
 use eframe::egui::*;
-use egui_extras::*;
-
-use crate::{analyzer::settings::*, custom_widgets::popup_button::PopupButton};
 
 use super::Settings;
+use crate::custom_widgets::table::Table;
+use crate::{analyzer::settings::*, custom_widgets::popup_button::PopupButton};
+
+const HEADER_HEIGHT: f32 = 15.0;
+const ROW_HEIGHT: f32 = 25.0;
 
 #[derive(Default)]
 pub struct AnalysisTab {}
@@ -94,34 +96,29 @@ impl AnalysisTab {
                 group_rules.push(Default::default());
             }
         });
-        TableBuilder::new(ui)
-            .striped(true)
-            .column(Column::auto())
-            .column(Column::auto())
-            .column(Column::auto().at_least(600.0).resizable(true))
-            .column(Column::auto())
-            .cell_layout(Layout::left_to_right(Align::Center))
+        Table::new(ui)
+            .min_scroll_height(200.0)
             .max_scroll_height(200.0)
-            .header(0.0, |mut r| {
-                r.col(|ui| {
+            .header(HEADER_HEIGHT, |r| {
+                r.column(|ui| {
                     ui.label("On");
                 });
-                r.col(|ui| {
+                r.column(|ui| {
                     ui.label("Edit");
                 });
-                r.col(|ui| {
+                r.column(|ui| {
                     ui.label(name_header);
                 });
             })
-            .body(|mut t| {
+            .body(ROW_HEIGHT, |t| {
                 let mut to_remove = Vec::new();
                 for (id, group_rule) in group_rules.iter_mut().enumerate() {
-                    t.row(25.0, |mut r| {
-                        r.col(|ui| {
+                    t.row(|r| {
+                        r.column(|ui| {
                             ui.checkbox(&mut group_rule.enabled, "");
                         });
 
-                        r.col(|ui| {
+                        r.column(|ui| {
                             PopupButton::new("✏")
                                 .with_id_source(base_id + id)
                                 .show(ui, |ui| {
@@ -137,13 +134,13 @@ impl AnalysisTab {
                                 });
                         });
 
-                        r.col(|ui| {
+                        r.column(|ui| {
                             TextEdit::singleline(&mut group_rule.name)
-                                .desired_width(600.0)
+                                .min_size(vec2(600.0, 0.0))
                                 .show(ui);
                         });
 
-                        r.col(|ui| {
+                        r.column(|ui| {
                             if ui.selectable_label(false, "🗑").clicked() {
                                 to_remove.push(id);
                             }
@@ -171,38 +168,32 @@ impl AnalysisTab {
             }
         });
         ui.push_id(id, |ui| {
-            TableBuilder::new(ui)
-                .striped(true)
-                .column(Column::auto())
-                .column(Column::auto())
-                .column(Column::auto())
-                .column(Column::auto().at_least(400.0).resizable(true))
-                .column(Column::auto())
-                .cell_layout(Layout::left_to_right(Align::Center))
-                .max_scroll_height(100.0)
-                .header(0.0, |mut r| {
-                    r.col(|ui| {
+            Table::new(ui)
+                .min_scroll_height(100.0)
+                .max_scroll_height(200.0)
+                .header(HEADER_HEIGHT, |r| {
+                    r.column(|ui| {
                         ui.label("On");
                     });
-                    r.col(|ui| {
+                    r.column(|ui| {
                         ui.label("Aspect to match");
                     });
-                    r.col(|ui| {
+                    r.column(|ui| {
                         ui.label("Match Method");
                     });
-                    r.col(|ui| {
+                    r.column(|ui| {
                         ui.label("Text to match");
                     });
                 })
-                .body(|mut t| {
+                .body(ROW_HEIGHT, |t| {
                     let mut to_remove = Vec::new();
                     for (id, rule) in rules.iter_mut().enumerate() {
-                        t.row(25.0, |mut r| {
-                            r.col(|ui| {
+                        t.row(|r| {
+                            r.column(|ui| {
                                 ui.checkbox(&mut rule.enabled, "");
                             });
 
-                            r.col(|ui| {
+                            r.column(|ui| {
                                 ComboBox::from_id_source(id + 9387465)
                                     .selected_text(rule.aspect.display())
                                     .width(150.0)
@@ -213,7 +204,7 @@ impl AnalysisTab {
                                     });
                             });
 
-                            r.col(|ui| {
+                            r.column(|ui| {
                                 ComboBox::from_id_source(id + 394857)
                                     .selected_text(rule.method.display())
                                     .width(150.0)
@@ -231,13 +222,13 @@ impl AnalysisTab {
                                     });
                             });
 
-                            r.col(|ui| {
+                            r.column(|ui| {
                                 TextEdit::singleline(&mut rule.expression)
-                                    .desired_width(600.0)
+                                    .min_size(vec2(400.0, 0.0))
                                     .show(ui);
                             });
 
-                            r.col(|ui| {
+                            r.column(|ui| {
                                 if ui.selectable_label(false, "🗑").clicked() {
                                     to_remove.push(id);
                                 }

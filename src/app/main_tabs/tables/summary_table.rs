@@ -2,11 +2,11 @@ use std::cmp::Reverse;
 
 use chrono::Duration;
 use eframe::egui::*;
-use egui_extras::*;
 
 use crate::{
     analyzer::{Combat, Player as AnalyzedPlayer},
     app::main_tabs::common::*,
+    custom_widgets::table::*,
     helpers::{number_formatting::NumberFormatter, *},
 };
 
@@ -51,66 +51,59 @@ impl SummaryTable {
 
     pub fn show(&mut self, ui: &mut Ui) {
         ScrollArea::new([true, false]).show(ui, |ui| {
-            TableBuilder::new(ui)
-                .columns(Column::auto(), 11)
-                .striped(true)
-                .max_scroll_height(f32::MAX)
-                .header(0.0, |mut r| {
-                    r.col(|ui| {
+            Table::new(ui)
+                .header(HEADER_HEIGHT, |r| {
+                    r.column(|ui| {
                         ui.horizontal(|ui| {
                             ui.label("Player");
                         });
                     });
-                    Self::show_column_header(&mut r, "Total Outgoing Damage", || {
+                    Self::show_column_header(r, "Total Outgoing Damage", || {
                         self.sort_by_option_f64(|p| p.total_out_damage.all.value)
                     });
 
-                    Self::show_column_header(&mut r, "Outgoing DPS", || {
+                    Self::show_column_header(r, "Outgoing DPS", || {
                         self.sort_by_option_f64(|p| p.dps_out.all.value)
                     });
 
-                    Self::show_column_header(&mut r, "Outgoing Damage %", || {
+                    Self::show_column_header(r, "Outgoing Damage %", || {
                         self.sort_by_option_f64(|p| p.total_out_damage_percentage.value)
                     });
 
-                    Self::show_column_header(&mut r, "Total Incoming Damage", || {
+                    Self::show_column_header(r, "Total Incoming Damage", || {
                         self.sort_by_option_f64(|p| p.total_in_damage.all.value)
                     });
 
-                    Self::show_column_header(&mut r, "Incoming Damage %", || {
+                    Self::show_column_header(r, "Incoming Damage %", || {
                         self.sort_by_option_f64(|p| p.total_in_damage_percentage.value)
                     });
 
-                    Self::show_column_header(&mut r, "Combat Duration", || {
+                    Self::show_column_header(r, "Combat Duration", || {
                         self.sort_by_key(|p| p.combat_duration.duration)
                     });
 
-                    Self::show_column_header(&mut r, "Combat Duration %", || {
+                    Self::show_column_header(r, "Combat Duration %", || {
                         self.sort_by_option_f64(|p| p.combat_duration_percentage.value)
                     });
 
-                    Self::show_column_header(&mut r, "Active Duration", || {
+                    Self::show_column_header(r, "Active Duration", || {
                         self.sort_by_key(|p| p.active_duration.duration)
                     });
 
-                    Self::show_column_header(&mut r, "Kills", || {
-                        self.sort_by_key(|p| p.kills.count)
-                    });
+                    Self::show_column_header(r, "Kills", || self.sort_by_key(|p| p.kills.count));
 
-                    Self::show_column_header(&mut r, "Deaths", || {
-                        self.sort_by_key(|p| p.deaths.count)
-                    });
+                    Self::show_column_header(r, "Deaths", || self.sort_by_key(|p| p.deaths.count));
                 })
-                .body(|mut t| {
+                .body(ROW_HEIGHT, |t| {
                     for player in self.players.iter() {
-                        player.show(&mut t)
+                        player.show(t)
                     }
                 });
         });
     }
 
     fn show_column_header(row: &mut TableRow, column_name: &str, sort: impl FnOnce()) {
-        row.col(|ui| {
+        row.column(|ui| {
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if ui.selectable_label(false, column_name).clicked() {
                     sort();
@@ -180,23 +173,23 @@ impl Player {
     }
 
     pub fn show(&self, table: &mut TableBody) {
-        table.row(ROW_HEIGHT, |mut r| {
-            r.col(|ui| {
+        table.row(|r| {
+            r.column(|ui| {
                 ui.horizontal(|ui| {
                     ui.label(&self.name);
                 });
             });
 
-            self.total_out_damage.show(&mut r);
-            self.dps_out.show(&mut r);
-            self.total_out_damage_percentage.show(&mut r);
-            self.total_in_damage.show(&mut r);
-            self.total_in_damage_percentage.show(&mut r);
-            self.combat_duration.show(&mut r);
-            self.combat_duration_percentage.show(&mut r);
-            self.active_duration.show(&mut r);
-            self.kills.show(&mut r);
-            self.deaths.show(&mut r);
-        })
+            self.total_out_damage.show(r);
+            self.dps_out.show(r);
+            self.total_out_damage_percentage.show(r);
+            self.total_in_damage.show(r);
+            self.total_in_damage_percentage.show(r);
+            self.combat_duration.show(r);
+            self.combat_duration_percentage.show(r);
+            self.active_duration.show(r);
+            self.kills.show(r);
+            self.deaths.show(r);
+        });
     }
 }

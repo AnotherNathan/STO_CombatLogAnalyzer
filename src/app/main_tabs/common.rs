@@ -1,13 +1,14 @@
 use chrono::Duration;
 use eframe::egui::*;
-use egui_extras::*;
 
 use crate::{
     analyzer::{ShieldHullOptionalValues, ShieldHullValues},
+    custom_widgets::table::*,
     helpers::{format_duration, number_formatting::NumberFormatter},
 };
 
-pub const ROW_HEIGHT: f32 = 20.0;
+pub const ROW_HEIGHT: f32 = 25.0;
+pub const HEADER_HEIGHT: f32 = 15.0;
 
 #[derive(Default)]
 pub struct TextValue {
@@ -103,7 +104,7 @@ impl TextValue {
             return Some(show_value_text(row, text));
         }
 
-        row.col(|_| {});
+        row.column(|_| {});
         None
     }
 }
@@ -135,33 +136,29 @@ impl TextDuration {
 }
 
 fn show_value_text(row: &mut TableRow, value_text: &str) -> Response {
-    row.col(|ui| {
+    row.column(|ui| {
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             ui.label(value_text)
         });
     })
-    .1
 }
 
 pub fn show_shield_hull_values_tool_tip(response: Response, shield_value: &str, hull_value: &str) {
     response.on_hover_ui(|ui| {
-        TableBuilder::new(ui)
-            .columns(Column::auto().at_least(60.0), 1)
-            .columns(Column::auto(), 1)
-            .body(|mut t| {
-                t.row(ROW_HEIGHT, |mut r| {
-                    r.col(|ui| {
-                        ui.label("Shield");
-                    });
-                    show_value_text(&mut r, shield_value);
+        Table::new(ui).body(ROW_HEIGHT, |t| {
+            t.row(|r| {
+                r.column(|ui| {
+                    ui.label("Shield");
                 });
-                t.row(ROW_HEIGHT, |mut r| {
-                    r.col(|ui| {
-                        ui.label("Hull");
-                    });
-                    show_value_text(&mut r, hull_value);
-                });
+                show_value_text(r, shield_value);
             });
+            t.row(|r| {
+                r.column(|ui| {
+                    ui.label("Hull");
+                });
+                show_value_text(r, hull_value);
+            });
+        });
     });
 }
 

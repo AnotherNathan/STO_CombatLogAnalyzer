@@ -1,9 +1,8 @@
 use eframe::egui::*;
-use egui_extras::*;
 
 use crate::{
     analyzer::Combat,
-    custom_widgets::splitter::Splitter,
+    custom_widgets::{splitter::Splitter, table::*},
     helpers::{number_formatting::NumberFormatter, *},
 };
 
@@ -130,39 +129,27 @@ impl SummaryTab {
     }
 
     fn show_combat_summary_table(&mut self, ui: &mut Ui) {
-        TableBuilder::new(ui)
-            .columns(Column::auto(), 6)
-            .striped(true)
-            .max_scroll_height(f32::MAX)
-            .body(|mut t| {
-                Self::simple_summary_row(&mut t, "Combat Duration", &self.combat_duration.text);
-                Self::simple_summary_row(
-                    &mut t,
-                    "Active Duration (duration of everything)",
-                    &self.active_duration.text,
-                );
+        Table::new(ui).body(ROW_HEIGHT, |t| {
+            Self::simple_summary_row(t, "Combat Duration", &self.combat_duration.text);
+            Self::simple_summary_row(
+                t,
+                "Active Duration (duration of everything)",
+                &self.active_duration.text,
+            );
 
-                Self::hull_shield_summary_row(
-                    &mut t,
-                    "Total Outgoing Damage",
-                    &self.total_damage_out,
-                );
+            Self::hull_shield_summary_row(t, "Total Outgoing Damage", &self.total_damage_out);
 
-                Self::hull_shield_summary_row(
-                    &mut t,
-                    "Total Incoming Damage",
-                    &self.total_damage_in,
-                );
+            Self::hull_shield_summary_row(t, "Total Incoming Damage", &self.total_damage_in);
 
-                Self::simple_summary_row(&mut t, "Total Kills", &self.total_kills.text);
-                Self::simple_summary_row(&mut t, "Total Deaths", &self.total_deaths.text);
-            });
+            Self::simple_summary_row(t, "Total Kills", &self.total_kills.text);
+            Self::simple_summary_row(t, "Total Deaths", &self.total_deaths.text);
+        });
     }
 
     fn simple_summary_row(table: &mut TableBody, description: &str, value: &str) {
-        table.row(ROW_HEIGHT, |mut r| {
-            Self::show_description(&mut r, description);
-            r.col(|ui| {
+        table.row(|r| {
+            Self::show_description(r, description);
+            r.column(|ui| {
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     ui.label(value);
                 });
@@ -175,14 +162,14 @@ impl SummaryTab {
         description: &str,
         value: &ShieldAndHullTextValue,
     ) {
-        table.row(ROW_HEIGHT, |mut r| {
-            Self::show_description(&mut r, description);
-            value.show(&mut r);
+        table.row(|r| {
+            Self::show_description(r, description);
+            value.show(r);
         });
     }
 
     fn show_description(row: &mut TableRow, description: &str) {
-        row.col(|ui| {
+        row.column(|ui| {
             ui.horizontal(|ui| {
                 ui.label(description);
             });
