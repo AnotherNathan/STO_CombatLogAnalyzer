@@ -183,13 +183,19 @@ impl DpsLine {
 
         let entry_index = Self::get_sample_entry(hits, time_millis);
 
-        Self::get_get_sample_gauss_filtered_half(
-            hits,
-            time_seconds,
-            sigma_seconds,
-            entry_index.saturating_sub(1),
-            |i| i.checked_sub(1),
-        ) + Self::get_gauss_value(hits, entry_index, time_seconds, sigma_seconds).unwrap_or(0.0)
+        entry_index
+            .checked_sub(1)
+            .map(|i| {
+                Self::get_get_sample_gauss_filtered_half(
+                    hits,
+                    time_seconds,
+                    sigma_seconds,
+                    i,
+                    |i| i.checked_sub(1),
+                )
+            })
+            .unwrap_or(0.0)
+            + Self::get_gauss_value(hits, entry_index, time_seconds, sigma_seconds).unwrap_or(0.0)
             + Self::get_get_sample_gauss_filtered_half(
                 hits,
                 time_seconds,
