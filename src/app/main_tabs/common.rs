@@ -136,10 +136,8 @@ impl TextDuration {
 }
 
 fn show_value_text(row: &mut TableRow, value_text: &str) -> Response {
-    row.column(|ui| {
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            ui.label(value_text)
-        });
+    row.column_with_layout(Layout::right_to_left(Align::Center), |ui| {
+        ui.label(value_text);
     })
 }
 

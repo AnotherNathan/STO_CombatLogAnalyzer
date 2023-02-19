@@ -104,11 +104,9 @@ impl SummaryTable {
 
     fn show_column_header(row: &mut TableRow, column_name: &str, sort: impl FnOnce()) {
         row.column(|ui| {
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if ui.selectable_label(false, column_name).clicked() {
-                    sort();
-                }
-            });
+            if ui.selectable_label(false, column_name).clicked() {
+                sort();
+            }
         });
     }
 

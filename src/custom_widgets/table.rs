@@ -39,13 +39,13 @@ pub struct TableRow<'a> {
 
 #[derive(Debug, Default, Clone)]
 struct State {
-    columns: Vec<Column>,
+    columns: Vec<ColumnState>,
     size: Vec2,
     last_size: Vec2,
 }
 
 #[derive(Debug, Default, Clone)]
-struct Column {
+struct ColumnState {
     size: f32,
     last_size: f32,
 }
@@ -157,7 +157,7 @@ impl<'a> Table<'a> {
 
         let rect = scroll_output.inner.intersect(scroll_output.inner_rect);
         let separators_rect = header_rect.map(|h| h.union(rect)).unwrap_or(rect);
-        Column::draw_separators(&state.columns, ui, separators_rect, cell_spacing);
+        ColumnState::draw_separators(&state.columns, ui, separators_rect, cell_spacing);
         if state.finish(ui, id) {
             ui.ctx().request_repaint();
         }
@@ -233,8 +233,6 @@ impl<'a> TableRow<'a> {
             table_left_top.x,
             table_left_top.y + row_index as f32 * row_height,
         );
-        let max_rect = Rect::from_min_size(left_top, vec2(INFINITY, row_height));
-        let mut ui = ui.child_ui(max_rect, Layout::left_to_right(Align::Center));
         let rect = Rect::from_min_size(left_top, vec2(state.last_size.x, row_height));
         let sense = if checked.is_some() {
             Sense::click()
@@ -243,12 +241,12 @@ impl<'a> TableRow<'a> {
         };
         let response = ui.interact(rect, ui.id().with(row_index), sense);
 
-        Self::draw_visuals(&mut ui, is_stripe, checked, &response);
+        Self::draw_visuals(ui, is_stripe, checked, &response);
 
         let mut row = TableRow {
             current_column: 0,
             state: state,
-            ui: &mut ui,
+            ui,
             left_top,
             left_offset: 0.0,
             row_height: row_height,
@@ -295,6 +293,14 @@ impl<'a> TableRow<'a> {
     }
 
     pub fn column(&mut self, add_column: impl FnOnce(&mut Ui)) -> Response {
+        self.column_with_layout(Layout::left_to_right(Align::Center), add_column)
+    }
+
+    pub fn column_with_layout(
+        &mut self,
+        layout: Layout,
+        add_column: impl FnOnce(&mut Ui),
+    ) -> Response {
         if self.state.columns.len() <= self.current_column {
             self.state.columns.push(Default::default());
         }
@@ -307,9 +313,7 @@ impl<'a> TableRow<'a> {
             self.left_top + vec2(self.left_offset, 0.0),
             vec2(column.last_size, self.row_height),
         );
-        let mut ui = self
-            .ui
-            .child_ui(max_rect, Layout::left_to_right(Align::Center));
+        let mut ui = self.ui.child_ui(max_rect, layout);
 
         add_column(&mut ui);
 
@@ -324,7 +328,7 @@ impl<'a> TableRow<'a> {
     }
 }
 
-impl Column {
+impl ColumnState {
     fn update(&mut self, cell_width: f32) {
         self.size = self.size.max(cell_width);
     }

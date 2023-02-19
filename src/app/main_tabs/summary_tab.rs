@@ -149,10 +149,8 @@ impl SummaryTab {
     fn simple_summary_row(table: &mut TableBody, description: &str, value: &str) {
         table.row(|r| {
             Self::show_description(r, description);
-            r.column(|ui| {
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    ui.label(value);
-                });
+            r.column_with_layout(Layout::right_to_left(Align::Center), |ui| {
+                ui.label(value);
             });
         });
     }

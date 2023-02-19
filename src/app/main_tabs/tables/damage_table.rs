@@ -202,15 +202,13 @@ impl DamageTable {
 
     fn show_column_header(&mut self, row: &mut TableRow, column: &ColumnDescriptor) {
         row.column(|ui| {
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                let response = ui.selectable_label(false, column.name);
-                if response.clicked() {
-                    (column.sort)(self);
-                }
-                if let Some(info) = column.name_info {
-                    response.on_hover_text(info);
-                }
-            });
+            let response = ui.selectable_label(false, column.name);
+            if response.clicked() {
+                (column.sort)(self);
+            }
+            if let Some(info) = column.name_info {
+                response.on_hover_text(info);
+            }
         });
     }
 
@@ -395,10 +393,8 @@ impl Hits {
     }
 
     fn show(&self, row: &mut TableRow) {
-        let response = row.column(|ui| {
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.label(&self.all_text);
-            });
+        let response = row.column_with_layout(Layout::right_to_left(Align::Center), |ui| {
+            ui.label(&self.all_text);
         });
 
         show_shield_hull_values_tool_tip(response, &self.shield, &self.hull);
