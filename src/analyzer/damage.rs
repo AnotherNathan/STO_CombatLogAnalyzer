@@ -234,7 +234,7 @@ impl DamageMetrics {
         let damage_resistance_percentage =
             damage_resistance_percentage(&total_damage, total_base_damage, total_shield_drain);
 
-        let base_dps = total_base_damage / combat_duration;
+        let base_dps = total_base_damage / combat_duration.max(1.0);
 
         Self {
             shield_hits,
