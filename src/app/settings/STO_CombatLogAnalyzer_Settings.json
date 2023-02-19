@@ -438,6 +438,36 @@
           }
         ],
         "enabled": true
+      },
+      {
+        "name": "Undine Infiltration",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetName",
+            "expression": "Infiltration Master",
+            "method": "Equals",
+            "enabled": true
+          },
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Event_Undine_Infiltration_Ground_Fire",
+            "method": "Equals",
+            "enabled": true
+          }
+        ],
+        "enabled": true
+      },
+      {
+        "name": "Battle of Procyon V",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Event_Procyon_5_Queue_Krenim_Dreadnaught_Annorax",
+            "method": "Equals",
+            "enabled": true
+          }
+        ],
+        "enabled": true
       }
     ]
   },
