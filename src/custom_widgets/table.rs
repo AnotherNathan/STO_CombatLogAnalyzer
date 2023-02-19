@@ -345,8 +345,12 @@ impl Column {
         let mut left_offset = 0.0;
         for column in columns.iter().take(columns.len() - 1) {
             left_offset += column.last_size + 2.0 * cell_spacing;
-            let start = left_top + vec2(left_offset, 0.0);
-            let end = start + vec2(0.0, rect.height());
+            let start = ui
+                .painter()
+                .round_pos_to_pixels(left_top + vec2(left_offset, 0.0));
+            let end = ui
+                .painter()
+                .round_pos_to_pixels(start + vec2(0.0, rect.height()));
             ui.painter()
                 .line_segment([start, end], ui.visuals().noninteractive().bg_stroke);
         }
