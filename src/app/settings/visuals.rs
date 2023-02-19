@@ -106,6 +106,10 @@ impl VisualsTab {
         };
         theme.popup_shadow = Shadow::big_light();
 
+        theme.widgets.inactive.bg_fill = Rgba::from_rgb(0.2, 0.2, 0.2).into();
+        theme.widgets.hovered.bg_fill = Rgba::from_rgb(0.25, 0.25, 0.25).into();
+        theme.widgets.active.bg_fill = Rgba::from_rgb(0.3, 0.3, 0.3).into();
+
         theme.window_fill = background;
         theme.window_stroke.color = Rgba::from_rgb(0.9, 0.9, 0.9).into();
         theme.window_shadow = Shadow::big_light();
