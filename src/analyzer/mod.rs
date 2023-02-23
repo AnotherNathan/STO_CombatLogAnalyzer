@@ -56,6 +56,7 @@ pub struct DamageGroup {
     pub max_one_hit: MaxOneHit,
     pub damage_percentage: f64,
     pub hits: Vec<Hit>,
+    pub damage_types: FxHashSet<String>,
 
     is_pool: bool,
 
@@ -308,6 +309,7 @@ impl Player {
                     &path,
                     damage,
                     record.value_flags,
+                    record.value_type,
                     combat_start_offset_millis,
                 );
 
@@ -338,6 +340,7 @@ impl Player {
                     &path,
                     damage,
                     record.value_flags,
+                    record.value_type,
                     combat_start_offset_millis,
                 );
                 self.update_active_time(record);
@@ -434,6 +437,7 @@ impl DamageGroup {
             hits: Vec::new(),
             max_one_hit: Default::default(),
             damage_percentage: 0.0,
+            damage_types: Default::default(),
             sub_groups: Default::default(),
             is_pool,
         }
@@ -443,12 +447,18 @@ impl DamageGroup {
         if self.sub_groups.len() > 0 {
             self.max_one_hit.reset();
             self.hits.clear();
+            self.damage_types.clear();
 
             for sub_group in self.sub_groups.values_mut() {
                 sub_group.recalculate_metrics(combat_duration);
                 self.hits.extend_from_slice(&sub_group.hits);
                 self.max_one_hit
                     .update(&sub_group.max_one_hit.name, sub_group.max_one_hit.damage);
+                for damage_type in sub_group.damage_types.iter() {
+                    if !self.damage_types.contains(damage_type) {
+                        self.damage_types.insert(damage_type.clone());
+                    }
+                }
             }
         } else {
             self.max_one_hit = MaxOneHit::from_hits(&self.name, &self.hits);
@@ -473,11 +483,13 @@ impl DamageGroup {
         path: &[&str],
         hit: BaseHit,
         flags: ValueFlags,
+        damage_type: &str,
         combat_start_offset_millis: u32,
     ) {
         if path.len() == 1 {
             let sub_source = self.get_non_pool_sub_group(path[0]);
             sub_source.hits.push(hit.to_hit(combat_start_offset_millis));
+            sub_source.add_damage_type_non_pool(damage_type);
 
             return;
         }
@@ -487,8 +499,33 @@ impl DamageGroup {
             &path[..path.len() - 1],
             hit,
             flags,
+            damage_type,
             combat_start_offset_millis,
         );
+    }
+
+    fn add_damage_type_non_pool(&mut self, damage_type: &str) {
+        if damage_type.is_empty() {
+            return;
+        }
+
+        if self.damage_types.contains(damage_type) {
+            return;
+        }
+
+        if self.damage_types.contains(damage_type) {
+            return;
+        }
+
+        if damage_type == "Shield" && !self.damage_types.is_empty() {
+            return;
+        }
+
+        if damage_type != "Shield" && self.damage_types.contains("Shield") {
+            self.damage_types.remove("Shield");
+        }
+
+        self.damage_types.insert(damage_type.to_string());
     }
 
     fn get_non_pool_sub_group(&mut self, sub_group: &str) -> &mut Self {

@@ -81,8 +81,13 @@ static COLUMNS: &[ColumnDescriptor] = &[
         },
     ),
     col!("Hits", |t| t.sort_by_desc(|p| p.hits.all), |t, r| {
-        t.hits.show(r);
-    },),
+            t.hits.show(r);
+        },
+    ),
+    col!("Damage Types", |t| t.sort_by_desc(|p| p.damage_types.clone()), |t, r| {
+            t.damage_types.show(r);
+        },
+    ),
     col!(
         "Base DPS",
         "Damage Per Second If there were no shields and no damage resistances\nThis excludes any drain damage",
@@ -119,6 +124,7 @@ pub struct DamageTablePart {
     base_damage: TextValue,
     base_dps: TextValue,
     hits: Hits,
+    damage_types: DamageTypes,
     pub sub_parts: Vec<DamageTablePart>,
 
     pub source_hits: Vec<Hit>,
@@ -151,6 +157,13 @@ struct ColumnDescriptor {
     name_info: Option<&'static str>,
     sort: fn(&mut DamageTable),
     show: fn(&mut DamageTablePart, &mut TableRow),
+}
+
+#[derive(PartialEq, PartialOrd, Eq, Ord, Clone)]
+enum DamageTypes {
+    Unknown,
+    Mixed(Vec<String>),
+    Single(String),
 }
 
 impl DamageTable {
@@ -268,6 +281,7 @@ impl DamageTablePart {
             ),
             base_damage: TextValue::new(source.total_base_damage, 2, number_formatter),
             base_dps: TextValue::new(source.base_dps, 2, number_formatter),
+            damage_types: DamageTypes::new(source),
             hits: Hits::new(source),
             sub_parts,
             open: false,
@@ -398,5 +412,37 @@ impl Hits {
         });
 
         show_shield_hull_values_tool_tip(response, &self.shield, &self.hull);
+    }
+}
+
+impl DamageTypes {
+    fn new(source: &DamageGroup) -> Self {
+        match source.damage_types.len() {
+            0 => Self::Unknown,
+            1 => Self::Single(source.damage_types.iter().nth(0).unwrap().clone()),
+            _ => Self::Mixed(source.damage_types.iter().cloned().collect()),
+        }
+    }
+
+    fn show(&self, row: &mut TableRow) {
+        row.column(|ui| match self {
+            DamageTypes::Unknown => (),
+            DamageTypes::Single(damage_type) => {
+                ui.label(damage_type);
+            }
+            DamageTypes::Mixed(damage_types) => {
+                ui.label("<mixed>").on_hover_ui(|ui| {
+                    Table::new(ui).body(ROW_HEIGHT, |b| {
+                        for damage_type in damage_types.iter() {
+                            b.row(|r| {
+                                r.column(|ui| {
+                                    ui.label(damage_type);
+                                });
+                            });
+                        }
+                    });
+                });
+            }
+        });
     }
 }
