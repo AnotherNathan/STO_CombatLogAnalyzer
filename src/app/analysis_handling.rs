@@ -63,7 +63,9 @@ pub enum AnalysisInfo {
     Refreshed {
         latest_combat: Combat,
         combats: Vec<String>,
+        file_size: Option<u64>,
     },
+    RefreshError,
 }
 
 impl AnalysisHandler {
@@ -169,25 +171,33 @@ impl AnalysisContext {
     }
 
     fn refresh(&mut self) {
-        let analyzer = match self.analyzer.as_mut() {
-            Some(a) => a,
-            None => return,
-        };
         Self::set_is_busy(&self.is_busy, true);
-        analyzer.update();
-        let latest_combat = match analyzer.result().last() {
-            Some(c) => c.clone(),
-            None => return,
-        };
-        let info = AnalysisInfo::Refreshed {
-            latest_combat,
-            combats: analyzer.result().iter().map(|c| c.identifier()).collect(),
-        };
+        let info = self.try_refresh();
         self.send_info(info);
         if let Some(ctx) = &mut self.auto_refresh {
             ctx.state = AutoRefreshState::Idle;
             ctx.last_refresh = SystemTime::now();
         }
+    }
+
+    fn try_refresh(&mut self) -> AnalysisInfo {
+        let analyzer = match self.analyzer.as_mut() {
+            Some(a) => a,
+            None => return AnalysisInfo::RefreshError,
+        };
+        analyzer.update();
+        let latest_combat = match analyzer.result().last() {
+            Some(c) => c.clone(),
+            None => return AnalysisInfo::RefreshError,
+        };
+        let info = AnalysisInfo::Refreshed {
+            latest_combat,
+            combats: analyzer.result().iter().map(|c| c.identifier()).collect(),
+            file_size: std::fs::metadata(&analyzer.settings().combatlog_file)
+                .ok()
+                .map(|m| m.len()),
+        };
+        info
     }
 
     fn auto_refresh(&mut self) {

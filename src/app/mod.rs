@@ -6,7 +6,7 @@ use rfd::FileDialog;
 use crate::analyzer::Combat;
 
 use self::{
-    analysis_handling::AnalysisInfo, main_tabs::*, settings::*, state::AppState,
+    analysis_handling::AnalysisInfo, main_tabs::*, settings::*, state::AppState, status::*,
     summary_copy::SummaryCopy,
 };
 
@@ -15,6 +15,7 @@ pub mod logging;
 mod main_tabs;
 mod settings;
 mod state;
+mod status;
 mod summary_copy;
 
 pub struct App {
@@ -22,6 +23,7 @@ pub struct App {
     combats: Vec<String>,
     selected_combat_index: Option<usize>,
     selected_combat: Option<Combat>,
+    status_indicator: StatusIndicator,
     main_tabs: MainTabs,
     summary_copy: SummaryCopy,
     state: AppState,
@@ -40,6 +42,7 @@ impl App {
             combats: Default::default(),
             selected_combat_index: None,
             selected_combat: None,
+            status_indicator: StatusIndicator::new(),
             main_tabs: MainTabs::empty(),
             summary_copy: Default::default(),
             state,
@@ -55,6 +58,9 @@ impl eframe::App for App {
             self.settings_window.show(&mut self.state, ui, frame);
 
             ui.horizontal(|ui| {
+                self.status_indicator
+                    .show(self.state.analysis_handler.is_busy(), ui);
+
                 ComboBox::new("combat list", "Combats")
                     .width(400.0)
                     .selected_text(self.main_tabs.identifier.as_str())
@@ -95,10 +101,6 @@ impl eframe::App for App {
                     }
                 }
 
-                if self.state.analysis_handler.is_busy() {
-                    ui.label("⏳ Working..");
-                }
-
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     self.summary_copy.show(self.selected_combat.as_ref(), ui);
                 });
@@ -111,6 +113,7 @@ impl eframe::App for App {
 
 impl App {
     fn handle_analysis_infos(&mut self) {
+        let combatlog_file = &self.state.settings.analysis.combatlog_file;
         for info in self.state.analysis_handler.check_for_info() {
             match info {
                 AnalysisInfo::Combat(combat) => {
@@ -120,11 +123,21 @@ impl App {
                 AnalysisInfo::Refreshed {
                     latest_combat,
                     combats,
+                    file_size,
                 } => {
                     self.main_tabs.update(&latest_combat);
                     self.combats = combats;
                     self.selected_combat_index = Some(self.combats.len() - 1);
                     self.selected_combat = Some(latest_combat);
+                    self.status_indicator.status = Status::Loaded {
+                        combatlog_file: combatlog_file.clone(),
+                        file_size,
+                    };
+                }
+                AnalysisInfo::RefreshError => {
+                    self.status_indicator.status = Status::LoadError {
+                        combatlog_file: combatlog_file.clone(),
+                    };
                 }
             }
         }
