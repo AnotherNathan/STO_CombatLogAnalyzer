@@ -92,7 +92,7 @@ impl AnalysisTab {
     ) {
         ui.horizontal(|ui| {
             ui.label(title);
-            if ui.button("✚").clicked() {
+            if ui.button("Add ✚").clicked() {
                 group_rules.push(Default::default());
             }
         });
@@ -163,7 +163,7 @@ impl AnalysisTab {
     ) {
         ui.horizontal(|ui| {
             ui.label(title);
-            if ui.button("✚").clicked() {
+            if ui.button("Add ✚").clicked() {
                 rules.push(Default::default());
             }
         });

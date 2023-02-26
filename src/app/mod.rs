@@ -81,12 +81,15 @@ impl eframe::App for App {
                         }
                     });
 
-                if ui.button("Refresh Now").clicked() {
+                if ui.button("Refresh Now ⟲").clicked() {
                     self.state.analysis_handler.refresh();
                 }
 
                 if ui
-                    .add_enabled(self.selected_combat.is_some(), Button::new("Save Combat"))
+                    .add_enabled(
+                        self.selected_combat.is_some(),
+                        Button::new("Save Combat 💾"),
+                    )
                     .clicked()
                 {
                     if let Some(file) = FileDialog::new()
