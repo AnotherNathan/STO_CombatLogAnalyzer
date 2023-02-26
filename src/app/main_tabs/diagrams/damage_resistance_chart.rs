@@ -84,7 +84,7 @@ impl DamageResistanceBars {
         let mut drain_damage = 0.0;
         let mut base_damage = 0.0;
         loop {
-            let hit = match self.data.hits.get(index) {
+            let hit = match self.data.values.get(index) {
                 Some(h) => h,
                 None => {
                     break;

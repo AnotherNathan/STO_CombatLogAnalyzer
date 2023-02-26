@@ -48,9 +48,11 @@ pub struct HealTablePartData {
     average_heal: ShieldAndHullTextValue,
     critical_percentage: TextValue,
     ticks: ShieldAndHullTextCount,
+    pub source_ticks: Vec<HealTick>,
 }
 
 pub type HealTable = MetricsTable<HealTablePartData>;
+pub type HealTablePart = MetricsTablePart<HealTablePartData>;
 
 impl HealTable {
     pub fn empty() -> Self {
@@ -59,6 +61,16 @@ impl HealTable {
 
     pub fn new(combat: &Combat, heal_group: impl FnMut(&Player) -> &HealGroup) -> Self {
         Self::new_base(COLUMNS, combat, heal_group, HealTablePartData::new)
+    }
+}
+
+impl HealTablePart {
+    pub fn hps(&self) -> f64 {
+        self.hps.all.value.unwrap()
+    }
+
+    pub fn total_heal(&self) -> f64 {
+        self.total_heal.all.value.unwrap()
     }
 }
 
@@ -75,6 +87,7 @@ impl HealTablePartData {
             average_heal: ShieldAndHullTextValue::option(&group.average_heal, 2, number_formatter),
             critical_percentage: TextValue::option(group.critical_percentage, 3, number_formatter),
             ticks: ShieldAndHullTextCount::new(&group.heal_metrics.ticks),
+            source_ticks: group.ticks.clone(),
         }
     }
 }

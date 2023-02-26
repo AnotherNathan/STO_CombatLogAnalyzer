@@ -3,7 +3,7 @@ use eframe::egui::*;
 
 use crate::{
     analyzer::*,
-    custom_widgets::{slider_text_edit::SliderTextEdit, table::*},
+    custom_widgets::table::*,
     helpers::{format_duration, number_formatting::NumberFormatter},
 };
 
@@ -181,38 +181,6 @@ pub fn show_shield_hull_values_tool_tip(response: Response, shield_value: &str, 
             });
         });
     });
-}
-
-pub fn show_time_slice_setting(time_slice: &mut f64, ui: &mut Ui) -> bool {
-    ui.horizontal(|ui| {
-        let changed = SliderTextEdit::new(time_slice, 0.1..=6.0, "time slice slider")
-            .clamp_min(0.1)
-            .clamp_max(120.0)
-            .desired_text_edit_width(30.0)
-            .display_precision(4)
-            .step_by(0.1)
-            .show(ui)
-            .changed();
-        ui.label("Time Slice (s)");
-        changed
-    })
-    .inner
-}
-
-pub fn show_time_filter_setting(filter: &mut f64, ui: &mut Ui) -> bool {
-    ui.horizontal(|ui| {
-        let changed = SliderTextEdit::new(filter, 0.4..=6.0, "filter slider")
-            .clamp_min(0.1)
-            .clamp_max(120.0)
-            .desired_text_edit_width(30.0)
-            .display_precision(4)
-            .step_by(0.1)
-            .show(ui)
-            .changed();
-        ui.label("Gauss Filter Standard Deviation (how much to smooth the graph)");
-        changed
-    })
-    .inner
 }
 
 impl Default for TextDuration {

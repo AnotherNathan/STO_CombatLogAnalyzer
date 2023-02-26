@@ -1,44 +1,66 @@
 use std::{ops::RangeInclusive, sync::Arc};
 
+use educe::Educe;
 use eframe::egui::plot::*;
 
 use crate::{
-    analyzer::{Hit, SpecificHit, ValueFlags},
+    analyzer::{HealTick, Hit, SpecificHit, ValueFlags},
     helpers::number_formatting::NumberFormatter,
 };
 
 #[derive(Clone)]
-pub struct PreparedDamageDataSet {
+pub struct PreparedDataSet<T: PreparedValue> {
     pub name: String,
-    pub dps: f64,
-    pub total_damage: f64,
-    pub hits: Arc<[PreparedHit]>,
+    pub all_per_second: f64,
+    pub total_value: f64,
+    pub values: Arc<[PreparedPoint<T>]>,
     pub start_time_s: f64,
     pub duration_s: f64,
 }
 
-pub struct PreparedHit {
+pub type PreparedDamageDataSet = PreparedDataSet<PreparedHitValue>;
+pub type PreparedHealDataSet = PreparedDataSet<PreparedHealValue>;
+
+#[derive(Educe)]
+#[educe(Deref, DerefMut)]
+pub struct PreparedPoint<T: PreparedValue> {
+    #[educe(Deref, DerefMut)]
+    pub value: T,
+    pub time_millis: u32, // offset to start of combat
+}
+
+pub type PreparedHit = PreparedPoint<PreparedHitValue>;
+pub type PreparedHealTick = PreparedPoint<PreparedHealValue>;
+
+#[derive(Clone, Copy)]
+pub struct PreparedHitValue {
     pub damage: f64,
     pub hull_damage: f64,
     pub shield_damage: f64,
     pub base_damage: f64,
     pub drain_damage: f64,
-    pub time_millis: u32, // offset to start of combat
 }
 
-impl PreparedDamageDataSet {
-    pub fn new<'a>(
+#[derive(Clone, Copy)]
+pub struct PreparedHealValue {
+    pub heal: f64,
+}
+
+pub trait PreparedValue: Clone + 'static {
+    fn value(&self) -> f64;
+    fn merge(&mut self, other: &Self);
+}
+
+impl<T: PreparedValue> PreparedDataSet<T> {
+    pub fn base_new(
         name: &str,
-        dps: f64,
-        total_damage: f64,
-        hits: impl Iterator<Item = &'a Hit>,
-    ) -> PreparedDamageDataSet {
-        let mut hits = Vec::from_iter(
-            hits.filter(|h| !h.flags.contains(ValueFlags::IMMUNE))
-                .map(|h| PreparedHit::new(h)),
-        );
-        hits.sort_unstable_by_key(|h| h.time_millis);
-        hits.dedup_by(|h1, h2| {
+        all_per_second: f64,
+        total_value: f64,
+        values: impl Iterator<Item = impl Into<PreparedPoint<T>>>,
+    ) -> Self {
+        let mut values = Vec::from_iter(values.map(|h| h.into()));
+        values.sort_unstable_by_key(|h| h.time_millis);
+        values.dedup_by(|h1, h2| {
             if h1.time_millis != h2.time_millis {
                 return false;
             }
@@ -47,50 +69,89 @@ impl PreparedDamageDataSet {
             true
         });
 
-        let start_time_s = hits.iter().map(|h| h.time_millis).min().unwrap_or(0) as f64 / 1e3;
-        let end_time_s = hits.iter().map(|h| h.time_millis).max().unwrap_or(0) as f64 / 1e3;
+        let start_time_s = values.iter().map(|h| h.time_millis).min().unwrap_or(0) as f64 / 1e3;
+        let end_time_s = values.iter().map(|h| h.time_millis).max().unwrap_or(0) as f64 / 1e3;
 
         let duration_s = end_time_s - start_time_s;
 
         Self {
             name: name.to_string(),
-            dps,
-            total_damage,
-            hits: Arc::from(hits),
+            all_per_second,
+            total_value,
+            values: Arc::from(values),
             start_time_s,
             duration_s,
         }
     }
 }
 
-impl PreparedHit {
-    fn new(hit: &Hit) -> Self {
+impl PreparedDamageDataSet {
+    pub fn new<'a>(
+        name: &str,
+        dps: f64,
+        total_damage: f64,
+        hits: impl Iterator<Item = &'a Hit>,
+    ) -> Self {
+        Self::base_new(
+            name,
+            dps,
+            total_damage,
+            hits.filter(|h| !h.flags.contains(ValueFlags::IMMUNE)),
+        )
+    }
+}
+
+impl PreparedHealDataSet {
+    pub fn new<'a>(
+        name: &str,
+        hps: f64,
+        total_heal: f64,
+        ticks: impl Iterator<Item = &'a HealTick>,
+    ) -> Self {
+        Self::base_new(name, hps, total_heal, ticks)
+    }
+}
+
+impl<'a> From<&'a Hit> for PreparedHit {
+    fn from(hit: &'a Hit) -> Self {
         match hit.specific {
             SpecificHit::Shield { .. } => Self {
-                damage: hit.damage,
-                shield_damage: hit.damage,
-                hull_damage: 0.0,
-                base_damage: 0.0,
-                drain_damage: 0.0,
+                value: PreparedHitValue {
+                    damage: hit.damage,
+                    shield_damage: hit.damage,
+                    hull_damage: 0.0,
+                    base_damage: 0.0,
+                    drain_damage: 0.0,
+                },
                 time_millis: hit.time_millis,
             },
             SpecificHit::ShieldDrain => Self {
-                damage: hit.damage,
-                shield_damage: hit.damage,
-                hull_damage: 0.0,
-                base_damage: 0.0,
-                drain_damage: hit.damage,
+                value: PreparedHitValue {
+                    damage: hit.damage,
+                    shield_damage: hit.damage,
+                    hull_damage: 0.0,
+                    base_damage: 0.0,
+                    drain_damage: hit.damage,
+                },
                 time_millis: hit.time_millis,
             },
             SpecificHit::Hull { base_damage } => Self {
-                damage: hit.damage,
-                shield_damage: 0.0,
-                hull_damage: hit.damage,
-                base_damage,
-                drain_damage: 0.0,
+                value: PreparedHitValue {
+                    damage: hit.damage,
+                    shield_damage: 0.0,
+                    hull_damage: hit.damage,
+                    base_damage,
+                    drain_damage: 0.0,
+                },
                 time_millis: hit.time_millis,
             },
         }
+    }
+}
+
+impl PreparedValue for PreparedHitValue {
+    fn value(&self) -> f64 {
+        self.damage
     }
 
     fn merge(&mut self, other: &Self) {
@@ -99,6 +160,25 @@ impl PreparedHit {
         self.hull_damage += other.hull_damage;
         self.base_damage += other.base_damage;
         self.drain_damage += other.drain_damage;
+    }
+}
+
+impl<'a> From<&'a HealTick> for PreparedHealTick {
+    fn from(tick: &'a HealTick) -> Self {
+        Self {
+            value: PreparedHealValue { heal: tick.amount },
+            time_millis: tick.time_millis,
+        }
+    }
+}
+
+impl PreparedValue for PreparedHealValue {
+    fn value(&self) -> f64 {
+        self.heal
+    }
+
+    fn merge(&mut self, other: &Self) {
+        self.heal += other.heal;
     }
 }
 

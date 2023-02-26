@@ -1,26 +1,151 @@
 use eframe::egui::Ui;
 
-use crate::analyzer::*;
+use crate::{analyzer::*, custom_widgets::splitter::Splitter};
 
-use super::tables::*;
+use super::{common::*, diagrams::*, tables::*};
 
 pub struct HealTab {
     table: HealTable,
+    main_diagrams: HealDiagrams,
+    selection_diagrams: Option<HealDiagrams>,
     heal_group: fn(&Player) -> &HealGroup,
+    hps_filter: f64,
+    diagram_time_slice: f64,
+    active_diagram: ActiveHealDiagram,
 }
+
 impl HealTab {
     pub fn empty(heal_group: fn(&Player) -> &HealGroup) -> Self {
         Self {
             table: HealTable::empty(),
             heal_group,
+            main_diagrams: HealDiagrams::empty(),
+            selection_diagrams: None,
+            hps_filter: 0.4,
+            diagram_time_slice: 1.0,
+            active_diagram: ActiveHealDiagram::Heal,
         }
     }
 
     pub fn update(&mut self, combat: &Combat) {
         self.table = HealTable::new(combat, self.heal_group);
+        self.main_diagrams = HealDiagrams::from_heal_groups(
+            combat.players.values().map(self.heal_group),
+            self.hps_filter,
+            self.diagram_time_slice,
+        );
+        self.selection_diagrams = None;
     }
 
     pub fn show(&mut self, ui: &mut Ui) {
-        self.table.show(ui, |_| {});
+        Splitter::horizontal()
+            .initial_ratio(0.6)
+            .ratio_bounds(0.1..=0.9)
+            .show(ui, |top_ui, bottom_ui| {
+                self.table.show(top_ui, |p| {
+                    self.selection_diagrams =
+                        Self::make_selection_diagrams(p, self.hps_filter, self.diagram_time_slice);
+                });
+
+                self.show_diagrams(bottom_ui);
+            });
+    }
+
+    fn make_selection_diagrams(
+        selection: TableSelection<HealTablePartData>,
+        hps_filter: f64,
+        heal_time_slice: f64,
+    ) -> Option<HealDiagrams> {
+        match selection {
+            TableSelection::SubPartsOrSingle(part) if part.sub_parts.len() == 0 => Some(
+                Self::make_single_diagram_selection(part, hps_filter, heal_time_slice),
+            ),
+            TableSelection::Single(part) => Some(Self::make_single_diagram_selection(
+                part,
+                hps_filter,
+                heal_time_slice,
+            )),
+            TableSelection::SubPartsOrSingle(part) => Some(Self::make_sub_parts_diagram_selection(
+                part,
+                hps_filter,
+                heal_time_slice,
+            )),
+            TableSelection::Unselect => None,
+        }
+    }
+
+    fn make_sub_parts_diagram_selection(
+        part: &HealTablePart,
+        hps_filter: f64,
+        heal_time_slice: f64,
+    ) -> HealDiagrams {
+        HealDiagrams::from_data(
+            part.sub_parts.iter().map(|p| {
+                PreparedHealDataSet::new(
+                    &p.name,
+                    part.hps(),
+                    part.total_heal(),
+                    p.source_ticks.iter(),
+                )
+            }),
+            hps_filter,
+            heal_time_slice,
+        )
+    }
+
+    fn make_single_diagram_selection(
+        part: &HealTablePart,
+        hps_filter: f64,
+        heal_time_slice: f64,
+    ) -> HealDiagrams {
+        return HealDiagrams::from_data(
+            [PreparedHealDataSet::new(
+                &part.name,
+                part.hps(),
+                part.total_heal(),
+                part.source_ticks.iter(),
+            )]
+            .into_iter(),
+            hps_filter,
+            heal_time_slice,
+        );
+    }
+
+    fn update_diagrams(&mut self) {
+        self.main_diagrams
+            .update(self.hps_filter, self.diagram_time_slice);
+        if let Some(selection_plot) = &mut self.selection_diagrams {
+            selection_plot.update(self.hps_filter, self.diagram_time_slice);
+        }
+    }
+
+    fn show_diagrams(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            ui.selectable_value(
+                &mut self.active_diagram,
+                ActiveHealDiagram::Heal,
+                ActiveHealDiagram::Heal.display(),
+            );
+            ui.selectable_value(
+                &mut self.active_diagram,
+                ActiveHealDiagram::Hps,
+                ActiveHealDiagram::Hps.display(),
+            );
+        });
+
+        let update_required = match self.active_diagram {
+            ActiveHealDiagram::Heal => show_time_slice_setting(&mut self.diagram_time_slice, ui),
+            ActiveHealDiagram::Hps => show_time_filter_setting(&mut self.hps_filter, ui),
+        };
+
+        if update_required {
+            self.update_diagrams();
+        }
+
+        if let Some(selection_diagrams) = &mut self.selection_diagrams {
+            selection_diagrams.show(ui, self.active_diagram);
+        } else {
+            self.main_diagrams.show(ui, self.active_diagram);
+        }
     }
 }

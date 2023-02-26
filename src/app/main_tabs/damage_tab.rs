@@ -1,11 +1,8 @@
 use eframe::egui::*;
 
-use crate::{
-    analyzer::*,
-    custom_widgets::{slider_text_edit::SliderTextEdit, splitter::Splitter},
-};
+use crate::{analyzer::*, custom_widgets::splitter::Splitter};
 
-use super::{diagrams::*, tables::*};
+use super::{common::*, diagrams::*, tables::*};
 
 pub struct DamageTab {
     table: DamageTable,
@@ -141,13 +138,15 @@ impl DamageTab {
             );
         });
 
-        match self.active_diagram {
+        let updated_required = match self.active_diagram {
             ActiveDamageDiagram::Damage | ActiveDamageDiagram::DamageResistance => {
-                self.show_time_slice_setting(ui);
+                show_time_slice_setting(&mut self.diagram_time_slice, ui)
             }
-            ActiveDamageDiagram::Dps => {
-                self.show_time_filter_setting(ui);
-            }
+            ActiveDamageDiagram::Dps => show_time_filter_setting(&mut self.dps_filter, ui),
+        };
+
+        if updated_required {
+            self.update_diagrams();
         }
 
         if let Some(selection_diagrams) = &mut self.dmg_selection_diagrams {
@@ -155,39 +154,5 @@ impl DamageTab {
         } else {
             self.dmg_main_diagrams.show(ui, self.active_diagram);
         }
-    }
-
-    fn show_time_slice_setting(&mut self, ui: &mut Ui) {
-        ui.horizontal(|ui| {
-            if SliderTextEdit::new(&mut self.diagram_time_slice, 0.1..=6.0, "time slice slider")
-                .clamp_min(0.1)
-                .clamp_max(120.0)
-                .desired_text_edit_width(30.0)
-                .display_precision(4)
-                .step_by(0.1)
-                .show(ui)
-                .changed()
-            {
-                self.update_diagrams();
-            }
-            ui.label("Time Slice (s)");
-        });
-    }
-
-    fn show_time_filter_setting(&mut self, ui: &mut Ui) {
-        ui.horizontal(|ui| {
-            if SliderTextEdit::new(&mut self.dps_filter, 0.4..=6.0, "filter slider")
-                .clamp_min(0.1)
-                .clamp_max(120.0)
-                .desired_text_edit_width(30.0)
-                .display_precision(4)
-                .step_by(0.1)
-                .show(ui)
-                .changed()
-            {
-                self.update_diagrams();
-            }
-            ui.label("Gauss Filter Standard Deviation (how much to smooth the DPS graph)");
-        });
     }
 }

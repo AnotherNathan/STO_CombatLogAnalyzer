@@ -8,19 +8,22 @@ use super::common::*;
 
 const SAMPLE_RATE: f64 = 10.0;
 
-pub struct DpsGraph {
-    lines: Vec<DpsLine>,
+pub struct ValuePerSecondGraph<T: PreparedValue> {
+    lines: Vec<GraphLine<T>>,
     largest_point: f64,
     newly_created: bool,
     updated_filter: Option<f64>,
 }
 
-pub struct DpsLine {
+pub type DpsGraph = ValuePerSecondGraph<PreparedHitValue>;
+pub type HpsGraph = ValuePerSecondGraph<PreparedHealValue>;
+
+pub struct GraphLine<T: PreparedValue> {
     points: Vec<[f64; 2]>,
-    data: PreparedDamageDataSet,
+    data: PreparedDataSet<T>,
 }
 
-impl DpsGraph {
+impl<T: PreparedValue> ValuePerSecondGraph<T> {
     pub fn empty() -> Self {
         Self {
             lines: Vec::new(),
@@ -30,8 +33,8 @@ impl DpsGraph {
         }
     }
 
-    pub fn from_data<'a>(lines: impl Iterator<Item = PreparedDamageDataSet>, filter: f64) -> Self {
-        let lines: Vec<_> = lines.map(|l| DpsLine::new(l)).collect();
+    pub fn from_data<'a>(lines: impl Iterator<Item = PreparedDataSet<T>>, filter: f64) -> Self {
+        let lines: Vec<_> = lines.map(|l| GraphLine::new(l)).collect();
         let largest_point = Self::compute_largest_point(&lines);
         Self {
             lines,
@@ -85,7 +88,7 @@ impl DpsGraph {
         format!("{}\nDPS: {}\nTime: {}", name, y, x)
     }
 
-    fn compute_largest_point(lines: &[DpsLine]) -> f64 {
+    fn compute_largest_point(lines: &[GraphLine<T>]) -> f64 {
         lines
             .iter()
             .flat_map(|l| l.points.iter())
@@ -95,8 +98,8 @@ impl DpsGraph {
     }
 }
 
-impl DpsLine {
-    fn new<'a>(data: PreparedDamageDataSet) -> Self {
+impl<T: PreparedValue> GraphLine<T> {
+    fn new<'a>(data: PreparedDataSet<T>) -> Self {
         Self {
             points: Vec::new(),
             data,
@@ -111,7 +114,7 @@ impl DpsLine {
             let time = self.data.start_time_s + self.data.duration_s * start_offset;
             let point = [
                 time,
-                Self::get_sample_gauss_filtered(&self.data.hits, time, filter),
+                Self::get_sample_gauss_filtered(&self.data.values, time, filter),
             ];
             points.push(point);
         }
@@ -119,8 +122,8 @@ impl DpsLine {
         self.points = points;
     }
 
-    fn get_sample_entry(hits: &[PreparedHit], time_millis: u32) -> usize {
-        match hits.binary_search_by_key(&time_millis, |h| h.time_millis) {
+    fn get_sample_entry(points: &[PreparedPoint<T>], time_millis: u32) -> usize {
+        match points.binary_search_by_key(&time_millis, |h| h.time_millis) {
             Ok(i) => i,
             Err(i) => i,
         }
@@ -133,12 +136,12 @@ impl DpsLine {
     }
 
     fn get_gauss_value(
-        hits: &[PreparedHit],
+        points: &[PreparedPoint<T>],
         index: usize,
         time_seconds: f64,
         sigma_seconds: f64,
     ) -> Option<f64> {
-        let hit = hits.get(index)?;
+        let hit = points.get(index)?;
         let t = millis_to_seconds(hit.time_millis);
         let finite_hack_value = 1e-3;
         let weight = (Self::gauss_probability_density_function(t, time_seconds, sigma_seconds)
@@ -148,11 +151,11 @@ impl DpsLine {
             return None;
         }
 
-        Some(weight * hit.damage)
+        Some(weight * hit.value())
     }
 
     fn get_get_sample_gauss_filtered_half(
-        hits: &[PreparedHit],
+        points: &[PreparedPoint<T>],
         time_seconds: f64,
         sigma_seconds: f64,
         entry_index: usize,
@@ -161,7 +164,7 @@ impl DpsLine {
         let mut value = 0.0;
         let mut index = entry_index;
         loop {
-            value += match Self::get_gauss_value(hits, index, time_seconds, sigma_seconds) {
+            value += match Self::get_gauss_value(points, index, time_seconds, sigma_seconds) {
                 Some(v) => v,
                 None => break,
             };
@@ -175,19 +178,19 @@ impl DpsLine {
     }
 
     fn get_sample_gauss_filtered(
-        hits: &[PreparedHit],
+        points: &[PreparedPoint<T>],
         time_seconds: f64,
         sigma_seconds: f64,
     ) -> f64 {
         let time_millis = seconds_to_millis(time_seconds);
 
-        let entry_index = Self::get_sample_entry(hits, time_millis);
+        let entry_index = Self::get_sample_entry(points, time_millis);
 
         entry_index
             .checked_sub(1)
             .map(|i| {
                 Self::get_get_sample_gauss_filtered_half(
-                    hits,
+                    points,
                     time_seconds,
                     sigma_seconds,
                     i,
@@ -195,9 +198,9 @@ impl DpsLine {
                 )
             })
             .unwrap_or(0.0)
-            + Self::get_gauss_value(hits, entry_index, time_seconds, sigma_seconds).unwrap_or(0.0)
+            + Self::get_gauss_value(points, entry_index, time_seconds, sigma_seconds).unwrap_or(0.0)
             + Self::get_get_sample_gauss_filtered_half(
-                hits,
+                points,
                 time_seconds,
                 sigma_seconds,
                 entry_index + 1,
