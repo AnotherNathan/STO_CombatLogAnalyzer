@@ -241,7 +241,7 @@ impl<'a> TableRow<'a> {
         };
         let response = ui.interact(rect, ui.id().with(row_index), sense);
 
-        Self::draw_visuals(ui, is_stripe, checked, &response);
+        draw_visuals(ui, is_stripe, checked, &response);
 
         let mut row = TableRow {
             current_column: 0,
@@ -258,48 +258,37 @@ impl<'a> TableRow<'a> {
         response
     }
 
-    fn draw_visuals(ui: &mut Ui, is_stripe: bool, checked: Option<bool>, response: &Response) {
-        match checked {
-            Some(true) => {
-                ui.painter().rect_filled(
-                    response.rect,
-                    0.0,
-                    ui.style().interact_selectable(response, true).bg_fill,
-                );
-            }
-            Some(false) if response.hovered() => {
-                ui.painter().rect_filled(
-                    response.rect,
-                    0.0,
-                    ui.style().interact_selectable(response, false).bg_fill,
-                );
-            }
-            _ if is_stripe => {
-                ui.painter()
-                    .rect_filled(response.rect, 0.0, ui.visuals().faint_bg_color);
-            }
-            _ => (),
-        }
-
-        if checked.is_some() && response.hovered() {
-            ui.painter().rect_stroke(
-                response.rect,
-                0.0,
-                ui.style()
-                    .interact_selectable(&response, checked.unwrap())
-                    .bg_stroke,
-            );
-        }
+    pub fn cell(&mut self, add_column: impl FnOnce(&mut Ui)) -> Response {
+        self.cell_with_layout(Layout::left_to_right(Align::Center), add_column)
     }
 
-    pub fn column(&mut self, add_column: impl FnOnce(&mut Ui)) -> Response {
-        self.column_with_layout(Layout::left_to_right(Align::Center), add_column)
-    }
-
-    pub fn column_with_layout(
+    pub fn cell_with_layout(
         &mut self,
         layout: Layout,
         add_column: impl FnOnce(&mut Ui),
+    ) -> Response {
+        self.show_cell(layout, add_column, Sense::hover(), None)
+    }
+
+    pub fn selectable_cell(&mut self, checked: bool, add_column: impl FnOnce(&mut Ui)) -> Response {
+        self.selectable_cell_with_layout(checked, Layout::left_to_right(Align::Center), add_column)
+    }
+
+    pub fn selectable_cell_with_layout(
+        &mut self,
+        checked: bool,
+        layout: Layout,
+        add_column: impl FnOnce(&mut Ui),
+    ) -> Response {
+        self.show_cell(layout, add_column, Sense::click(), Some(checked))
+    }
+
+    fn show_cell(
+        &mut self,
+        layout: Layout,
+        add_column: impl FnOnce(&mut Ui),
+        sense: Sense,
+        checked: Option<bool>,
     ) -> Response {
         if self.state.columns.len() <= self.current_column {
             self.state.columns.push(Default::default());
@@ -309,16 +298,20 @@ impl<'a> TableRow<'a> {
 
         self.left_offset += self.cell_spacing;
 
-        let max_rect = Rect::from_min_size(
+        let rect = Rect::from_min_size(
             self.left_top + vec2(self.left_offset, 0.0),
             vec2(column.last_size, self.row_height),
         );
-        let mut ui = self.ui.child_ui(max_rect, layout);
+        let interact_rect = rect.expand2(vec2(self.cell_spacing, 0.0));
+        let response = self
+            .ui
+            .interact(interact_rect, self.ui.next_auto_id(), sense);
+        draw_visuals(self.ui, false, checked, &response);
+        let mut ui = self.ui.child_ui(rect, layout);
 
         add_column(&mut ui);
 
         let content_rect = ui.min_rect();
-        let response = ui.interact(content_rect, ui.next_auto_id(), Sense::hover());
 
         self.current_column += 1;
         self.left_offset += column.last_size + self.cell_spacing;
@@ -396,5 +389,39 @@ impl State {
         self.store(ui, id);
 
         repaint_required
+    }
+}
+
+fn draw_visuals(ui: &mut Ui, is_stripe: bool, checked: Option<bool>, response: &Response) {
+    match checked {
+        Some(true) => {
+            ui.painter().rect_filled(
+                response.rect,
+                0.0,
+                ui.style().interact_selectable(response, true).bg_fill,
+            );
+        }
+        Some(false) if response.hovered() => {
+            ui.painter().rect_filled(
+                response.rect,
+                0.0,
+                ui.style().interact_selectable(response, false).bg_fill,
+            );
+        }
+        _ if is_stripe => {
+            ui.painter()
+                .rect_filled(response.rect, 0.0, ui.visuals().faint_bg_color);
+        }
+        _ => (),
+    }
+
+    if checked.is_some() && response.hovered() {
+        ui.painter().rect_stroke(
+            response.rect,
+            0.0,
+            ui.style()
+                .interact_selectable(&response, checked.unwrap())
+                .bg_stroke,
+        );
     }
 }

@@ -100,13 +100,13 @@ impl AnalysisTab {
             .min_scroll_height(200.0)
             .max_scroll_height(200.0)
             .header(HEADER_HEIGHT, |r| {
-                r.column(|ui| {
+                r.cell(|ui| {
                     ui.label("On");
                 });
-                r.column(|ui| {
+                r.cell(|ui| {
                     ui.label("Edit");
                 });
-                r.column(|ui| {
+                r.cell(|ui| {
                     ui.label(name_header);
                 });
             })
@@ -114,11 +114,11 @@ impl AnalysisTab {
                 let mut to_remove = Vec::new();
                 for (id, group_rule) in group_rules.iter_mut().enumerate() {
                     t.row(|r| {
-                        r.column(|ui| {
+                        r.cell(|ui| {
                             ui.checkbox(&mut group_rule.enabled, "");
                         });
 
-                        r.column(|ui| {
+                        r.cell(|ui| {
                             PopupButton::new("✏")
                                 .with_id_source(base_id + id)
                                 .show(ui, |ui| {
@@ -134,13 +134,13 @@ impl AnalysisTab {
                                 });
                         });
 
-                        r.column(|ui| {
+                        r.cell(|ui| {
                             TextEdit::singleline(&mut group_rule.name)
                                 .min_size(vec2(600.0, 0.0))
                                 .show(ui);
                         });
 
-                        r.column(|ui| {
+                        r.cell(|ui| {
                             if ui.selectable_label(false, "🗑").clicked() {
                                 to_remove.push(id);
                             }
@@ -172,16 +172,16 @@ impl AnalysisTab {
                 .min_scroll_height(100.0)
                 .max_scroll_height(200.0)
                 .header(HEADER_HEIGHT, |r| {
-                    r.column(|ui| {
+                    r.cell(|ui| {
                         ui.label("On");
                     });
-                    r.column(|ui| {
+                    r.cell(|ui| {
                         ui.label("Aspect to match");
                     });
-                    r.column(|ui| {
+                    r.cell(|ui| {
                         ui.label("Match Method");
                     });
-                    r.column(|ui| {
+                    r.cell(|ui| {
                         ui.label("Text to match");
                     });
                 })
@@ -189,11 +189,11 @@ impl AnalysisTab {
                     let mut to_remove = Vec::new();
                     for (id, rule) in rules.iter_mut().enumerate() {
                         t.row(|r| {
-                            r.column(|ui| {
+                            r.cell(|ui| {
                                 ui.checkbox(&mut rule.enabled, "");
                             });
 
-                            r.column(|ui| {
+                            r.cell(|ui| {
                                 ComboBox::from_id_source(id + 9387465)
                                     .selected_text(rule.aspect.display())
                                     .width(150.0)
@@ -204,7 +204,7 @@ impl AnalysisTab {
                                     });
                             });
 
-                            r.column(|ui| {
+                            r.cell(|ui| {
                                 ComboBox::from_id_source(id + 394857)
                                     .selected_text(rule.method.display())
                                     .width(150.0)
@@ -222,13 +222,13 @@ impl AnalysisTab {
                                     });
                             });
 
-                            r.column(|ui| {
+                            r.cell(|ui| {
                                 TextEdit::singleline(&mut rule.expression)
                                     .min_size(vec2(400.0, 0.0))
                                     .show(ui);
                             });
 
-                            r.column(|ui| {
+                            r.cell(|ui| {
                                 if ui.selectable_label(false, "🗑").clicked() {
                                     to_remove.push(id);
                                 }

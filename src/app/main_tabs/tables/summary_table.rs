@@ -53,7 +53,7 @@ impl SummaryTable {
         ScrollArea::new([true, false]).show(ui, |ui| {
             Table::new(ui)
                 .header(HEADER_HEIGHT, |r| {
-                    r.column(|ui| {
+                    r.cell(|ui| {
                         ui.horizontal(|ui| {
                             ui.label("Player");
                         });
@@ -103,11 +103,14 @@ impl SummaryTable {
     }
 
     fn show_column_header(row: &mut TableRow, column_name: &str, sort: impl FnOnce()) {
-        row.column(|ui| {
-            if ui.selectable_label(false, column_name).clicked() {
-                sort();
-            }
-        });
+        if row
+            .selectable_cell(false, |ui| {
+                ui.label(column_name);
+            })
+            .clicked()
+        {
+            sort();
+        }
     }
 
     fn sort_by_option_f64(&mut self, mut value: impl FnMut(&Player) -> Option<f64>) {
@@ -172,7 +175,7 @@ impl Player {
 
     pub fn show(&self, table: &mut TableBody) {
         table.row(|r| {
-            r.column(|ui| {
+            r.cell(|ui| {
                 ui.horizontal(|ui| {
                     ui.label(&self.name);
                 });

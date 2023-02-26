@@ -111,7 +111,7 @@ impl TextValue {
             return Some(show_value_text(row, text));
         }
 
-        row.column(|_| {});
+        row.cell(|_| {});
         None
     }
 }
@@ -159,7 +159,7 @@ impl TextDuration {
 }
 
 fn show_value_text(row: &mut TableRow, value_text: &str) -> Response {
-    row.column_with_layout(Layout::right_to_left(Align::Center), |ui| {
+    row.cell_with_layout(Layout::right_to_left(Align::Center), |ui| {
         ui.label(value_text);
     })
 }
@@ -168,13 +168,13 @@ pub fn show_shield_hull_values_tool_tip(response: Response, shield_value: &str, 
     response.on_hover_ui(|ui| {
         Table::new(ui).body(ROW_HEIGHT, |t| {
             t.row(|r| {
-                r.column(|ui| {
+                r.cell(|ui| {
                     ui.label("Shield");
                 });
                 show_value_text(r, shield_value);
             });
             t.row(|r| {
-                r.column(|ui| {
+                r.cell(|ui| {
                     ui.label("Hull");
                 });
                 show_value_text(r, hull_value);

@@ -113,7 +113,7 @@ impl<T: 'static> MetricsTable<T> {
             Table::new(ui)
                 .cell_spacing(10.0)
                 .header(HEADER_HEIGHT, |mut r| {
-                    r.column(|ui| {
+                    r.cell(|ui| {
                         ui.label("Name");
                     });
 
@@ -136,15 +136,15 @@ impl<T: 'static> MetricsTable<T> {
     }
 
     fn show_column_header(&mut self, row: &mut TableRow, column: &ColumnDescriptor<T>) {
-        row.column(|ui| {
-            let response = ui.selectable_label(false, column.name);
-            if response.clicked() {
-                (column.sort)(self);
-            }
-            if let Some(info) = column.name_info {
-                response.on_hover_text(info);
-            }
+        let response = row.selectable_cell(false, |ui| {
+            ui.label(column.name);
         });
+        if response.clicked() {
+            (column.sort)(self);
+        }
+        if let Some(info) = column.name_info {
+            response.on_hover_text(info);
+        }
     }
 
     pub fn sort_by_option_f64_desc(
@@ -207,7 +207,7 @@ impl<T> MetricsTablePart<T> {
         on_selected: &mut impl FnMut(TableSelection<T>),
     ) {
         let response = table.selectable_row(Some(self.id) == *selected_id, |mut r| {
-            r.column(|ui| {
+            r.cell(|ui| {
                 ui.horizontal(|ui| {
                     ui.add_space(indent * 30.0);
                     let symbol = if self.open { "⏷" } else { "⏵" };

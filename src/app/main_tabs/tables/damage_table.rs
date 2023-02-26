@@ -187,7 +187,7 @@ impl DamageTypes {
     }
 
     fn show(&self, row: &mut TableRow) {
-        row.column(|ui| match self {
+        row.cell(|ui| match self {
             DamageTypes::Unknown => (),
             DamageTypes::Single(damage_type) => {
                 ui.label(damage_type);
@@ -197,7 +197,7 @@ impl DamageTypes {
                     Table::new(ui).body(ROW_HEIGHT, |b| {
                         for damage_type in damage_types.iter() {
                             b.row(|r| {
-                                r.column(|ui| {
+                                r.cell(|ui| {
                                     ui.label(damage_type);
                                 });
                             });
