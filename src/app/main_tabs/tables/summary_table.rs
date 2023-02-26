@@ -58,12 +58,12 @@ impl SummaryTable {
                             ui.label("Player");
                         });
                     });
-                    Self::show_column_header(r, "Total Outgoing Damage", || {
-                        self.sort_by_option_f64(|p| p.total_out_damage.all.value)
-                    });
-
                     Self::show_column_header(r, "Outgoing DPS", || {
                         self.sort_by_option_f64(|p| p.dps_out.all.value)
+                    });
+
+                    Self::show_column_header(r, "Total Outgoing Damage", || {
+                        self.sort_by_option_f64(|p| p.total_out_damage.all.value)
                     });
 
                     Self::show_column_header(r, "Outgoing Damage %", || {
@@ -176,13 +176,11 @@ impl Player {
     pub fn show(&self, table: &mut TableBody) {
         table.row(|r| {
             r.cell(|ui| {
-                ui.horizontal(|ui| {
-                    ui.label(&self.name);
-                });
+                ui.label(&self.name);
             });
 
-            self.total_out_damage.show(r);
             self.dps_out.show(r);
+            self.total_out_damage.show(r);
             self.total_out_damage_percentage.show(r);
             self.total_in_damage.show(r);
             self.total_in_damage_percentage.show(r);
