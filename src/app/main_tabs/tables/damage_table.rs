@@ -61,7 +61,7 @@ static COLUMNS: &[ColumnDescriptor<DamageTablePartData>] = &[
         },
     ),
     col!("Hits / s",
-    "Hits Per Second\nCalculated from the first damage of the player to the last damage in the log",
+        "Hits Per Second\nCalculated from the first damage of the player to the last damage in the log",
         |t| t.sort_by_option_f64_desc(|p| p.hits_per_second.all.value),
         |t, r| {
             t.hits_per_second.show(r);
@@ -156,7 +156,7 @@ impl DamageTablePartData {
             hits: ShieldAndHullTextCount::new(&source.damage_metrics.hits),
             hits_per_second: ShieldAndHullTextValue::new(
                 &source.hits_per_second,
-                2,
+                3,
                 number_formatter,
             ),
             source_hits: source.hits.clone(),

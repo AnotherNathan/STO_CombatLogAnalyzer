@@ -26,6 +26,7 @@ pub enum SpecificHealTick {
 #[derive(Clone, Default, Debug)]
 pub struct HealMetrics {
     pub ticks: ShieldAndHullCounts,
+    pub ticks_per_second: ShieldHullValues,
     pub total_heal: ShieldHullValues,
     pub hps: ShieldHullValues,
     pub average_heal: ShieldHullOptionalValues,
@@ -93,6 +94,7 @@ impl HealMetrics {
             hull: hull_ticks,
             shield: shield_ticks,
         };
+        let ticks_per_second = ShieldHullValues::per_seconds(&ticks.to_values(), active_duration);
 
         let hps = ShieldHullValues::per_seconds(&total_heal, active_duration);
 
@@ -103,6 +105,7 @@ impl HealMetrics {
 
         Self {
             ticks,
+            ticks_per_second,
             total_heal,
             hps,
             average_heal,

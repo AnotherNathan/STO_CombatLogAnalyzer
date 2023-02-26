@@ -39,6 +39,13 @@ static COLUMNS: &[ColumnDescriptor<HealTablePartData>] = &[
             t.ticks.show(r);
         },
     ),
+    col!("Ticks / s",
+        "Ticks Per Second\nCalculated from the first action of the player to the last action in the log",
+        |t| t.sort_by_option_f64_desc(|p| p.ticks_per_second.all.value),
+        |t, r| {
+            t.ticks_per_second.show(r);
+        },
+    ),
 ];
 
 pub struct HealTablePartData {
@@ -48,6 +55,7 @@ pub struct HealTablePartData {
     average_heal: ShieldAndHullTextValue,
     critical_percentage: TextValue,
     ticks: ShieldAndHullTextCount,
+    ticks_per_second: ShieldAndHullTextValue,
     pub source_ticks: Vec<HealTick>,
 }
 
@@ -87,6 +95,11 @@ impl HealTablePartData {
             average_heal: ShieldAndHullTextValue::option(&group.average_heal, 2, number_formatter),
             critical_percentage: TextValue::option(group.critical_percentage, 3, number_formatter),
             ticks: ShieldAndHullTextCount::new(&group.heal_metrics.ticks),
+            ticks_per_second: ShieldAndHullTextValue::new(
+                &group.ticks_per_second,
+                3,
+                number_formatter,
+            ),
             source_ticks: group.ticks.clone(),
         }
     }
