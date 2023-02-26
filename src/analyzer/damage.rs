@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use bitflags::bitflags;
+use super::*;
 use educe::Educe;
 
 #[derive(Clone, Copy, Debug)]
@@ -25,50 +25,18 @@ pub enum SpecificHit {
     Hull { base_damage: f64 },
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-pub struct ShieldHullValues {
-    pub all: f64,
-    pub shield: f64,
-    pub hull: f64,
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-pub struct ShieldHullOptionalValues {
-    pub all: Option<f64>,
-    pub shield: Option<f64>,
-    pub hull: Option<f64>,
-}
-
 #[derive(Clone, Debug, Default)]
 pub struct DamageMetrics {
-    pub shield_hits: u64,
-    pub hull_hits: u64,
-    pub hits: u64,
+    pub hits: ShieldAndHullCounts,
     pub total_damage: ShieldHullValues,
     pub total_damage_prevented_to_hull_by_shields: f64,
     pub total_base_damage: f64,
     pub base_dps: f64,
     pub dps: ShieldHullValues,
     pub average_hit: ShieldHullOptionalValues,
-    pub critical_chance: f64,
-    pub flanking: f64,
+    pub critical_percentage: Option<f64>,
+    pub flanking: Option<f64>,
     pub damage_resistance_percentage: Option<f64>,
-}
-
-bitflags! {
-    pub struct ValueFlags: u8{
-        const NONE = 0;
-        const CRITICAL = 1;
-        const FLANK = 1 << 1;
-        const KILL = 1 << 2;
-        const IMMUNE = 1 << 3;
-    }
-}
-
-impl Default for ValueFlags {
-    fn default() -> Self {
-        Self::NONE
-    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -140,23 +108,6 @@ impl BaseHit {
     }
 }
 
-impl ValueFlags {
-    pub fn parse(input: &str) -> Self {
-        let mut flags = ValueFlags::NONE;
-        for flag in input.split('|') {
-            flags |= match flag {
-                "Critical" => ValueFlags::CRITICAL,
-                "Flank" => ValueFlags::FLANK,
-                "Kill" => ValueFlags::KILL,
-                "Immune" => ValueFlags::IMMUNE,
-                _ => ValueFlags::NONE,
-            };
-        }
-
-        flags
-    }
-}
-
 impl DamageMetrics {
     pub fn calculate(hits: &[Hit], combat_duration: f64) -> Self {
         let mut total_shield_damage = 0.0;
@@ -212,24 +163,18 @@ impl DamageMetrics {
             shield: total_shield_damage,
         };
 
-        let critical_chance = if hull_hits == 0 {
-            0.0
-        } else {
-            crits as f64 / hull_hits as f64
-        };
-        let critical_chance = critical_chance * 100.0;
+        let critical_percentage = percentage_u64(crits, hull_hits);
 
-        let flanking = if hull_hits == 0 {
-            0.0
-        } else {
-            flanks as f64 / hull_hits as f64
-        };
-        let flanking = flanking * 100.0;
+        let flanking = percentage_u64(flanks, hull_hits);
 
-        let hits = shield_hits + hull_hits;
-        let dps = ShieldHullValues::dps(&total_damage, combat_duration);
+        let hits = ShieldAndHullCounts {
+            all: shield_hits + hull_hits,
+            hull: hull_hits,
+            shield: shield_hits,
+        };
+        let dps = ShieldHullValues::per_seconds(&total_damage, combat_duration);
         let average_hit =
-            ShieldHullOptionalValues::average_hit(&total_damage, shield_hits, hull_hits, hits);
+            ShieldHullOptionalValues::average(&total_damage, shield_hits, hull_hits, hits.all);
 
         let damage_resistance_percentage =
             damage_resistance_percentage(&total_damage, total_base_damage, total_shield_drain);
@@ -237,8 +182,6 @@ impl DamageMetrics {
         let base_dps = total_base_damage / combat_duration.max(1.0);
 
         Self {
-            shield_hits,
-            hull_hits,
             hits,
             total_damage,
             total_damage_prevented_to_hull_by_shields,
@@ -246,47 +189,9 @@ impl DamageMetrics {
             base_dps,
             dps,
             average_hit,
-            critical_chance,
+            critical_percentage,
             flanking,
             damage_resistance_percentage,
-        }
-    }
-}
-
-impl ShieldHullValues {
-    fn dps(total_damage: &Self, combat_duration: f64) -> Self {
-        // avoid absurd high numbers by having a combat duration of at least 1 sec
-        Self {
-            all: total_damage.all / combat_duration.max(1.0),
-            shield: total_damage.shield / combat_duration.max(1.0),
-            hull: total_damage.hull / combat_duration.max(1.0),
-        }
-    }
-}
-
-impl ShieldHullOptionalValues {
-    fn average_hit(
-        total_damage: &ShieldHullValues,
-        shield_hits: u64,
-        hull_hits: u64,
-        hits: u64,
-    ) -> Self {
-        Self {
-            all: if hits == 0 {
-                None
-            } else {
-                Some(total_damage.all / hits as f64)
-            },
-            shield: if shield_hits == 0 {
-                None
-            } else {
-                Some(total_damage.shield / shield_hits as f64)
-            },
-            hull: if hull_hits == 0 {
-                None
-            } else {
-                Some(total_damage.hull / hull_hits as f64)
-            },
         }
     }
 }

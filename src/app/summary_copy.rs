@@ -115,10 +115,10 @@ impl Default for SummaryCopy {
                     true,
                 ),
                 aspect(
-                    "Critical Chance",
+                    "Critical %",
                     "Crit%",
                     false,
-                    |p| p.damage_out.critical_chance,
+                    |p| p.damage_out.critical_percentage.unwrap_or(0.0),
                     |v, f| f.format(v, 1),
                     true,
                 ),

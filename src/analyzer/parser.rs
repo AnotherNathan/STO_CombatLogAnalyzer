@@ -47,13 +47,7 @@ pub enum Entity<'a> {
 #[derive(Debug, Clone, Copy)]
 pub enum RecordValue {
     Damage(BaseHit),
-    Heal(RecordHeal),
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum RecordHeal {
-    Shield(f64),
-    Hull(f64),
+    Heal(BaseHealTick),
 }
 
 pub struct Parser {
@@ -178,8 +172,12 @@ impl<'a> Record<'a> {
         self.value.is_all_zero() || self.value_flags.contains(ValueFlags::IMMUNE)
     }
 
+    pub fn is_self_directed(&self) -> bool {
+        self.target.is_none() && self.sub_source.is_none()
+    }
+
     pub fn is_direct_self_damage(&self) -> bool {
-        self.target.is_none() && self.sub_source.is_none() && self.value.is_damage()
+        self.is_self_directed() && self.value.is_damage()
     }
 }
 
@@ -264,15 +262,15 @@ impl RecordValue {
 
         if value1 < 0.0 && value_type == "HitPoints" {
             if value1 < 0.0 {
-                return Some(Self::Heal(RecordHeal::Hull(value1.abs())));
+                return Some(Self::Heal(BaseHealTick::hull(value1, flags)));
             }
             return Some(Self::Damage(BaseHit::hull(value1, flags, value2)));
         }
 
         if value_type == "Shield" {
-            if value2 == 0.0 {
+            if value2 == 0.0 && !flags.contains(ValueFlags::SHIELD_BREAK) {
                 if value1 < 0.0 {
-                    return Some(Self::Heal(RecordHeal::Shield(value1.abs())));
+                    return Some(Self::Heal(BaseHealTick::shield(value1, flags)));
                 }
 
                 if value1 > 0.0 {
@@ -300,7 +298,7 @@ impl RecordValue {
                         SpecificHit::Hull { base_damage } => base_damage == 0.0,
                     }
             }
-            RecordValue::Heal(v) => v.get() == 0.0,
+            RecordValue::Heal(v) => v.amount == 0.0,
         }
     }
 
@@ -308,14 +306,6 @@ impl RecordValue {
         match self {
             RecordValue::Damage(_) => true,
             RecordValue::Heal(_) => false,
-        }
-    }
-}
-
-impl RecordHeal {
-    pub fn get(&self) -> f64 {
-        match self {
-            RecordHeal::Shield(v) | RecordHeal::Hull(v) => *v,
         }
     }
 }
@@ -401,6 +391,23 @@ mod tests {
 
         for name in names.iter() {
             println!("{}", name);
+        }
+    }
+
+    #[test]
+    fn list_weird_ones() {
+        let mut parser = Parser::new(&PathBuf::from(
+            r"D:\Games\Star Trek Online_en\Star Trek Online\Live\logs\GameClient\combatlog.log",
+        ))
+        .unwrap();
+
+        while let Ok(record) = parser.parse_next() {
+            if !record.value_flags.is_empty()
+                && !record.value_flags.intersects(ValueFlags::CRITICAL)
+                && !record.value.is_damage()
+            {
+                println!("{}", record.raw);
+            }
         }
     }
 }

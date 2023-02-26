@@ -55,7 +55,7 @@ impl DamageTab {
     }
 
     fn make_selection_diagrams(
-        selection: TableSelection,
+        selection: TableSelection<DamageTablePartData>,
         dps_filter: f64,
         damage_time_slice: f64,
     ) -> Option<DamageDiagrams> {

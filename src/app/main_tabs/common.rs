@@ -2,7 +2,7 @@ use chrono::Duration;
 use eframe::egui::*;
 
 use crate::{
-    analyzer::{ShieldHullOptionalValues, ShieldHullValues},
+    analyzer::*,
     custom_widgets::table::*,
     helpers::{format_duration, number_formatting::NumberFormatter},
 };
@@ -25,6 +25,13 @@ pub struct TextCount {
 #[derive(Default)]
 pub struct ShieldAndHullTextValue {
     pub all: TextValue,
+    pub shield: String,
+    pub hull: String,
+}
+
+#[derive(Default)]
+pub struct ShieldAndHullTextCount {
+    pub all: TextCount,
     pub shield: String,
     pub hull: String,
 }
@@ -119,6 +126,22 @@ impl TextCount {
 
     pub fn show(&self, row: &mut TableRow) -> Response {
         show_value_text(row, &self.text)
+    }
+}
+
+impl ShieldAndHullTextCount {
+    pub fn new(counts: &ShieldAndHullCounts) -> Self {
+        Self {
+            all: TextCount::new(counts.all),
+            shield: counts.shield.to_string(),
+            hull: counts.all.to_string(),
+        }
+    }
+
+    pub fn show(&self, row: &mut TableRow) {
+        let response = self.all.show(row);
+
+        show_shield_hull_values_tool_tip(response, &self.shield, &self.hull);
     }
 }
 

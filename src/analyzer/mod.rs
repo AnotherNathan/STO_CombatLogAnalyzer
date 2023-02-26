@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{fmt::Debug, ops::Range};
 
 use chrono::{Duration, NaiveDateTime};
 use educe::Educe;
@@ -7,10 +7,14 @@ use log::warn;
 use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::SmallVec;
 
+mod common;
 mod damage;
+mod heal;
 mod parser;
 pub mod settings;
+pub use common::*;
 pub use damage::*;
+pub use heal::*;
 
 use self::{parser::*, settings::*};
 
@@ -31,6 +35,8 @@ pub struct Combat {
     pub active_time: Range<NaiveDateTime>,
     pub total_damage_out: ShieldHullValues,
     pub total_damage_in: ShieldHullValues,
+    pub total_heal_in: ShieldHullValues,
+    pub total_heal_out: ShieldHullValues,
     pub players: Players,
     pub log_pos: Option<Range<u64>>,
     pub total_deaths: u64,
@@ -43,24 +49,91 @@ pub struct Player {
     pub active_time: Option<Range<NaiveDateTime>>,
     pub damage_out: DamageGroup,
     pub damage_in: DamageGroup,
+    pub heal_out: HealGroup,
+    pub heal_in: HealGroup,
     pub deaths: u64,
     pub kills: u64,
 }
 
+pub type DamageGroup = AnalysisGroup<DamageData>;
+pub type HealGroup = AnalysisGroup<HealData>;
+
 #[derive(Clone, Debug, Educe)]
 #[educe(Deref, DerefMut)]
-pub struct DamageGroup {
+pub struct AnalysisGroup<T: Clone + Sized + Debug> {
     pub name: String,
+    #[educe(Deref, DerefMut)]
+    pub data: T,
+    pub sub_groups: FxHashMap<String, Self>,
+
+    is_pool: bool,
+}
+
+#[derive(Clone, Debug, Educe, Default)]
+#[educe(Deref, DerefMut)]
+pub struct DamageData {
     #[educe(Deref, DerefMut)]
     pub damage_metrics: DamageMetrics,
     pub max_one_hit: MaxOneHit,
     pub damage_percentage: f64,
     pub hits: Vec<Hit>,
     pub damage_types: FxHashSet<String>,
+}
 
-    is_pool: bool,
+#[derive(Clone, Debug, Educe, Default)]
+#[educe(Deref, DerefMut)]
+pub struct HealData {
+    #[educe(Deref, DerefMut)]
+    pub heal_metrics: HealMetrics,
 
-    pub sub_groups: FxHashMap<String, DamageGroup>,
+    pub heal_percentage: ShieldHullOptionalValues,
+
+    pub ticks: Vec<HealTick>,
+}
+
+impl<T: Clone + Sized + Debug + Default> AnalysisGroup<T> {
+    fn new(name: &str, is_pool: bool) -> Self {
+        Self {
+            name: name.to_string(),
+            data: Default::default(),
+            sub_groups: Default::default(),
+            is_pool,
+        }
+    }
+
+    fn get_non_pool_sub_group(&mut self, sub_group: &str) -> &mut Self {
+        let candidate = self.get_sub_group_or_create_non_pool(sub_group);
+        if !candidate.is_pool {
+            return candidate;
+        }
+
+        candidate.get_non_pool_sub_group(sub_group)
+    }
+
+    fn get_pool_sub_group(&mut self, sub_group: &str) -> &mut Self {
+        let candidate = self.sub_groups.get(sub_group);
+        if candidate.map(|c| c.is_pool).unwrap_or(false) {
+            return self.get_sub_group_or_create_non_pool(sub_group);
+        }
+
+        // make a new pool and move the non pool sub group on there
+        let mut pool = Self::new(sub_group, true);
+        if let Some(non_pool_sub_group) = self.sub_groups.remove(sub_group) {
+            pool.sub_groups
+                .insert(sub_group.to_string(), non_pool_sub_group);
+        }
+        self.sub_groups.insert(sub_group.to_string(), pool);
+        self.get_pool_sub_group(sub_group)
+    }
+
+    fn get_sub_group_or_create_non_pool(&mut self, sub_group: &str) -> &mut Self {
+        if !self.sub_groups.contains_key(sub_group) {
+            self.sub_groups
+                .insert(sub_group.to_string(), Self::new(sub_group, false));
+        }
+
+        self.sub_groups.get_mut(sub_group).unwrap()
+    }
 }
 
 impl Analyzer {
@@ -137,6 +210,13 @@ impl Analyzer {
             player.add_in_value(&record, combat_start_offset_millis, &self.settings);
         }
 
+        if let (Entity::Player { full_name, .. }, Entity::None, Entity::None) =
+            (&record.source, &record.sub_source, &record.target)
+        {
+            let player = combat.get_player(full_name);
+            player.add_in_value(&record, combat_start_offset_millis, &self.settings);
+        }
+
         Ok(())
     }
 
@@ -164,6 +244,8 @@ impl Combat {
             log_pos: start_record.log_pos.clone(),
             total_damage_out: Default::default(),
             total_damage_in: Default::default(),
+            total_heal_in: Default::default(),
+            total_heal_out: Default::default(),
             total_kills: 0,
             total_deaths: 0,
         }
@@ -213,27 +295,24 @@ impl Combat {
             .values_mut()
             .for_each(|p| p.recalculate_metrics());
 
-        self.total_damage_out = self.recalculate_total_damage(|p| &p.damage_out);
-        self.total_damage_in = self.recalculate_total_damage(|p| &p.damage_in);
+        self.total_damage_out = self
+            .players
+            .values()
+            .map(|p| p.damage_out.total_damage)
+            .sum();
+        self.total_damage_in = self
+            .players
+            .values()
+            .map(|p| p.damage_in.total_damage)
+            .sum();
+        self.total_heal_out = self.players.values().map(|p| p.heal_out.total_heal).sum();
+        self.total_heal_in = self.players.values().map(|p| p.heal_in.total_heal).sum();
         self.total_kills = self.players.values().map(|p| p.kills).sum();
         self.total_deaths = self.players.values().map(|p| p.deaths).sum();
         self.recalculate_damage_group_percentage(self.total_damage_out, |p| &mut p.damage_out);
         self.recalculate_damage_group_percentage(self.total_damage_in, |p| &mut p.damage_in);
-    }
-
-    fn recalculate_total_damage(
-        &self,
-        mut group: impl FnMut(&Player) -> &DamageGroup,
-    ) -> ShieldHullValues {
-        let (shield, hull, all) = self.players.values().fold((0.0, 0.0, 0.0), |(s, h, a), p| {
-            let total_damage = &group(p).total_damage;
-            (
-                total_damage.shield + s,
-                total_damage.hull + h,
-                total_damage.all + a,
-            )
-        });
-        ShieldHullValues { all, shield, hull }
+        self.recalculate_heal_group_percentage(self.total_heal_out, |p| &mut p.heal_out);
+        self.recalculate_heal_group_percentage(self.total_heal_in, |p| &mut p.heal_in);
     }
 
     fn recalculate_damage_group_percentage(
@@ -243,7 +322,17 @@ impl Combat {
     ) {
         self.players
             .values_mut()
-            .for_each(|p| group(p).recalculate_damage_percentage(total_damage.all));
+            .for_each(|p| group(p).recalculate_percentages(total_damage.all));
+    }
+
+    fn recalculate_heal_group_percentage(
+        &mut self,
+        total_heal: ShieldHullValues,
+        mut group: impl FnMut(&mut Player) -> &mut HealGroup,
+    ) {
+        self.players
+            .values_mut()
+            .for_each(|p| group(p).recalculate_percentages(&total_heal));
     }
 
     fn update_meta_data(&mut self, record: &Record, settings: &AnalysisSettings) {
@@ -290,6 +379,8 @@ impl Player {
             active_time: None,
             damage_out: DamageGroup::new(full_name, true),
             damage_in: DamageGroup::new(full_name, true),
+            heal_out: HealGroup::new(full_name, true),
+            heal_in: HealGroup::new(full_name, true),
             deaths: 0,
             kills: 0,
         }
@@ -301,10 +392,10 @@ impl Player {
         combat_start_offset_millis: u32,
         settings: &AnalysisSettings,
     ) {
+        self.update_active_time(record);
+        let mut path = Self::build_grouping_path(record, settings);
         match record.value {
             RecordValue::Damage(damage) if !record.is_direct_self_damage() => {
-                let path = Self::build_grouping_path(record, settings);
-
                 self.damage_out.add_damage(
                     &path,
                     damage,
@@ -314,11 +405,20 @@ impl Player {
                 );
 
                 self.update_combat_time(record);
-                self.update_active_time(record);
 
                 if record.value_flags.contains(ValueFlags::KILL) {
                     self.kills += 1;
                 }
+            }
+            RecordValue::Heal(heal) => {
+                let target_name = if record.is_self_directed() {
+                    record.source.name().unwrap_or("<unknown target>")
+                } else {
+                    record.target.name().unwrap_or("<unknown target>")
+                };
+                path.push(target_name);
+                self.heal_out
+                    .add_heal(&path, heal, record.value_flags, combat_start_offset_millis);
             }
             _ => (),
         }
@@ -331,11 +431,10 @@ impl Player {
         settings: &AnalysisSettings,
     ) {
         let source_name = record.source.name().unwrap_or("<unknown source>");
+        let mut path = Self::build_grouping_path(record, settings);
+        path.push(source_name);
         match record.value {
             RecordValue::Damage(damage) => {
-                let mut path = Self::build_grouping_path(record, settings);
-                path.push(source_name);
-
                 self.damage_in.add_damage(
                     &path,
                     damage,
@@ -348,7 +447,10 @@ impl Player {
                     self.deaths += 1;
                 }
             }
-            RecordValue::Heal(_) => (),
+            RecordValue::Heal(heal) => {
+                self.heal_in
+                    .add_heal(&path, heal, record.value_flags, combat_start_offset_millis);
+            }
         }
     }
 
@@ -412,37 +514,25 @@ impl Player {
     }
 
     fn recalculate_metrics(&mut self) {
-        Self::recalculate_group_metrics(&mut self.damage_out, &self.combat_time);
-        Self::recalculate_group_metrics(&mut self.damage_in, &self.active_time);
+        let combat_duration = Self::metrics_duration(&self.combat_time);
+        let active_duration = Self::metrics_duration(&self.combat_time);
+        self.damage_out.recalculate_metrics(combat_duration);
+        self.damage_in.recalculate_metrics(active_duration);
+        self.heal_out.recalculate_metrics(active_duration);
+        self.heal_in.recalculate_metrics(active_duration);
     }
 
-    fn recalculate_group_metrics(
-        group: &mut DamageGroup,
-        combat_time: &Option<Range<NaiveDateTime>>,
-    ) {
-        let active_combat_duration = combat_time
+    fn metrics_duration(time: &Option<Range<NaiveDateTime>>) -> f64 {
+        let duration = time
             .as_ref()
             .map(|t| t.end.signed_duration_since(t.start))
             .unwrap_or(Duration::max_value());
-        let combat_duration = active_combat_duration.to_std().unwrap().as_secs_f64();
-        group.recalculate_metrics(combat_duration);
+        let duration = duration.to_std().unwrap().as_secs_f64();
+        duration
     }
 }
 
 impl DamageGroup {
-    fn new(name: &str, is_pool: bool) -> Self {
-        Self {
-            name: name.to_string(),
-            damage_metrics: DamageMetrics::default(),
-            hits: Vec::new(),
-            max_one_hit: Default::default(),
-            damage_percentage: 0.0,
-            damage_types: Default::default(),
-            sub_groups: Default::default(),
-            is_pool,
-        }
-    }
-
     fn recalculate_metrics(&mut self, combat_duration: f64) {
         if self.sub_groups.len() > 0 {
             self.max_one_hit.reset();
@@ -451,12 +541,13 @@ impl DamageGroup {
 
             for sub_group in self.sub_groups.values_mut() {
                 sub_group.recalculate_metrics(combat_duration);
-                self.hits.extend_from_slice(&sub_group.hits);
-                self.max_one_hit
+                self.data.hits.extend_from_slice(&sub_group.hits);
+                self.data
+                    .max_one_hit
                     .update(&sub_group.max_one_hit.name, sub_group.max_one_hit.damage);
                 for damage_type in sub_group.damage_types.iter() {
-                    if !self.damage_types.contains(damage_type) {
-                        self.damage_types.insert(damage_type.clone());
+                    if !self.data.damage_types.contains(damage_type) {
+                        self.data.damage_types.insert(damage_type.clone());
                     }
                 }
             }
@@ -467,7 +558,7 @@ impl DamageGroup {
         self.damage_metrics = DamageMetrics::calculate(&self.hits, combat_duration);
     }
 
-    fn recalculate_damage_percentage(&mut self, parent_total_damage: f64) {
+    fn recalculate_percentages(&mut self, parent_total_damage: f64) {
         self.damage_percentage = if self.total_damage.all == 0.0 {
             0.0
         } else {
@@ -475,7 +566,7 @@ impl DamageGroup {
         };
         self.sub_groups
             .values_mut()
-            .for_each(|s| s.recalculate_damage_percentage(self.damage_metrics.total_damage.all));
+            .for_each(|s| s.recalculate_percentages(self.data.damage_metrics.total_damage.all));
     }
 
     fn add_damage(
@@ -527,39 +618,53 @@ impl DamageGroup {
 
         self.damage_types.insert(damage_type.to_string());
     }
+}
 
-    fn get_non_pool_sub_group(&mut self, sub_group: &str) -> &mut Self {
-        let candidate = self.get_sub_group_or_create_non_pool(sub_group);
-        if !candidate.is_pool {
-            return candidate;
+impl HealGroup {
+    fn recalculate_metrics(&mut self, combat_duration: f64) {
+        if self.sub_groups.len() > 0 {
+            self.ticks.clear();
+
+            for sub_group in self.sub_groups.values_mut() {
+                sub_group.recalculate_metrics(combat_duration);
+                self.data.ticks.extend_from_slice(&sub_group.ticks);
+            }
         }
 
-        candidate.get_non_pool_sub_group(sub_group)
+        self.heal_metrics = HealMetrics::calculate(&self.ticks, combat_duration);
     }
 
-    fn get_pool_sub_group(&mut self, sub_group: &str) -> &mut Self {
-        let candidate = self.sub_groups.get(sub_group);
-        if candidate.map(|c| c.is_pool).unwrap_or(false) {
-            return self.get_sub_group_or_create_non_pool(sub_group);
-        }
-
-        // make a new pool and move the non pool sub group on there
-        let mut pool = Self::new(sub_group, true);
-        if let Some(non_pool_sub_group) = self.sub_groups.remove(sub_group) {
-            pool.sub_groups
-                .insert(sub_group.to_string(), non_pool_sub_group);
-        }
-        self.sub_groups.insert(sub_group.to_string(), pool);
-        self.get_pool_sub_group(sub_group)
+    fn recalculate_percentages(&mut self, parent_total_heal: &ShieldHullValues) {
+        self.heal_percentage =
+            ShieldHullOptionalValues::percentage(&self.total_heal, parent_total_heal);
+        self.sub_groups
+            .values_mut()
+            .for_each(|s| s.recalculate_percentages(&self.data.heal_metrics.total_heal));
     }
 
-    fn get_sub_group_or_create_non_pool(&mut self, sub_group: &str) -> &mut Self {
-        if !self.sub_groups.contains_key(sub_group) {
-            self.sub_groups
-                .insert(sub_group.to_string(), Self::new(sub_group, false));
+    fn add_heal(
+        &mut self,
+        path: &[&str],
+        tick: BaseHealTick,
+        flags: ValueFlags,
+        combat_start_offset_millis: u32,
+    ) {
+        if path.len() == 1 {
+            let sub_source = self.get_non_pool_sub_group(path[0]);
+            sub_source
+                .ticks
+                .push(tick.to_tick(combat_start_offset_millis));
+
+            return;
         }
 
-        self.sub_groups.get_mut(sub_group).unwrap()
+        let sub_source = self.get_pool_sub_group(path.last().unwrap());
+        sub_source.add_heal(
+            &path[..path.len() - 1],
+            tick,
+            flags,
+            combat_start_offset_millis,
+        );
     }
 }
 
