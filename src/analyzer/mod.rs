@@ -414,7 +414,11 @@ impl Player {
                 let target_name = if record.is_self_directed() {
                     record.source.name().unwrap_or("<unknown target>")
                 } else {
-                    record.target.name().unwrap_or("<unknown target>")
+                    record
+                        .target
+                        .name()
+                        .or_else(|| record.sub_source.name())
+                        .unwrap_or("<unknown target>")
                 };
                 path.push(target_name);
                 self.heal_out
