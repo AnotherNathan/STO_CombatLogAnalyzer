@@ -142,12 +142,7 @@ impl DamageTablePartData {
             base_dps: TextValue::new(source.base_dps, 2, number_formatter),
             damage_types: DamageTypes::new(source),
             hits: ShieldAndHullTextCount::new(&source.damage_metrics.hits),
-            source_hits: source
-                .hits
-                .iter()
-                .chain(source.hits.iter())
-                .copied()
-                .collect(),
+            source_hits: source.hits.clone(),
         }
     }
 }
