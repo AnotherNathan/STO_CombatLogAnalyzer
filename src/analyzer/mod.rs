@@ -88,6 +88,7 @@ pub struct HealData {
     pub heal_metrics: HealMetrics,
 
     pub heal_percentage: ShieldHullOptionalValues,
+    pub ticks_percentage: ShieldHullOptionalValues,
 
     pub ticks: Vec<HealTick>,
 }
@@ -296,38 +297,36 @@ impl Combat {
             .values_mut()
             .for_each(|p| p.recalculate_metrics());
 
-        self.total_damage_out = self
-            .players
-            .values()
-            .map(|p| p.damage_out.total_damage)
-            .sum();
-        self.total_damage_in = self
-            .players
-            .values()
-            .map(|p| p.damage_in.total_damage)
-            .sum();
-        self.total_heal_out = self.players.values().map(|p| p.heal_out.total_heal).sum();
-        self.total_heal_in = self.players.values().map(|p| p.heal_in.total_heal).sum();
-        self.total_kills = self.players.values().map(|p| p.kills).sum();
-        self.total_deaths = self.players.values().map(|p| p.deaths).sum();
-        let total_hits_out: ShieldHullCounts = self
-            .players
-            .values()
+        let players = self.players.values();
+
+        self.total_damage_out = players.clone().map(|p| p.damage_out.total_damage).sum();
+        self.total_damage_in = players.clone().map(|p| p.damage_in.total_damage).sum();
+        self.total_heal_out = players.clone().map(|p| p.heal_out.total_heal).sum();
+        self.total_heal_in = players.clone().map(|p| p.heal_in.total_heal).sum();
+        self.total_kills = players.clone().map(|p| p.kills).sum();
+        self.total_deaths = players.clone().map(|p| p.deaths).sum();
+        let total_hits_out: ShieldHullCounts = players
+            .clone()
             .map(|p| p.damage_out.damage_metrics.hits)
             .sum();
-        let total_hits_in: ShieldHullCounts = self
-            .players
-            .values()
+        let total_hits_in: ShieldHullCounts = players
+            .clone()
             .map(|p| p.damage_in.damage_metrics.hits)
             .sum();
+        let total_heal_ticks_out = players.clone().map(|p| p.heal_out.heal_metrics.ticks).sum();
+        let total_heal_ticks_in = players.clone().map(|p| p.heal_in.heal_metrics.ticks).sum();
         self.recalculate_damage_group_percentage(self.total_damage_out, total_hits_out, |p| {
             &mut p.damage_out
         });
         self.recalculate_damage_group_percentage(self.total_damage_in, total_hits_in, |p| {
             &mut p.damage_in
         });
-        self.recalculate_heal_group_percentage(self.total_heal_out, |p| &mut p.heal_out);
-        self.recalculate_heal_group_percentage(self.total_heal_in, |p| &mut p.heal_in);
+        self.recalculate_heal_group_percentage(self.total_heal_out, total_heal_ticks_out, |p| {
+            &mut p.heal_out
+        });
+        self.recalculate_heal_group_percentage(self.total_heal_in, total_heal_ticks_in, |p| {
+            &mut p.heal_in
+        });
     }
 
     fn recalculate_damage_group_percentage(
@@ -344,11 +343,12 @@ impl Combat {
     fn recalculate_heal_group_percentage(
         &mut self,
         total_heal: ShieldHullValues,
+        parent_ticks: ShieldHullCounts,
         mut group: impl FnMut(&mut Player) -> &mut HealGroup,
     ) {
         self.players
             .values_mut()
-            .for_each(|p| group(p).recalculate_percentages(&total_heal));
+            .for_each(|p| group(p).recalculate_percentages(&total_heal, &parent_ticks));
     }
 
     fn update_meta_data(&mut self, record: &Record, settings: &AnalysisSettings) {
@@ -662,12 +662,23 @@ impl HealGroup {
         self.heal_metrics = HealMetrics::calculate(&self.ticks, combat_duration);
     }
 
-    fn recalculate_percentages(&mut self, parent_total_heal: &ShieldHullValues) {
+    fn recalculate_percentages(
+        &mut self,
+        parent_total_heal: &ShieldHullValues,
+        parent_ticks: &ShieldHullCounts,
+    ) {
         self.heal_percentage =
             ShieldHullOptionalValues::percentage(&self.total_heal, parent_total_heal);
-        self.sub_groups
-            .values_mut()
-            .for_each(|s| s.recalculate_percentages(&self.data.heal_metrics.total_heal));
+        self.ticks_percentage = ShieldHullOptionalValues::percentage(
+            &self.heal_metrics.ticks.to_values(),
+            &parent_ticks.to_values(),
+        );
+        self.sub_groups.values_mut().for_each(|s| {
+            s.recalculate_percentages(
+                &self.data.heal_metrics.total_heal,
+                &self.data.heal_metrics.ticks,
+            )
+        });
     }
 
     fn add_heal(

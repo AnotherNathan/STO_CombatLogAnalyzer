@@ -46,6 +46,10 @@ static COLUMNS: &[ColumnDescriptor<HealTablePartData>] = &[
             t.ticks_per_second.show(r);
         },
     ),
+    col!("Ticks %", |t| t.sort_by_option_f64_desc(|p| p.ticks_percentage.all.value), |t, r| {
+        t.ticks_percentage.show(r);
+    },
+),
 ];
 
 pub struct HealTablePartData {
@@ -56,6 +60,7 @@ pub struct HealTablePartData {
     critical_percentage: TextValue,
     ticks: ShieldAndHullTextCount,
     ticks_per_second: ShieldAndHullTextValue,
+    ticks_percentage: ShieldAndHullTextValue,
     pub source_ticks: Vec<HealTick>,
 }
 
@@ -97,6 +102,11 @@ impl HealTablePartData {
             ticks: ShieldAndHullTextCount::new(&group.heal_metrics.ticks),
             ticks_per_second: ShieldAndHullTextValue::new(
                 &group.ticks_per_second,
+                3,
+                number_formatter,
+            ),
+            ticks_percentage: ShieldAndHullTextValue::option(
+                &group.ticks_percentage,
                 3,
                 number_formatter,
             ),
