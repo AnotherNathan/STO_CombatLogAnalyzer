@@ -12,6 +12,7 @@ use crate::{
 
 pub struct SummaryTable {
     players: Vec<Player>,
+    selected_player: Option<usize>,
 }
 
 struct Player {
@@ -32,6 +33,7 @@ impl SummaryTable {
     pub fn empty() -> Self {
         Self {
             players: Default::default(),
+            selected_player: None,
         }
     }
 
@@ -44,6 +46,7 @@ impl SummaryTable {
                 .values()
                 .map(|p| Player::new(combat_duration, p, &mut number_formatter))
                 .collect(),
+            selected_player: None,
         };
         table.sort_by_option_f64(|p| p.total_out_damage.all.value);
         table
@@ -95,8 +98,11 @@ impl SummaryTable {
                     Self::show_column_header(r, "Deaths", || self.sort_by_key(|p| p.deaths.count));
                 })
                 .body(ROW_HEIGHT, |t| {
-                    for player in self.players.iter() {
-                        player.show(t)
+                    for (i, player) in self.players.iter().enumerate() {
+                        let player_selected = Some(i) == self.selected_player;
+                        if player.show(t, player_selected).clicked() {
+                            self.selected_player = if player_selected { None } else { Some(i) };
+                        }
                     }
                 });
         });
@@ -173,8 +179,8 @@ impl Player {
         }
     }
 
-    pub fn show(&self, table: &mut TableBody) {
-        table.row(|r| {
+    pub fn show(&self, table: &mut TableBody, selected: bool) -> Response {
+        table.selectable_row(selected, |r| {
             r.cell(|ui| {
                 ui.label(&self.name);
             });
@@ -189,6 +195,6 @@ impl Player {
             self.active_duration.show(r);
             self.kills.show(r);
             self.deaths.show(r);
-        });
+        })
     }
 }
