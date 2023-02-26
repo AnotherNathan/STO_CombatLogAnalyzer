@@ -468,6 +468,18 @@
           }
         ],
         "enabled": true
+      },
+      {
+        "name": "Crystalline Catastrophe",
+        "rules": [
+          {
+            "aspect": "SourceOrTargetUniqueName",
+            "expression": "Space_Crystalline_Entity",
+            "method": "StartsWith",
+            "enabled": true
+          }
+        ],
+        "enabled": true
       }
     ]
   },

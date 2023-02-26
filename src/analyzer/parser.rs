@@ -393,21 +393,4 @@ mod tests {
             println!("{}", name);
         }
     }
-
-    #[test]
-    fn list_weird_ones() {
-        let mut parser = Parser::new(&PathBuf::from(
-            r"D:\Games\Star Trek Online_en\Star Trek Online\Live\logs\GameClient\combatlog.log",
-        ))
-        .unwrap();
-
-        while let Ok(record) = parser.parse_next() {
-            if !record.value_flags.is_empty()
-                && !record.value_flags.intersects(ValueFlags::CRITICAL)
-                && !record.value.is_damage()
-            {
-                println!("{}", record.raw);
-            }
-        }
-    }
 }
