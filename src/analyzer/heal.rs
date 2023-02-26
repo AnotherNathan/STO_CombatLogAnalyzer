@@ -25,7 +25,7 @@ pub enum SpecificHealTick {
 
 #[derive(Clone, Default, Debug)]
 pub struct HealMetrics {
-    pub ticks: ShieldAndHullCounts,
+    pub ticks: ShieldHullCounts,
     pub ticks_per_second: ShieldHullValues,
     pub total_heal: ShieldHullValues,
     pub hps: ShieldHullValues,
@@ -89,7 +89,7 @@ impl HealMetrics {
             shield: total_shield_heal,
         };
 
-        let ticks = ShieldAndHullCounts {
+        let ticks = ShieldHullCounts {
             all: shield_ticks + hull_ticks,
             hull: hull_ticks,
             shield: shield_ticks,

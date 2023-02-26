@@ -27,7 +27,7 @@ pub enum SpecificHit {
 
 #[derive(Clone, Debug, Default)]
 pub struct DamageMetrics {
-    pub hits: ShieldAndHullCounts,
+    pub hits: ShieldHullCounts,
     pub hits_per_second: ShieldHullValues,
     pub total_damage: ShieldHullValues,
     pub total_damage_prevented_to_hull_by_shields: f64,
@@ -168,7 +168,7 @@ impl DamageMetrics {
 
         let flanking = percentage_u64(flanks, hull_hits);
 
-        let hits = ShieldAndHullCounts {
+        let hits = ShieldHullCounts {
             all: shield_hits + hull_hits,
             hull: hull_hits,
             shield: shield_hits,

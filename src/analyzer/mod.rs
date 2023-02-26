@@ -76,6 +76,7 @@ pub struct DamageData {
     pub damage_metrics: DamageMetrics,
     pub max_one_hit: MaxOneHit,
     pub damage_percentage: ShieldHullOptionalValues,
+    pub hits_percentage: ShieldHullOptionalValues,
     pub hits: Vec<Hit>,
     pub damage_types: FxHashSet<String>,
 }
@@ -309,8 +310,22 @@ impl Combat {
         self.total_heal_in = self.players.values().map(|p| p.heal_in.total_heal).sum();
         self.total_kills = self.players.values().map(|p| p.kills).sum();
         self.total_deaths = self.players.values().map(|p| p.deaths).sum();
-        self.recalculate_damage_group_percentage(self.total_damage_out, |p| &mut p.damage_out);
-        self.recalculate_damage_group_percentage(self.total_damage_in, |p| &mut p.damage_in);
+        let total_hits_out: ShieldHullCounts = self
+            .players
+            .values()
+            .map(|p| p.damage_out.damage_metrics.hits)
+            .sum();
+        let total_hits_in: ShieldHullCounts = self
+            .players
+            .values()
+            .map(|p| p.damage_in.damage_metrics.hits)
+            .sum();
+        self.recalculate_damage_group_percentage(self.total_damage_out, total_hits_out, |p| {
+            &mut p.damage_out
+        });
+        self.recalculate_damage_group_percentage(self.total_damage_in, total_hits_in, |p| {
+            &mut p.damage_in
+        });
         self.recalculate_heal_group_percentage(self.total_heal_out, |p| &mut p.heal_out);
         self.recalculate_heal_group_percentage(self.total_heal_in, |p| &mut p.heal_in);
     }
@@ -318,11 +333,12 @@ impl Combat {
     fn recalculate_damage_group_percentage(
         &mut self,
         total_damage: ShieldHullValues,
+        total_hits: ShieldHullCounts,
         mut group: impl FnMut(&mut Player) -> &mut DamageGroup,
     ) {
         self.players
             .values_mut()
-            .for_each(|p| group(p).recalculate_percentages(&total_damage));
+            .for_each(|p| group(p).recalculate_percentages(&total_damage, &total_hits));
     }
 
     fn recalculate_heal_group_percentage(
@@ -562,12 +578,23 @@ impl DamageGroup {
         self.damage_metrics = DamageMetrics::calculate(&self.hits, combat_duration);
     }
 
-    fn recalculate_percentages(&mut self, parent_total_damage: &ShieldHullValues) {
+    fn recalculate_percentages(
+        &mut self,
+        parent_total_damage: &ShieldHullValues,
+        parent_hits: &ShieldHullCounts,
+    ) {
         self.damage_percentage =
             ShieldHullOptionalValues::percentage(&self.total_damage, parent_total_damage);
-        self.sub_groups
-            .values_mut()
-            .for_each(|s| s.recalculate_percentages(&self.data.damage_metrics.total_damage));
+        self.hits_percentage = ShieldHullOptionalValues::percentage(
+            &self.damage_metrics.hits.to_values(),
+            &parent_hits.to_values(),
+        );
+        self.sub_groups.values_mut().for_each(|s| {
+            s.recalculate_percentages(
+                &self.data.damage_metrics.total_damage,
+                &self.data.damage_metrics.hits,
+            )
+        });
     }
 
     fn add_damage(

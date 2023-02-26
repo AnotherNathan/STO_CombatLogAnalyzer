@@ -130,7 +130,7 @@ impl TextCount {
 }
 
 impl ShieldAndHullTextCount {
-    pub fn new(counts: &ShieldAndHullCounts) -> Self {
+    pub fn new(counts: &ShieldHullCounts) -> Self {
         Self {
             all: TextCount::new(counts.all),
             shield: counts.shield.to_string(),

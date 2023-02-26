@@ -67,6 +67,10 @@ static COLUMNS: &[ColumnDescriptor<DamageTablePartData>] = &[
             t.hits_per_second.show(r);
         },
     ),
+    col!("Hits %", |t| t.sort_by_option_f64_desc(|p| p.hits_percentage.all.value), |t, r| {
+            t.hits_percentage.show(r);
+        },
+    ),
     col!("Damage Types", |t| t.sort_by_desc(|p| p.damage_types.clone()), |t, r| {
             t.damage_types.show(r);
         },
@@ -102,6 +106,7 @@ pub struct DamageTablePartData {
     base_dps: TextValue,
     hits: ShieldAndHullTextCount,
     hits_per_second: ShieldAndHullTextValue,
+    hits_percentage: ShieldAndHullTextValue,
     damage_types: DamageTypes,
     pub source_hits: Vec<Hit>,
 }
@@ -156,6 +161,11 @@ impl DamageTablePartData {
             hits: ShieldAndHullTextCount::new(&source.damage_metrics.hits),
             hits_per_second: ShieldAndHullTextValue::new(
                 &source.hits_per_second,
+                3,
+                number_formatter,
+            ),
+            hits_percentage: ShieldAndHullTextValue::option(
+                &source.hits_percentage,
                 3,
                 number_formatter,
             ),

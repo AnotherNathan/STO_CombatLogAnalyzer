@@ -34,7 +34,7 @@ pub struct ShieldHullOptionalValues {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-pub struct ShieldAndHullCounts {
+pub struct ShieldHullCounts {
     pub all: u64,
     pub shield: u64,
     pub hull: u64,
@@ -56,7 +56,7 @@ impl Sum for ShieldHullValues {
         let (shield, hull, all) = iter.fold((0.0, 0.0, 0.0), |(s, h, a), v| {
             (v.shield + s, v.hull + h, v.all + a)
         });
-        ShieldHullValues { all, shield, hull }
+        Self { all, shield, hull }
     }
 }
 
@@ -95,13 +95,22 @@ impl ShieldHullOptionalValues {
     }
 }
 
-impl ShieldAndHullCounts {
+impl ShieldHullCounts {
     pub fn to_values(&self) -> ShieldHullValues {
         ShieldHullValues {
             all: self.all as _,
             shield: self.shield as _,
             hull: self.hull as _,
         }
+    }
+}
+
+impl Sum for ShieldHullCounts {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        let (shield, hull, all) = iter.fold((0, 0, 0), |(s, h, a), v| {
+            (v.shield + s, v.hull + h, v.all + a)
+        });
+        Self { all, shield, hull }
     }
 }
 
