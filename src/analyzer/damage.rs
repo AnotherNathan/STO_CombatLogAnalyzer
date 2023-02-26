@@ -28,6 +28,7 @@ pub enum SpecificHit {
 #[derive(Clone, Debug, Default)]
 pub struct DamageMetrics {
     pub hits: ShieldAndHullCounts,
+    pub hits_per_second: ShieldHullValues,
     pub total_damage: ShieldHullValues,
     pub total_damage_prevented_to_hull_by_shields: f64,
     pub total_base_damage: f64,
@@ -172,6 +173,8 @@ impl DamageMetrics {
             hull: hull_hits,
             shield: shield_hits,
         };
+        let hits_per_second = ShieldHullValues::per_seconds(&hits.to_values(), combat_duration);
+
         let dps = ShieldHullValues::per_seconds(&total_damage, combat_duration);
         let average_hit =
             ShieldHullOptionalValues::average(&total_damage, shield_hits, hull_hits, hits.all);
@@ -183,6 +186,7 @@ impl DamageMetrics {
 
         Self {
             hits,
+            hits_per_second,
             total_damage,
             total_damage_prevented_to_hull_by_shields,
             total_base_damage,

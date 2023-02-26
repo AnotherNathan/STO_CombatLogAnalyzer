@@ -95,6 +95,16 @@ impl ShieldHullOptionalValues {
     }
 }
 
+impl ShieldAndHullCounts {
+    pub fn to_values(&self) -> ShieldHullValues {
+        ShieldHullValues {
+            all: self.all as _,
+            shield: self.shield as _,
+            hull: self.hull as _,
+        }
+    }
+}
+
 impl ValueFlags {
     pub fn parse(input: &str) -> Self {
         let mut flags = ValueFlags::NONE;

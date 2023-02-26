@@ -60,6 +60,13 @@ static COLUMNS: &[ColumnDescriptor<DamageTablePartData>] = &[
             t.hits.show(r);
         },
     ),
+    col!("Hits / s",
+    "Hits Per Second\nCalculated from the first damage of the player to the last damage in the log",
+        |t| t.sort_by_option_f64_desc(|p| p.hits_per_second.all.value),
+        |t, r| {
+            t.hits_per_second.show(r);
+        },
+    ),
     col!("Damage Types", |t| t.sort_by_desc(|p| p.damage_types.clone()), |t, r| {
             t.damage_types.show(r);
         },
@@ -94,6 +101,7 @@ pub struct DamageTablePartData {
     base_damage: TextValue,
     base_dps: TextValue,
     hits: ShieldAndHullTextCount,
+    hits_per_second: ShieldAndHullTextValue,
     damage_types: DamageTypes,
     pub source_hits: Vec<Hit>,
 }
@@ -146,6 +154,11 @@ impl DamageTablePartData {
             base_dps: TextValue::new(source.base_dps, 2, number_formatter),
             damage_types: DamageTypes::new(source),
             hits: ShieldAndHullTextCount::new(&source.damage_metrics.hits),
+            hits_per_second: ShieldAndHullTextValue::new(
+                &source.hits_per_second,
+                2,
+                number_formatter,
+            ),
             source_hits: source.hits.clone(),
         }
     }
