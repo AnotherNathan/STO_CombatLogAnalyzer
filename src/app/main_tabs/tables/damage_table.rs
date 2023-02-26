@@ -19,7 +19,7 @@ static COLUMNS: &[ColumnDescriptor<DamageTablePartData>] = &[
     ),
     col!(
         "Damage %",
-        |t| t.sort_by_option_f64_desc(|p| p.damage_percentage.value),
+        |t| t.sort_by_option_f64_desc(|p| p.damage_percentage.all.value),
         |t, r| {
             t.damage_percentage.show(r);
         },
@@ -85,7 +85,7 @@ static COLUMNS: &[ColumnDescriptor<DamageTablePartData>] = &[
 pub struct DamageTablePartData {
     total_damage: ShieldAndHullTextValue,
     dps: ShieldAndHullTextValue,
-    damage_percentage: TextValue,
+    damage_percentage: ShieldAndHullTextValue,
     max_one_hit: MaxOneHit,
     average_hit: ShieldAndHullTextValue,
     critical_percentage: TextValue,
@@ -128,7 +128,11 @@ impl DamageTablePartData {
         Self {
             total_damage: ShieldAndHullTextValue::new(&source.total_damage, 2, number_formatter),
             dps: ShieldAndHullTextValue::new(&source.dps, 2, number_formatter),
-            damage_percentage: TextValue::new(source.damage_percentage, 3, number_formatter),
+            damage_percentage: ShieldAndHullTextValue::option(
+                &source.damage_percentage,
+                3,
+                number_formatter,
+            ),
             average_hit: ShieldAndHullTextValue::option(&source.average_hit, 2, number_formatter),
             critical_percentage: TextValue::option(source.critical_percentage, 3, number_formatter),
             flanking: TextValue::option(source.flanking, 3, number_formatter),

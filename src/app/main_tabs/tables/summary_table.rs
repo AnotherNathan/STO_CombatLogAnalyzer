@@ -19,9 +19,9 @@ struct Player {
     name: String,
     total_out_damage: ShieldAndHullTextValue,
     dps_out: ShieldAndHullTextValue,
-    total_out_damage_percentage: TextValue,
+    total_out_damage_percentage: ShieldAndHullTextValue,
     total_in_damage: ShieldAndHullTextValue,
-    total_in_damage_percentage: TextValue,
+    total_in_damage_percentage: ShieldAndHullTextValue,
     combat_duration: TextDuration,
     combat_duration_percentage: TextValue,
     active_duration: TextDuration,
@@ -70,7 +70,7 @@ impl SummaryTable {
                     });
 
                     Self::show_column_header(r, "Outgoing Damage %", || {
-                        self.sort_by_option_f64(|p| p.total_out_damage_percentage.value)
+                        self.sort_by_option_f64(|p| p.total_out_damage_percentage.all.value)
                     });
 
                     Self::show_column_header(r, "Total Incoming Damage", || {
@@ -78,7 +78,7 @@ impl SummaryTable {
                     });
 
                     Self::show_column_header(r, "Incoming Damage %", || {
-                        self.sort_by_option_f64(|p| p.total_in_damage_percentage.value)
+                        self.sort_by_option_f64(|p| p.total_in_damage_percentage.all.value)
                     });
 
                     Self::show_column_header(r, "Combat Duration", || {
@@ -151,8 +151,8 @@ impl Player {
                 2,
                 number_formatter,
             ),
-            total_out_damage_percentage: TextValue::new(
-                player.damage_out.damage_percentage,
+            total_out_damage_percentage: ShieldAndHullTextValue::option(
+                &player.damage_out.damage_percentage,
                 3,
                 number_formatter,
             ),
@@ -162,8 +162,8 @@ impl Player {
                 2,
                 number_formatter,
             ),
-            total_in_damage_percentage: TextValue::new(
-                player.damage_in.damage_percentage,
+            total_in_damage_percentage: ShieldAndHullTextValue::option(
+                &player.damage_in.damage_percentage,
                 3,
                 number_formatter,
             ),

@@ -75,7 +75,7 @@ pub struct DamageData {
     #[educe(Deref, DerefMut)]
     pub damage_metrics: DamageMetrics,
     pub max_one_hit: MaxOneHit,
-    pub damage_percentage: f64,
+    pub damage_percentage: ShieldHullOptionalValues,
     pub hits: Vec<Hit>,
     pub damage_types: FxHashSet<String>,
 }
@@ -322,7 +322,7 @@ impl Combat {
     ) {
         self.players
             .values_mut()
-            .for_each(|p| group(p).recalculate_percentages(total_damage.all));
+            .for_each(|p| group(p).recalculate_percentages(&total_damage));
     }
 
     fn recalculate_heal_group_percentage(
@@ -562,15 +562,12 @@ impl DamageGroup {
         self.damage_metrics = DamageMetrics::calculate(&self.hits, combat_duration);
     }
 
-    fn recalculate_percentages(&mut self, parent_total_damage: f64) {
-        self.damage_percentage = if self.total_damage.all == 0.0 {
-            0.0
-        } else {
-            self.total_damage.all / parent_total_damage * 100.0
-        };
+    fn recalculate_percentages(&mut self, parent_total_damage: &ShieldHullValues) {
+        self.damage_percentage =
+            ShieldHullOptionalValues::percentage(&self.total_damage, parent_total_damage);
         self.sub_groups
             .values_mut()
-            .for_each(|s| s.recalculate_percentages(self.data.damage_metrics.total_damage.all));
+            .for_each(|s| s.recalculate_percentages(&self.data.damage_metrics.total_damage));
     }
 
     fn add_damage(
