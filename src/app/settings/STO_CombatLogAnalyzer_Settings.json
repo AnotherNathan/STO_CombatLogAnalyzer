@@ -586,7 +586,7 @@
     "theme": "LightDark"
   },
   "debug": {
-    "enable_log": true,
+    "enable_log": false,
     "log_level_filter": "INFO"
   }
 }
