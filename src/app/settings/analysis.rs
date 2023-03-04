@@ -14,7 +14,7 @@ pub struct AnalysisTab {}
 
 impl AnalysisTab {
     pub fn show(&mut self, modified_settings: &mut Settings, ui: &mut Ui) {
-        self.show_sub_source_grouping_reversal_rules(modified_settings, ui);
+        self.show_indirect_source_grouping_reversal_rules(modified_settings, ui);
         ui.add_space(20.0);
 
         ui.separator();
@@ -27,7 +27,7 @@ impl AnalysisTab {
         self.show_combat_name_rules(modified_settings, ui);
     }
 
-    fn show_sub_source_grouping_reversal_rules(
+    fn show_indirect_source_grouping_reversal_rules(
         &mut self,
         modified_settings: &mut Settings,
         ui: &mut Ui,
@@ -35,13 +35,13 @@ impl AnalysisTab {
         Self::show_rules_table(
             &mut modified_settings
                 .analysis
-                .summon_and_pet_grouping_revers_rules,
-            "Sub-Source (e.g. pets or summons) Grouping Reversal rules",
+                .indirect_source_grouping_revers_rules,
+            "Indirect Source Grouping Reversal Rules\n(e.g. pets, anomalies, certain traits etc.)",
             ui,
             [
                 MatchAspect::DamageOrHealName,
-                MatchAspect::SubSourceName,
-                MatchAspect::SubUniqueSourceName,
+                MatchAspect::IndirectSourceName,
+                MatchAspect::IndirectUniqueSourceName,
             ],
         );
     }
@@ -49,7 +49,7 @@ impl AnalysisTab {
     fn show_grouping_rules(&mut self, modified_settings: &mut Settings, ui: &mut Ui) {
         Self::show_group_rules_table(
             &mut modified_settings.analysis.custom_group_rules,
-            "Custom Grouping rules",
+            "Custom Grouping Rules",
             "Group Name",
             ui,
             100.0,
@@ -60,8 +60,8 @@ impl AnalysisTab {
                     ui,
                     [
                         MatchAspect::DamageOrHealName,
-                        MatchAspect::SubSourceName,
-                        MatchAspect::SubUniqueSourceName,
+                        MatchAspect::IndirectSourceName,
+                        MatchAspect::IndirectUniqueSourceName,
                     ],
                 );
             },
@@ -69,7 +69,7 @@ impl AnalysisTab {
     }
 
     fn show_combat_name_rules(&mut self, modified_settings: &mut Settings, ui: &mut Ui) {
-        CollapsingHeader::new("Combat Name Detection rules").show_unindented(ui, |ui| {
+        CollapsingHeader::new("Combat Name Detection Rules").show_unindented(ui, |ui| {
             Self::show_group_rules_table(
                 &mut modified_settings.analysis.combat_name_rules,
                 "",
@@ -83,8 +83,8 @@ impl AnalysisTab {
                         ui,
                         [
                             MatchAspect::DamageOrHealName,
-                            MatchAspect::SubSourceName,
-                            MatchAspect::SubUniqueSourceName,
+                            MatchAspect::IndirectSourceName,
+                            MatchAspect::IndirectUniqueSourceName,
                             MatchAspect::SourceOrTargetName,
                             MatchAspect::SourceOrTargetUniqueName,
                         ],
@@ -104,8 +104,8 @@ impl AnalysisTab {
                                     ui,
                                     [
                                         MatchAspect::DamageOrHealName,
-                                        MatchAspect::SubSourceName,
-                                        MatchAspect::SubUniqueSourceName,
+                                        MatchAspect::IndirectSourceName,
+                                        MatchAspect::IndirectUniqueSourceName,
                                         MatchAspect::SourceOrTargetName,
                                         MatchAspect::SourceOrTargetUniqueName,
                                     ],

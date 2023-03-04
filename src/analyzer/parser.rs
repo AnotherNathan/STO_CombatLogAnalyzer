@@ -17,7 +17,7 @@ pub struct Record<'a> {
     pub time: NaiveDateTime,
     pub source: Entity<'a>,
     pub target: Entity<'a>,
-    pub sub_source: Entity<'a>, // e.g. a pet
+    pub indirect_source: Entity<'a>, // e.g. a pet
     pub value_name: &'a str,
     pub value_type: &'a str,
     pub value_flags: ValueFlags,
@@ -111,9 +111,10 @@ impl Parser {
         let source_id_and_unique_name = parts.next()?.trim();
         let source = Entity::parse(source_name, source_id_and_unique_name)?;
 
-        let sub_source_name = parts.next()?.trim();
-        let sub_source_id_and_unique_name = parts.next()?.trim();
-        let sub_source = Entity::parse(sub_source_name, sub_source_id_and_unique_name)?;
+        let indirect_source_name = parts.next()?.trim();
+        let indirect_source_id_and_unique_name = parts.next()?.trim();
+        let indirect_source =
+            Entity::parse(indirect_source_name, indirect_source_id_and_unique_name)?;
 
         let target_name = parts.next()?.trim();
         let target_id_and_unique_name = parts.next()?.trim();
@@ -136,7 +137,7 @@ impl Parser {
             time,
             source,
             target,
-            sub_source,
+            indirect_source,
             value_name,
             value_type,
             value_flags,
@@ -173,7 +174,7 @@ impl<'a> Record<'a> {
     }
 
     pub fn is_self_directed(&self) -> bool {
-        self.target.is_none() && self.sub_source.is_none()
+        self.target.is_none() && self.indirect_source.is_none()
     }
 
     pub fn is_direct_self_damage(&self) -> bool {
@@ -374,7 +375,7 @@ mod tests {
             if let Some(name) = record.target.name() {
                 names.insert(name.to_string());
             }
-            if let Some(name) = record.sub_source.name() {
+            if let Some(name) = record.indirect_source.name() {
                 names.insert(name.to_string());
             }
 
@@ -384,7 +385,7 @@ mod tests {
             if let Some(unique_name) = record.target.unique_name() {
                 names.insert(unique_name.to_string());
             }
-            if let Some(unique_name) = record.sub_source.unique_name() {
+            if let Some(unique_name) = record.indirect_source.unique_name() {
                 names.insert(unique_name.to_string());
             }
         }

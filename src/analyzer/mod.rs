@@ -48,8 +48,8 @@ pub struct Combat {
 pub struct CombatNameOccurrences {
     pub source_target_names: FxHashSet<String>,
     pub source_target_unique_names: FxHashSet<String>,
-    pub sub_source_names: FxHashSet<String>,
-    pub sub_source_unique_names: FxHashSet<String>,
+    pub indirect_source_names: FxHashSet<String>,
+    pub indirect_source_unique_names: FxHashSet<String>,
     pub value_names: FxHashSet<String>,
 }
 
@@ -222,14 +222,14 @@ impl Analyzer {
         }
 
         if let (Entity::Player { full_name, .. }, Entity::NonPlayer { .. }) =
-            (&record.sub_source, &record.source)
+            (&record.indirect_source, &record.source)
         {
             let player = combat.get_player(full_name);
             player.add_in_value(&record, combat_start_offset_millis, &self.settings);
         }
 
         if let (Entity::Player { full_name, .. }, Entity::None, Entity::None) =
-            (&record.source, &record.sub_source, &record.target)
+            (&record.source, &record.indirect_source, &record.target)
         {
             let player = combat.get_player(full_name);
             player.add_in_value(&record, combat_start_offset_millis, &self.settings);
@@ -269,8 +269,8 @@ impl Combat {
             name_occurrences: CombatNameOccurrences {
                 source_target_names: Default::default(),
                 source_target_unique_names: Default::default(),
-                sub_source_names: Default::default(),
-                sub_source_unique_names: Default::default(),
+                indirect_source_names: Default::default(),
+                indirect_source_unique_names: Default::default(),
                 value_names: Default::default(),
             },
         }
@@ -394,9 +394,9 @@ impl Combat {
             &record.target,
         );
         Self::update_entity_names(
-            &mut self.name_occurrences.sub_source_names,
-            &mut self.name_occurrences.sub_source_unique_names,
-            &record.sub_source,
+            &mut self.name_occurrences.indirect_source_names,
+            &mut self.name_occurrences.indirect_source_unique_names,
+            &record.indirect_source,
         );
 
         if !self
@@ -512,7 +512,7 @@ impl Player {
                     record
                         .target
                         .name()
-                        .or_else(|| record.sub_source.name())
+                        .or_else(|| record.indirect_source.name())
                         .unwrap_or("<unknown target>")
                 };
                 path.push(target_name);
@@ -559,7 +559,7 @@ impl Player {
     ) -> GroupingPath<'a> {
         let mut path = GroupingPath::new();
 
-        match (&record.sub_source, &record.target) {
+        match (&record.indirect_source, &record.target) {
             (Entity::None, _) | (_, Entity::None) => {
                 path.push(record.value_name);
             }
@@ -573,7 +573,7 @@ impl Player {
                 _,
             ) => {
                 if settings
-                    .summon_and_pet_grouping_revers_rules
+                    .indirect_source_grouping_revers_rules
                     .iter()
                     .any(|r| r.matches_record(record))
                 {
@@ -685,15 +685,17 @@ impl DamageGroup {
         combat_start_offset_millis: u32,
     ) {
         if path.len() == 1 {
-            let sub_source = self.get_non_pool_sub_group(path[0]);
-            sub_source.hits.push(hit.to_hit(combat_start_offset_millis));
-            sub_source.add_damage_type_non_pool(damage_type);
+            let indirect_source = self.get_non_pool_sub_group(path[0]);
+            indirect_source
+                .hits
+                .push(hit.to_hit(combat_start_offset_millis));
+            indirect_source.add_damage_type_non_pool(damage_type);
 
             return;
         }
 
-        let sub_source = self.get_pool_sub_group(path.last().unwrap());
-        sub_source.add_damage(
+        let indirect_source = self.get_pool_sub_group(path.last().unwrap());
+        indirect_source.add_damage(
             &path[..path.len() - 1],
             hit,
             flags,
@@ -768,16 +770,16 @@ impl HealGroup {
         combat_start_offset_millis: u32,
     ) {
         if path.len() == 1 {
-            let sub_source = self.get_non_pool_sub_group(path[0]);
-            sub_source
+            let indirect_source = self.get_non_pool_sub_group(path[0]);
+            indirect_source
                 .ticks
                 .push(tick.to_tick(combat_start_offset_millis));
 
             return;
         }
 
-        let sub_source = self.get_pool_sub_group(path.last().unwrap());
-        sub_source.add_heal(
+        let indirect_source = self.get_pool_sub_group(path.last().unwrap());
+        indirect_source.add_heal(
             &path[..path.len() - 1],
             tick,
             flags,
@@ -790,8 +792,8 @@ impl CombatNameOccurrences {
     fn matches(&self, rule: &RulesGroup) -> bool {
         rule.matches_source_or_target_names(self.source_target_names.iter())
             || rule.matches_source_or_target_unique_names(self.source_target_unique_names.iter())
-            || rule.matches_sub_source_names(self.sub_source_names.iter())
-            || rule.matches_sub_source_unique_names(self.sub_source_unique_names.iter())
+            || rule.matches_indirect_source_names(self.indirect_source_names.iter())
+            || rule.matches_indirect_source_unique_names(self.indirect_source_unique_names.iter())
             || rule.matches_damage_or_heal_names(self.value_names.iter())
     }
 }

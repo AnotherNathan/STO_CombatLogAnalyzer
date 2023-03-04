@@ -11,7 +11,7 @@ use super::parser::*;
 pub struct AnalysisSettings {
     pub combatlog_file: String,
     pub combat_separation_time_seconds: f64,
-    pub summon_and_pet_grouping_revers_rules: Vec<MatchRule>,
+    pub indirect_source_grouping_revers_rules: Vec<MatchRule>,
     pub custom_group_rules: Vec<RulesGroup>,
     pub combat_name_rules: Vec<CombatNameRule>,
 }
@@ -34,8 +34,8 @@ pub struct MatchRule {
 pub enum MatchAspect {
     SourceOrTargetName,
     SourceOrTargetUniqueName,
-    SubSourceName,
-    SubUniqueSourceName,
+    IndirectSourceName,
+    IndirectUniqueSourceName,
     #[default]
     DamageOrHealName,
 }
@@ -107,7 +107,7 @@ impl RulesGroup {
         })
     }
 
-    pub fn matches_sub_source_names<'a>(
+    pub fn matches_indirect_source_names<'a>(
         &self,
         mut names: impl Iterator<Item = &'a String>,
     ) -> bool {
@@ -115,10 +115,10 @@ impl RulesGroup {
             return false;
         }
 
-        names.any(|n| self.rules.iter().any(|r| r.matches_sub_source_name(n)))
+        names.any(|n| self.rules.iter().any(|r| r.matches_indirect_source_name(n)))
     }
 
-    pub fn matches_sub_source_unique_names<'a>(
+    pub fn matches_indirect_source_unique_names<'a>(
         &self,
         mut names: impl Iterator<Item = &'a String>,
     ) -> bool {
@@ -129,7 +129,7 @@ impl RulesGroup {
         names.any(|n| {
             self.rules
                 .iter()
-                .any(|r| r.matches_sub_source_unique_name(n))
+                .any(|r| r.matches_indirect_source_unique_name(n))
         })
     }
 
@@ -166,12 +166,12 @@ impl MatchRule {
                         .method
                         .check_match_or_false(&self.expression, record.target.unique_name())
             }
-            MatchAspect::SubSourceName => self
+            MatchAspect::IndirectSourceName => self
                 .method
-                .check_match_or_false(&self.expression, record.sub_source.name()),
-            MatchAspect::SubUniqueSourceName => self
+                .check_match_or_false(&self.expression, record.indirect_source.name()),
+            MatchAspect::IndirectUniqueSourceName => self
                 .method
-                .check_match_or_false(&self.expression, record.sub_source.unique_name()),
+                .check_match_or_false(&self.expression, record.indirect_source.unique_name()),
             MatchAspect::DamageOrHealName => {
                 self.method.check_match(&self.expression, record.value_name)
             }
@@ -194,16 +194,16 @@ impl MatchRule {
         self.method.check_match(&self.expression, name)
     }
 
-    pub fn matches_sub_source_name(&self, name: &str) -> bool {
-        if !self.enabled || self.aspect != MatchAspect::SubSourceName {
+    pub fn matches_indirect_source_name(&self, name: &str) -> bool {
+        if !self.enabled || self.aspect != MatchAspect::IndirectSourceName {
             return false;
         }
 
         self.method.check_match(&self.expression, name)
     }
 
-    pub fn matches_sub_source_unique_name(&self, name: &str) -> bool {
-        if !self.enabled || self.aspect != MatchAspect::SubUniqueSourceName {
+    pub fn matches_indirect_source_unique_name(&self, name: &str) -> bool {
+        if !self.enabled || self.aspect != MatchAspect::IndirectUniqueSourceName {
             return false;
         }
 
@@ -224,9 +224,9 @@ impl MatchAspect {
         match self {
             MatchAspect::SourceOrTargetName => "Source or Target Name",
             MatchAspect::SourceOrTargetUniqueName => "Source or Target Unique Name",
-            MatchAspect::SubSourceName => "Sub-Source Name (e.g. a pet or summon)",
+            MatchAspect::IndirectSourceName => "Indirect Source Name",
             MatchAspect::DamageOrHealName => "Damage / Heal Name",
-            MatchAspect::SubUniqueSourceName => "Sub-Source Unique Name (e.g. a pet or summon)",
+            MatchAspect::IndirectUniqueSourceName => "Indirect Source Unique Name",
         }
     }
 }
@@ -263,7 +263,7 @@ impl Default for AnalysisSettings {
         Self {
             combatlog_file: Default::default(),
             combat_separation_time_seconds: 1.5 * 60.0,
-            summon_and_pet_grouping_revers_rules: Default::default(),
+            indirect_source_grouping_revers_rules: Default::default(),
             custom_group_rules: Default::default(),
             combat_name_rules: Default::default(),
         }
