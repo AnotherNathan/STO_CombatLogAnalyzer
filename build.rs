@@ -1,6 +1,8 @@
 #[cfg(windows)]
 fn main() {
-    let res = winres::WindowsResource::new();
+    println!("cargo:rerun-if-changed=icon/icon.ico");
+    let mut res = winres::WindowsResource::new();
+    res.set_icon("icon/icon.ico");
     res.compile().unwrap();
 }
 

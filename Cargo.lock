@@ -15,6 +15,7 @@ dependencies = [
  "lazy_static",
  "log",
  "notify",
+ "png",
  "regex",
  "rfd",
  "rustc-hash",
