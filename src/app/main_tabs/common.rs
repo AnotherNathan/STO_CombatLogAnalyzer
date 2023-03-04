@@ -134,7 +134,7 @@ impl ShieldAndHullTextCount {
         Self {
             all: TextCount::new(counts.all),
             shield: counts.shield.to_string(),
-            hull: counts.all.to_string(),
+            hull: counts.hull.to_string(),
         }
     }
 
