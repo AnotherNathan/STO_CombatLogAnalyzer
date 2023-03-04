@@ -10,6 +10,7 @@ bitflags! {
         const KILL = 1 << 2;
         const IMMUNE = 1 << 3;
         const SHIELD_BREAK = 1 << 4;
+        const MISS = 1 << 5;
     }
 }
 
@@ -124,6 +125,7 @@ impl ValueFlags {
                 "Kill" => ValueFlags::KILL,
                 "Immune" => ValueFlags::IMMUNE,
                 "ShieldBreak" => ValueFlags::SHIELD_BREAK,
+                "Miss" => ValueFlags::MISS,
                 _ => ValueFlags::NONE,
             };
         }

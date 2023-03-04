@@ -73,6 +73,14 @@ static COLUMNS: &[ColumnDescriptor<DamageTablePartData>] = &[
             t.hits_percentage.show(r);
         },
     ),
+    col!("Misses", |t| t.sort_by_asc(|p| p.misses.count), |t, r| {
+            t.misses.show(r);
+        },
+    ),
+    col!("Accuracy %", |t| t.sort_by_option_f64_desc(|p| p.accuracy_percentage.value), |t, r| {
+            t.accuracy_percentage.show(r);
+        },
+    ),
     col!("Damage Types", |t| t.sort_by_desc(|p| p.damage_types.clone()), |t, r| {
             t.damage_types.show(r);
         },
@@ -109,6 +117,8 @@ pub struct DamageTablePartData {
     hits: ShieldAndHullTextCount,
     hits_per_second: ShieldAndHullTextValue,
     hits_percentage: ShieldAndHullTextValue,
+    misses: TextCount,
+    accuracy_percentage: TextValue,
     damage_types: DamageTypes,
     pub source_hits: Vec<Hit>,
 }
@@ -171,6 +181,8 @@ impl DamageTablePartData {
                 3,
                 number_formatter,
             ),
+            misses: TextCount::new(source.misses),
+            accuracy_percentage: TextValue::option(source.accuracy_percentage, 3, number_formatter),
             source_hits: source.hits.clone(),
         }
     }

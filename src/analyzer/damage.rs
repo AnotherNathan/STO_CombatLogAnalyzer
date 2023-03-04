@@ -29,6 +29,8 @@ pub enum SpecificHit {
 pub struct DamageMetrics {
     pub hits: ShieldHullCounts,
     pub hits_per_second: ShieldHullValues,
+    pub misses: u64,
+    pub accuracy_percentage: Option<f64>,
     pub total_damage: ShieldHullValues,
     pub total_damage_prevented_to_hull_by_shields: f64,
     pub total_base_damage: f64,
@@ -115,6 +117,7 @@ impl DamageMetrics {
         let mut total_hull_damage = 0.0;
         let mut shield_hits = 0;
         let mut hull_hits = 0;
+        let mut misses = 0;
         let mut crits = 0;
         let mut flanks = 0;
         let mut total_damage_prevented_to_hull_by_shields = 0.0;
@@ -155,6 +158,10 @@ impl DamageMetrics {
             if hit.flags.contains(ValueFlags::FLANK) {
                 flanks += 1;
             }
+
+            if hit.flags.contains(ValueFlags::MISS) {
+                misses += 1;
+            }
         }
 
         let total_damage = total_hull_damage + total_shield_damage;
@@ -167,6 +174,7 @@ impl DamageMetrics {
         let critical_percentage = percentage_u64(crits, hull_hits);
 
         let flanking = percentage_u64(flanks, hull_hits);
+        let accuracy_percentage = percentage_u64(misses, hull_hits).map(|m| 100.0 - m);
 
         let hits = ShieldHullCounts {
             all: shield_hits + hull_hits,
@@ -187,6 +195,8 @@ impl DamageMetrics {
         Self {
             hits,
             hits_per_second,
+            misses,
+            accuracy_percentage,
             total_damage,
             total_damage_prevented_to_hull_by_shields,
             total_base_damage,
