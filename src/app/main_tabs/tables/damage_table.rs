@@ -56,7 +56,9 @@ static COLUMNS: &[ColumnDescriptor<DamageTablePartData>] = &[
             t.flanking.show(r);
         },
     ),
-    col!("Hits", |t| t.sort_by_desc(|p| p.hits.all.count), |t, r| {
+    col!("Hits",
+        "Every damage number that shows up, counts as one hit.\nThis means for an attack, that hits the shields of an enemy, 2 Hits will be counted. One for the shield Hit and one for the hull Hit.",
+        |t| t.sort_by_desc(|p| p.hits.all.count), |t, r| {
             t.hits.show(r);
         },
     ),
