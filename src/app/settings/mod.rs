@@ -1,6 +1,8 @@
 pub use app_settings::Settings;
 use eframe::{egui::*, Frame};
 
+use crate::analyzer::Combat;
+
 use self::{analysis::AnalysisTab, debug::DebugTab, file::FileTab, visuals::VisualsTab};
 
 use super::{analysis_handling::AnalysisHandler, state::AppState};
@@ -46,7 +48,13 @@ impl SettingsWindow {
         }
     }
 
-    pub fn show(&mut self, state: &mut AppState, ui: &mut Ui, frame: &Frame) {
+    pub fn show(
+        &mut self,
+        state: &mut AppState,
+        selected_combat: Option<&Combat>,
+        ui: &mut Ui,
+        frame: &Frame,
+    ) {
         if ui.selectable_label(self.is_open, "Settings").clicked() && !self.is_open {
             self.initialize(state);
         }
@@ -73,7 +81,8 @@ impl SettingsWindow {
                             .show(&state.analysis_handler, &mut self.modified_settings, ui)
                     }
                     SettingsTab::Analysis => {
-                        self.analysis_tab.show(&mut self.modified_settings, ui)
+                        self.analysis_tab
+                            .show(&mut self.modified_settings, selected_combat, ui)
                     }
                     SettingsTab::Visuals => {
                         self.visuals_tab

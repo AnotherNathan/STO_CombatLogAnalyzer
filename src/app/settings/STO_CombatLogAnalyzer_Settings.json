@@ -2,7 +2,7 @@
   "analysis": {
     "combatlog_file": "",
     "combat_separation_time_seconds": 90.0,
-    "summon_and_pet_grouping_revers_rules": [
+    "indirect_source_grouping_revers_rules": [
       {
         "aspect": "DamageOrHealName",
         "expression": "Spore-Infused Anomalies",

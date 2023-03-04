@@ -55,7 +55,8 @@ impl eframe::App for App {
         self.handle_analysis_infos();
 
         CentralPanel::default().show(ctx, |ui| {
-            self.settings_window.show(&mut self.state, ui, frame);
+            self.settings_window
+                .show(&mut self.state, self.selected_combat.as_ref(), ui, frame);
 
             ui.horizontal(|ui| {
                 self.status_indicator
