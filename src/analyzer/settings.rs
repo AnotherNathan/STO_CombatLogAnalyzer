@@ -1,4 +1,7 @@
-use std::path::Path;
+use std::{
+    borrow::{Borrow, BorrowMut},
+    path::Path,
+};
 
 use serde::*;
 
@@ -10,7 +13,13 @@ pub struct AnalysisSettings {
     pub combat_separation_time_seconds: f64,
     pub summon_and_pet_grouping_revers_rules: Vec<MatchRule>,
     pub custom_group_rules: Vec<RulesGroup>,
-    pub combat_name_rules: Vec<RulesGroup>,
+    pub combat_name_rules: Vec<CombatNameRule>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct CombatNameRule {
+    pub name_rule: RulesGroup,
+    pub additional_info_rules: Vec<RulesGroup>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -28,7 +37,7 @@ pub enum MatchAspect {
     SubSourceName,
     SubUniqueSourceName,
     #[default]
-    DamageName,
+    DamageOrHealName,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -46,12 +55,6 @@ pub struct CustomGroupingRule {
     pub match_rule: MatchRule,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub struct CombatNameRule {
-    pub combat_name: String,
-    pub match_rule: MatchRule,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RulesGroup {
     pub name: String,
@@ -66,17 +69,84 @@ impl AnalysisSettings {
 }
 
 impl RulesGroup {
-    pub fn matches(&self, record: &Record) -> bool {
+    pub fn matches_record(&self, record: &Record) -> bool {
         if !self.enabled {
             return false;
         }
 
-        self.rules.iter().any(|r| r.matches(record))
+        self.rules.iter().any(|r| r.matches_record(record))
+    }
+
+    pub fn matches_source_or_target_names<'a>(
+        &self,
+        mut names: impl Iterator<Item = &'a String>,
+    ) -> bool {
+        if !self.enabled {
+            return false;
+        }
+
+        names.any(|n| {
+            self.rules
+                .iter()
+                .any(|r| r.matches_source_or_target_name(n))
+        })
+    }
+
+    pub fn matches_source_or_target_unique_names<'a>(
+        &self,
+        mut names: impl Iterator<Item = &'a String>,
+    ) -> bool {
+        if !self.enabled {
+            return false;
+        }
+
+        names.any(|n| {
+            self.rules
+                .iter()
+                .any(|r| r.matches_source_or_target_unique_name(n))
+        })
+    }
+
+    pub fn matches_sub_source_names<'a>(
+        &self,
+        mut names: impl Iterator<Item = &'a String>,
+    ) -> bool {
+        if !self.enabled {
+            return false;
+        }
+
+        names.any(|n| self.rules.iter().any(|r| r.matches_sub_source_name(n)))
+    }
+
+    pub fn matches_sub_source_unique_names<'a>(
+        &self,
+        mut names: impl Iterator<Item = &'a String>,
+    ) -> bool {
+        if !self.enabled {
+            return false;
+        }
+
+        names.any(|n| {
+            self.rules
+                .iter()
+                .any(|r| r.matches_sub_source_unique_name(n))
+        })
+    }
+
+    pub fn matches_damage_or_heal_names<'a>(
+        &self,
+        mut names: impl Iterator<Item = &'a String>,
+    ) -> bool {
+        if !self.enabled {
+            return false;
+        }
+
+        names.any(|n| self.rules.iter().any(|r| r.matches_damage_or_heal_name(n)))
     }
 }
 
 impl MatchRule {
-    pub fn matches(&self, record: &Record) -> bool {
+    pub fn matches_record(&self, record: &Record) -> bool {
         if !self.enabled {
             return false;
         }
@@ -102,8 +172,50 @@ impl MatchRule {
             MatchAspect::SubUniqueSourceName => self
                 .method
                 .check_match_or_false(&self.expression, record.sub_source.unique_name()),
-            MatchAspect::DamageName => self.method.check_match(&self.expression, record.value_name),
+            MatchAspect::DamageOrHealName => {
+                self.method.check_match(&self.expression, record.value_name)
+            }
         }
+    }
+
+    pub fn matches_source_or_target_name(&self, name: &str) -> bool {
+        if !self.enabled || self.aspect != MatchAspect::SourceOrTargetName {
+            return false;
+        }
+
+        self.method.check_match(&self.expression, name)
+    }
+
+    pub fn matches_source_or_target_unique_name(&self, name: &str) -> bool {
+        if !self.enabled || self.aspect != MatchAspect::SourceOrTargetUniqueName {
+            return false;
+        }
+
+        self.method.check_match(&self.expression, name)
+    }
+
+    pub fn matches_sub_source_name(&self, name: &str) -> bool {
+        if !self.enabled || self.aspect != MatchAspect::SubSourceName {
+            return false;
+        }
+
+        self.method.check_match(&self.expression, name)
+    }
+
+    pub fn matches_sub_source_unique_name(&self, name: &str) -> bool {
+        if !self.enabled || self.aspect != MatchAspect::SubUniqueSourceName {
+            return false;
+        }
+
+        self.method.check_match(&self.expression, name)
+    }
+
+    pub fn matches_damage_or_heal_name(&self, name: &str) -> bool {
+        if !self.enabled || self.aspect != MatchAspect::DamageOrHealName {
+            return false;
+        }
+
+        self.method.check_match(&self.expression, name)
     }
 }
 
@@ -113,7 +225,7 @@ impl MatchAspect {
             MatchAspect::SourceOrTargetName => "Source or Target Name",
             MatchAspect::SourceOrTargetUniqueName => "Source or Target Unique Name",
             MatchAspect::SubSourceName => "Sub-Source Name (e.g. a pet or summon)",
-            MatchAspect::DamageName => "Damage Name",
+            MatchAspect::DamageOrHealName => "Damage / Heal Name",
             MatchAspect::SubUniqueSourceName => "Sub-Source Unique Name (e.g. a pet or summon)",
         }
     }
@@ -176,5 +288,17 @@ impl Default for RulesGroup {
             rules: Default::default(),
             enabled: true,
         }
+    }
+}
+
+impl Borrow<RulesGroup> for CombatNameRule {
+    fn borrow(&self) -> &RulesGroup {
+        &self.name_rule
+    }
+}
+
+impl BorrowMut<RulesGroup> for CombatNameRule {
+    fn borrow_mut(&mut self) -> &mut RulesGroup {
+        &mut self.name_rule
     }
 }

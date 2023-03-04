@@ -1,3 +1,5 @@
+use std::borrow::BorrowMut;
+
 use eframe::egui::*;
 
 use super::Settings;
@@ -36,9 +38,8 @@ impl AnalysisTab {
                 .summon_and_pet_grouping_revers_rules,
             "Sub-Source (e.g. pets or summons) Grouping Reversal rules",
             ui,
-            39048765,
             [
-                MatchAspect::DamageName,
+                MatchAspect::DamageOrHealName,
                 MatchAspect::SubSourceName,
                 MatchAspect::SubUniqueSourceName,
             ],
@@ -51,13 +52,19 @@ impl AnalysisTab {
             "Custom Grouping rules",
             "Group Name",
             ui,
-            293874,
-            [
-                MatchAspect::DamageName,
-                MatchAspect::SubSourceName,
-                MatchAspect::SubUniqueSourceName,
-            ],
             100.0,
+            |r, ui| {
+                Self::show_rules_table(
+                    &mut r.rules,
+                    &r.name,
+                    ui,
+                    [
+                        MatchAspect::DamageOrHealName,
+                        MatchAspect::SubSourceName,
+                        MatchAspect::SubUniqueSourceName,
+                    ],
+                );
+            },
         );
     }
 
@@ -68,27 +75,56 @@ impl AnalysisTab {
                 "",
                 "Combat Name",
                 ui,
-                023975,
-                [
-                    MatchAspect::DamageName,
-                    MatchAspect::SubSourceName,
-                    MatchAspect::SubUniqueSourceName,
-                    MatchAspect::SourceOrTargetName,
-                    MatchAspect::SourceOrTargetUniqueName,
-                ],
                 200.0,
+                |r, ui| {
+                    Self::show_rules_table(
+                        &mut r.name_rule.rules,
+                        "combat name",
+                        ui,
+                        [
+                            MatchAspect::DamageOrHealName,
+                            MatchAspect::SubSourceName,
+                            MatchAspect::SubUniqueSourceName,
+                            MatchAspect::SourceOrTargetName,
+                            MatchAspect::SourceOrTargetUniqueName,
+                        ],
+                    );
+
+                    ui.push_id("additional info rules", |ui| {
+                        Self::show_group_rules_table(
+                            &mut r.additional_info_rules,
+                            "additional infos rules (e.g. difficulty)",
+                            "Info",
+                            ui,
+                            200.0,
+                            |r, ui| {
+                                Self::show_rules_table(
+                                    &mut r.rules,
+                                    &r.name,
+                                    ui,
+                                    [
+                                        MatchAspect::DamageOrHealName,
+                                        MatchAspect::SubSourceName,
+                                        MatchAspect::SubUniqueSourceName,
+                                        MatchAspect::SourceOrTargetName,
+                                        MatchAspect::SourceOrTargetUniqueName,
+                                    ],
+                                );
+                            },
+                        );
+                    });
+                },
             );
         });
     }
 
-    fn show_group_rules_table(
-        group_rules: &mut Vec<RulesGroup>,
+    fn show_group_rules_table<T: BorrowMut<RulesGroup> + Default>(
+        group_rules: &mut Vec<T>,
         title: &str,
         name_header: &str,
         ui: &mut Ui,
-        base_id: usize,
-        match_aspect_set: impl IntoIterator<Item = MatchAspect> + Copy,
         popup_extra_space: f32,
+        mut edit: impl FnMut(&mut T, &mut Ui),
     ) {
         ui.horizontal(|ui| {
             ui.label(title);
@@ -112,30 +148,22 @@ impl AnalysisTab {
             })
             .body(ROW_HEIGHT, |t| {
                 let mut to_remove = Vec::new();
-                for (id, group_rule) in group_rules.iter_mut().enumerate() {
+                for (id, rule) in group_rules.iter_mut().enumerate() {
                     t.row(|r| {
                         r.cell(|ui| {
-                            ui.checkbox(&mut group_rule.enabled, "");
+                            ui.checkbox(&mut rule.borrow_mut().enabled, "");
                         });
 
                         r.cell(|ui| {
-                            PopupButton::new("✏")
-                                .with_id_source(base_id + id)
-                                .show(ui, |ui| {
-                                    Self::show_rules_table(
-                                        &mut group_rule.rules,
-                                        &group_rule.name,
-                                        ui,
-                                        base_id + id,
-                                        match_aspect_set,
-                                    );
-                                    // HACK: so that the popup does not close when clicking the in one of the combo boxes
-                                    ui.add_space(popup_extra_space);
-                                });
+                            PopupButton::new("✏").show(ui, |ui| {
+                                edit(rule, ui);
+                                // HACK: so that the popup does not close when clicking the in one of the combo boxes
+                                ui.add_space(popup_extra_space);
+                            });
                         });
 
                         r.cell(|ui| {
-                            TextEdit::singleline(&mut group_rule.name)
+                            TextEdit::singleline(&mut rule.borrow_mut().name)
                                 .min_size(vec2(600.0, 0.0))
                                 .show(ui);
                         });
@@ -158,7 +186,6 @@ impl AnalysisTab {
         rules: &mut Vec<MatchRule>,
         title: &str,
         ui: &mut Ui,
-        id: usize,
         match_aspect_set: impl IntoIterator<Item = MatchAspect> + Copy,
     ) {
         ui.horizontal(|ui| {
@@ -167,79 +194,77 @@ impl AnalysisTab {
                 rules.push(Default::default());
             }
         });
-        ui.push_id(id, |ui| {
-            Table::new(ui)
-                .min_scroll_height(100.0)
-                .max_scroll_height(200.0)
-                .header(HEADER_HEIGHT, |r| {
-                    r.cell(|ui| {
-                        ui.label("On");
-                    });
-                    r.cell(|ui| {
-                        ui.label("Aspect to match");
-                    });
-                    r.cell(|ui| {
-                        ui.label("Match Method");
-                    });
-                    r.cell(|ui| {
-                        ui.label("Text to match");
-                    });
-                })
-                .body(ROW_HEIGHT, |t| {
-                    let mut to_remove = Vec::new();
-                    for (id, rule) in rules.iter_mut().enumerate() {
-                        t.row(|r| {
-                            r.cell(|ui| {
-                                ui.checkbox(&mut rule.enabled, "");
-                            });
-
-                            r.cell(|ui| {
-                                ComboBox::from_id_source(id + 9387465)
-                                    .selected_text(rule.aspect.display())
-                                    .width(150.0)
-                                    .show_ui(ui, |ui| {
-                                        match_aspect_set.into_iter().for_each(|a| {
-                                            ui.selectable_value(&mut rule.aspect, a, a.display());
-                                        });
-                                    });
-                            });
-
-                            r.cell(|ui| {
-                                ComboBox::from_id_source(id + 394857)
-                                    .selected_text(rule.method.display())
-                                    .width(150.0)
-                                    .show_ui(ui, |ui| {
-                                        [
-                                            MatchMethod::Equals,
-                                            MatchMethod::StartsWith,
-                                            MatchMethod::EndsWith,
-                                            MatchMethod::Contains,
-                                        ]
-                                        .into_iter()
-                                        .for_each(|m| {
-                                            ui.selectable_value(&mut rule.method, m, m.display());
-                                        });
-                                    });
-                            });
-
-                            r.cell(|ui| {
-                                TextEdit::singleline(&mut rule.expression)
-                                    .min_size(vec2(400.0, 0.0))
-                                    .show(ui);
-                            });
-
-                            r.cell(|ui| {
-                                if ui.selectable_label(false, "🗑").clicked() {
-                                    to_remove.push(id);
-                                }
-                            });
-                        });
-                    }
-
-                    to_remove.into_iter().rev().for_each(|i| {
-                        rules.remove(i);
-                    });
+        Table::new(ui)
+            .min_scroll_height(100.0)
+            .max_scroll_height(200.0)
+            .header(HEADER_HEIGHT, |r| {
+                r.cell(|ui| {
+                    ui.label("On");
                 });
-        });
+                r.cell(|ui| {
+                    ui.label("Aspect to match");
+                });
+                r.cell(|ui| {
+                    ui.label("Match Method");
+                });
+                r.cell(|ui| {
+                    ui.label("Text to match");
+                });
+            })
+            .body(ROW_HEIGHT, |t| {
+                let mut to_remove = Vec::new();
+                for (id, rule) in rules.iter_mut().enumerate() {
+                    t.row(|r| {
+                        r.cell(|ui| {
+                            ui.checkbox(&mut rule.enabled, "");
+                        });
+
+                        r.cell(|ui| {
+                            ComboBox::from_id_source(id + 9387465)
+                                .selected_text(rule.aspect.display())
+                                .width(150.0)
+                                .show_ui(ui, |ui| {
+                                    match_aspect_set.into_iter().for_each(|a| {
+                                        ui.selectable_value(&mut rule.aspect, a, a.display());
+                                    });
+                                });
+                        });
+
+                        r.cell(|ui| {
+                            ComboBox::from_id_source(id + 394857)
+                                .selected_text(rule.method.display())
+                                .width(150.0)
+                                .show_ui(ui, |ui| {
+                                    [
+                                        MatchMethod::Equals,
+                                        MatchMethod::StartsWith,
+                                        MatchMethod::EndsWith,
+                                        MatchMethod::Contains,
+                                    ]
+                                    .into_iter()
+                                    .for_each(|m| {
+                                        ui.selectable_value(&mut rule.method, m, m.display());
+                                    });
+                                });
+                        });
+
+                        r.cell(|ui| {
+                            TextEdit::singleline(&mut rule.expression)
+                                .min_size(vec2(400.0, 0.0))
+                                .show(ui);
+                        });
+
+                        r.cell(|ui| {
+                            if ui.selectable_label(false, "🗑").clicked() {
+                                to_remove.push(id);
+                            }
+                        });
+                    });
+                }
+
+                to_remove.into_iter().rev().for_each(|i| {
+                    rules.remove(i);
+                });
+            });
     }
 }

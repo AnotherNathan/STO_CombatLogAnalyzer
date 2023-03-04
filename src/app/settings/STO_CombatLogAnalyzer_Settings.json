@@ -4,19 +4,19 @@
     "combat_separation_time_seconds": 90.0,
     "summon_and_pet_grouping_revers_rules": [
       {
-        "aspect": "DamageName",
+        "aspect": "DamageOrHealName",
         "expression": "Spore-Infused Anomalies",
         "method": "Equals",
         "enabled": false
       },
       {
-        "aspect": "DamageName",
+        "aspect": "DamageOrHealName",
         "expression": "Plasma Storm",
         "method": "Equals",
         "enabled": true
       },
       {
-        "aspect": "DamageName",
+        "aspect": "DamageOrHealName",
         "expression": "Distributed Targeting",
         "method": "StartsWith",
         "enabled": true
@@ -27,13 +27,13 @@
         "name": "Dark Matter Laced Quantum Torpedo",
         "rules": [
           {
-            "aspect": "DamageName",
+            "aspect": "DamageOrHealName",
             "expression": "Dark Matter Laced Quantum Torpedo",
             "method": "StartsWith",
             "enabled": true
           },
           {
-            "aspect": "DamageName",
+            "aspect": "DamageOrHealName",
             "expression": "Dark Matter Dissolution",
             "method": "Equals",
             "enabled": true
@@ -44,442 +44,548 @@
     ],
     "combat_name_rules": [
       {
-        "name": "Infected Conduit",
-        "rules": [
+        "name_rule": {
+          "name": "Infected Conduit",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Mission_Infected_Healer_Probe_Scaling",
+              "method": "Equals",
+              "enabled": true
+            },
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Space_Borg_Dreadnought_Raidisode_Sibrian_Final_Boss",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": [
           {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Mission_Infected_Healer_Probe_Scaling",
-            "method": "Equals",
-            "enabled": true
-          },
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Space_Borg_Dreadnought_Raidisode_Sibrian_Final_Boss",
-            "method": "Equals",
+            "name": "Elite",
+            "rules": [
+              {
+                "aspect": "SourceOrTargetUniqueName",
+                "expression": "Elite_Initial",
+                "method": "EndsWith",
+                "enabled": true
+              }
+            ],
             "enabled": true
           }
-        ],
-        "enabled": true
+        ]
       },
       {
-        "name": "Hive Onslaught",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Hive_Intro",
-            "method": "EndsWith",
-            "enabled": true
-          },
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Hive_Intro1",
-            "method": "EndsWith",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Hive Onslaught",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Hive_Intro",
+              "method": "EndsWith",
+              "enabled": true
+            },
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Hive_Intro1",
+              "method": "EndsWith",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Herald Sphere",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Herald_Sphere",
-            "method": "EndsWith",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Herald Sphere",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Herald_Sphere",
+              "method": "EndsWith",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Days of Doom",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Msn_Tmp_Fed_Outpost_Space_Doomsday_Machine",
-            "method": "Equals",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Days of Doom",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Msn_Tmp_Fed_Outpost_Space_Doomsday_Machine",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Into the Hive",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Ground_Borg_Queen_Disembodied",
-            "method": "Equals",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Into the Hive",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Ground_Borg_Queen_Disembodied",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Undine Assault",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Missione_Event_Planetary_Invasion_Rift",
-            "method": "Equals",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Undine Assault",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Missione_Event_Planetary_Invasion_Rift",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Cure Found",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Cure",
-            "method": "EndsWith",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Cure Found",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Cure",
+              "method": "EndsWith",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Gateway to Gre'thor",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Event_Ico_Qonos_Space_Herald_Dreadnaught",
-            "method": "Equals",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Gateway to Gre'thor",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Event_Ico_Qonos_Space_Herald_Dreadnaught",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Storming the Spire",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Mission_Dys_Spire_Assault",
-            "method": "StartsWith",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Storming the Spire",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Mission_Dys_Spire_Assault",
+              "method": "StartsWith",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Khitomer Vortex",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Raidisode_Khitomer_Intro_Boss",
-            "method": "EndsWith",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Khitomer Vortex",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Raidisode_Khitomer_Intro_Boss",
+              "method": "EndsWith",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Gravity Kills",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Msn_Luk_Hypermass_Queue_System_Tzk_Gravitic_Anchor",
-            "method": "Equals",
-            "enabled": true
-          },
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Msn_Luk_Hypermass_Queue_System_Asteroid",
-            "method": "Equals",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Gravity Kills",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Msn_Luk_Hypermass_Queue_System_Tzk_Gravitic_Anchor",
+              "method": "Equals",
+              "enabled": true
+            },
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Msn_Luk_Hypermass_Queue_System_Asteroid",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Borg Disconnected",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetName",
-            "expression": "Disconnected Cube",
-            "method": "Equals",
-            "enabled": true
-          },
-          {
-            "aspect": "SourceOrTargetName",
-            "expression": "Disconnected Probe",
-            "method": "Equals",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Borg Disconnected",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetName",
+              "expression": "Disconnected Cube",
+              "method": "Equals",
+              "enabled": true
+            },
+            {
+              "aspect": "SourceOrTargetName",
+              "expression": "Disconnected Probe",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Khitomer Vortex",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Raidisode_Khitomer_Intro_Boss",
-            "method": "EndsWith",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Khitomer Vortex",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Raidisode_Khitomer_Intro_Boss",
+              "method": "EndsWith",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Miner Instabilities",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Msn_Edren_Queue_Ground_Gorn",
-            "method": "StartsWith",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Miner Instabilities",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Msn_Edren_Queue_Ground_Gorn",
+              "method": "StartsWith",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Counterpoint",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Mission_Starbase_Ds9_Mu_Queue",
-            "method": "Equals",
-            "enabled": true
-          },
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Mirror_Ds9_Queue_Pointdefense",
-            "method": "EndsWith",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Counterpoint",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Mission_Starbase_Ds9_Mu_Queue",
+              "method": "Equals",
+              "enabled": true
+            },
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Mirror_Ds9_Queue_Pointdefense",
+              "method": "EndsWith",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Pahvo Dissension",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Device_Pahvo_Tfo_Crystal_Tether",
-            "method": "Equals",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Pahvo Dissension",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Device_Pahvo_Tfo_Crystal_Tether",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Dranuur Gauntlet",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Msn_Luk_Colony_Dranuur_Queue_System_Upgradeable_Satellite",
-            "method": "Equals",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Dranuur Gauntlet",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Msn_Luk_Colony_Dranuur_Queue_System_Upgradeable_Satellite",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "To Hell With Honor",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Mission_Beta_Lankal",
-            "method": "StartsWith",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "To Hell With Honor",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Mission_Beta_Lankal",
+              "method": "StartsWith",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Bug Hunt",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Msn_Dlt_Bluegill_Hunt_Queue_Ground_Ens",
-            "method": "Equals",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Bug Hunt",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Msn_Dlt_Bluegill_Hunt_Queue_Ground_Ens",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Tzenkethi Front",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Msn_Tzk_Tzenkethi_Assault_Ball",
-            "method": "Equals",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Tzenkethi Front",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Msn_Tzk_Tzenkethi_Assault_Ball",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Khitomer in Stasis",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Mission_Borgraid03_Borg_Power_Node",
-            "method": "Equals",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Khitomer in Stasis",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Mission_Borgraid03_Borg_Power_Node",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Defense of Starbase One",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetName",
-            "expression": "U.S.S. Decatur",
-            "method": "Equals",
-            "enabled": true
-          },
-          {
-            "aspect": "SourceOrTargetName",
-            "expression": "U.S.S. Andor",
-            "method": "Equals",
-            "enabled": true
-          },
-          {
-            "aspect": "SourceOrTargetName",
-            "expression": "U.S.S. Lafayette",
-            "method": "Equals",
-            "enabled": true
-          },
-          {
-            "aspect": "SourceOrTargetName",
-            "expression": "U.S.S. Roosevelt",
-            "method": "Equals",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Defense of Starbase One",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetName",
+              "expression": "U.S.S. Decatur",
+              "method": "Equals",
+              "enabled": true
+            },
+            {
+              "aspect": "SourceOrTargetName",
+              "expression": "U.S.S. Andor",
+              "method": "Equals",
+              "enabled": true
+            },
+            {
+              "aspect": "SourceOrTargetName",
+              "expression": "U.S.S. Lafayette",
+              "method": "Equals",
+              "enabled": true
+            },
+            {
+              "aspect": "SourceOrTargetName",
+              "expression": "U.S.S. Roosevelt",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Peril Over Pahvo",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Msn_Dsc_Pahvo_Defense_Queue_System_Upgradeable_Satellite",
-            "method": "Equals",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Peril Over Pahvo",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Msn_Dsc_Pahvo_Defense_Queue_System_Upgradeable_Satellite",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Brotherhood of the Sword",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Msn_Ico_Qonos_Ground",
-            "method": "StartsWith",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Brotherhood of the Sword",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Msn_Ico_Qonos_Ground",
+              "method": "StartsWith",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Swarm",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Ndm_Torad_Space_Civilian_Frigate_Transport_Fleet",
-            "method": "Equals",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Swarm",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Ndm_Torad_Space_Civilian_Frigate_Transport_Fleet",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Breach",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Msn_Dys_Event_Breach",
-            "method": "StartsWith",
-            "enabled": true
-          },
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Msn_Space_Voth_Boss_Power_Core",
-            "method": "Equals",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Breach",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Msn_Dys_Event_Breach",
+              "method": "StartsWith",
+              "enabled": true
+            },
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Msn_Space_Voth_Boss_Power_Core",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Iuppiter Iratus",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetName",
-            "expression": "Data Thief",
-            "method": "Equals",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Iuppiter Iratus",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetName",
+              "expression": "Data Thief",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Operation Riposte",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Msn_Dsc_Priors_System_Tfo",
-            "method": "StartsWith",
-            "enabled": true
-          },
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Priors_World_Tfo",
-            "method": "EndsWith",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Operation Riposte",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Msn_Dsc_Priors_System_Tfo",
+              "method": "StartsWith",
+              "enabled": true
+            },
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Priors_World_Tfo",
+              "method": "EndsWith",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Undine Infiltration",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetName",
-            "expression": "Infiltration Master",
-            "method": "Equals",
-            "enabled": true
-          },
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Event_Undine_Infiltration_Ground_Fire",
-            "method": "Equals",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Undine Infiltration",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetName",
+              "expression": "Infiltration Master",
+              "method": "Equals",
+              "enabled": true
+            },
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Event_Undine_Infiltration_Ground_Fire",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Battle of Procyon V",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Event_Procyon_5_Queue_Krenim_Dreadnaught_Annorax",
-            "method": "Equals",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Battle of Procyon V",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Event_Procyon_5_Queue_Krenim_Dreadnaught_Annorax",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       },
       {
-        "name": "Crystalline Catastrophe",
-        "rules": [
-          {
-            "aspect": "SourceOrTargetUniqueName",
-            "expression": "Space_Crystalline_Entity",
-            "method": "StartsWith",
-            "enabled": true
-          }
-        ],
-        "enabled": true
+        "name_rule": {
+          "name": "Crystalline Catastrophe",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Space_Crystalline_Entity",
+              "method": "StartsWith",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       }
     ]
   },

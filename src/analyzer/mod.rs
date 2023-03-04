@@ -1,4 +1,4 @@
-use std::{fmt::Debug, ops::Range};
+use std::{borrow::Cow, fmt::Debug, ops::Range};
 
 use chrono::{Duration, NaiveDateTime};
 use educe::Educe;
@@ -30,7 +30,7 @@ type GroupingPath<'a> = SmallVec<[&'a str; 8]>;
 
 #[derive(Clone, Debug)]
 pub struct Combat {
-    pub names: FxHashSet<String>,
+    pub combat_names: FxHashMap<String, CombatName>,
     pub combat_time: Option<Range<NaiveDateTime>>,
     pub active_time: Range<NaiveDateTime>,
     pub total_damage_out: ShieldHullValues,
@@ -41,6 +41,22 @@ pub struct Combat {
     pub log_pos: Option<Range<u64>>,
     pub total_deaths: u64,
     pub total_kills: u64,
+    pub name_occurrences: CombatNameOccurrences,
+}
+
+#[derive(Clone, Debug)]
+pub struct CombatNameOccurrences {
+    pub source_target_names: FxHashSet<String>,
+    pub source_target_unique_names: FxHashSet<String>,
+    pub sub_source_names: FxHashSet<String>,
+    pub sub_source_unique_names: FxHashSet<String>,
+    pub value_names: FxHashSet<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct CombatName {
+    pub name: String,
+    pub additional_infos: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -163,7 +179,7 @@ impl Analyzer {
         if let Some(first_modified_combat) = first_modified_combat {
             self.combats[first_modified_combat..]
                 .iter_mut()
-                .for_each(|p| p.recalculate_metrics());
+                .for_each(|p| p.update(&self.settings));
         }
     }
 
@@ -188,7 +204,7 @@ impl Analyzer {
         first_modified_combat.get_or_insert(self.combats.len() - 1);
         let combat = self.combats.last_mut().unwrap();
 
-        combat.update_meta_data(&record, &self.settings);
+        combat.update_meta_data(&record);
 
         let combat_start_offset_millis = record
             .time
@@ -241,7 +257,7 @@ impl Combat {
                 None
             },
             active_time: time,
-            names: Default::default(),
+            combat_names: Default::default(),
             players: Default::default(),
             log_pos: start_record.log_pos.clone(),
             total_damage_out: Default::default(),
@@ -250,6 +266,13 @@ impl Combat {
             total_heal_out: Default::default(),
             total_kills: 0,
             total_deaths: 0,
+            name_occurrences: CombatNameOccurrences {
+                source_target_names: Default::default(),
+                source_target_unique_names: Default::default(),
+                sub_source_names: Default::default(),
+                sub_source_unique_names: Default::default(),
+                value_names: Default::default(),
+            },
         }
     }
 
@@ -274,11 +297,11 @@ impl Combat {
     }
 
     pub fn name(&self) -> String {
-        if self.names.len() == 0 {
+        if self.combat_names.len() == 0 {
             return "Combat".to_string();
         }
 
-        self.names.iter().join(", ")
+        self.combat_names.values().map(|n| n.format()).join(", ")
     }
 
     pub fn file_identifier(&self) -> String {
@@ -292,7 +315,9 @@ impl Combat {
         format!("{} {}", name, date_times)
     }
 
-    fn recalculate_metrics(&mut self) {
+    fn update(&mut self, settings: &AnalysisSettings) {
+        self.update_combat_names(settings);
+
         self.players
             .values_mut()
             .for_each(|p| p.recalculate_metrics());
@@ -351,21 +376,75 @@ impl Combat {
             .for_each(|p| group(p).recalculate_percentages(&total_heal, &parent_ticks));
     }
 
-    fn update_meta_data(&mut self, record: &Record, settings: &AnalysisSettings) {
-        self.update_names(record, settings);
+    fn update_meta_data(&mut self, record: &Record) {
+        self.update_names(record);
         self.update_time(record);
         self.update_log_pos(record);
     }
 
-    fn update_names(&mut self, record: &Record, settings: &AnalysisSettings) {
+    fn update_names(&mut self, record: &Record) {
+        Self::update_entity_names(
+            &mut self.name_occurrences.source_target_names,
+            &mut self.name_occurrences.source_target_unique_names,
+            &record.source,
+        );
+        Self::update_entity_names(
+            &mut self.name_occurrences.source_target_names,
+            &mut self.name_occurrences.source_target_unique_names,
+            &record.target,
+        );
+        Self::update_entity_names(
+            &mut self.name_occurrences.sub_source_names,
+            &mut self.name_occurrences.sub_source_unique_names,
+            &record.sub_source,
+        );
+
+        if !self
+            .name_occurrences
+            .value_names
+            .contains(record.value_name)
+        {
+            self.name_occurrences
+                .value_names
+                .insert(record.value_name.to_owned());
+        }
+    }
+
+    fn update_entity_names(
+        names: &mut FxHashSet<String>,
+        unique_names: &mut FxHashSet<String>,
+        entity: &Entity,
+    ) {
+        Self::update_names_of_or_not(names, entity.name());
+        Self::update_names_of_or_not(unique_names, entity.unique_name());
+    }
+
+    fn update_names_of_or_not(names: &mut FxHashSet<String>, name: Option<&str>) {
+        if let Some(name) = name {
+            Self::update_names_of(names, name);
+        }
+    }
+
+    fn update_names_of(names: &mut FxHashSet<String>, name: &str) {
+        if names.contains(name) {
+            return;
+        }
+
+        names.insert(name.to_string());
+    }
+
+    fn update_combat_names(&mut self, settings: &AnalysisSettings) {
+        self.combat_names.clear();
+
         settings
             .combat_name_rules
             .iter()
-            .filter(|r| r.matches(record))
+            .filter(|r| self.name_occurrences.matches(&r.name_rule))
             .for_each(|r| {
-                if !self.names.contains(&r.name) {
-                    self.names.insert(r.name.clone());
-                }
+                self.combat_names.insert(
+                    r.name_rule.name.clone(),
+                    CombatName::new(r, &self.name_occurrences),
+                );
             });
     }
 
@@ -496,7 +575,7 @@ impl Player {
                 if settings
                     .summon_and_pet_grouping_revers_rules
                     .iter()
-                    .any(|r| r.matches(record))
+                    .any(|r| r.matches_record(record))
                 {
                     path.extend_from_slice(&[name, record.value_name]);
                 } else {
@@ -508,7 +587,7 @@ impl Player {
         if let Some(rule) = settings
             .custom_group_rules
             .iter()
-            .find(|r| r.matches(record))
+            .find(|r| r.matches_record(record))
         {
             path.push(rule.name.as_str());
         }
@@ -704,6 +783,44 @@ impl HealGroup {
             flags,
             combat_start_offset_millis,
         );
+    }
+}
+
+impl CombatNameOccurrences {
+    fn matches(&self, rule: &RulesGroup) -> bool {
+        rule.matches_source_or_target_names(self.source_target_names.iter())
+            || rule.matches_source_or_target_unique_names(self.source_target_unique_names.iter())
+            || rule.matches_sub_source_names(self.sub_source_names.iter())
+            || rule.matches_sub_source_unique_names(self.sub_source_unique_names.iter())
+            || rule.matches_damage_or_heal_names(self.value_names.iter())
+    }
+}
+
+impl CombatName {
+    fn new(rule: &CombatNameRule, name_occurrences: &CombatNameOccurrences) -> Self {
+        let additional_infos: Vec<_> = rule
+            .additional_info_rules
+            .iter()
+            .filter(|r| name_occurrences.matches(r))
+            .map(|r| r.name.clone())
+            .collect();
+        Self {
+            name: rule.name_rule.name.clone(),
+            additional_infos,
+        }
+    }
+
+    fn format(&self) -> Cow<String> {
+        if self.additional_infos.len() == 0 {
+            return Cow::Borrowed(&self.name);
+        }
+
+        let name = format!(
+            "{} ({})",
+            self.name,
+            self.additional_infos.iter().join(", ")
+        );
+        Cow::Owned(name)
     }
 }
 

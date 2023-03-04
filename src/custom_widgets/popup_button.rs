@@ -18,6 +18,7 @@ impl PopupButton {
         Self { title, id: None }
     }
 
+    #[allow(dead_code)]
     pub fn with_id_source(mut self, source: impl Hash) -> Self {
         self.id = Some(Id::new(source));
         self
@@ -29,7 +30,7 @@ impl PopupButton {
         add_contents: impl FnOnce(&mut Ui) -> R,
     ) -> InnerResponse<Option<R>> {
         let Self { title, id } = self;
-        let id = id.unwrap_or(ui.id()).with(module_path!());
+        let id = id.unwrap_or(ui.next_auto_id()).with(module_path!());
         let mut state = PopupButtonState::load(ui, id);
 
         let button_response = ui.button(title);

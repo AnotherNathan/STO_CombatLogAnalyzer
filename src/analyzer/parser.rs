@@ -362,7 +362,7 @@ mod tests {
     #[test]
     fn list_all_names() {
         let mut parser = Parser::new(&PathBuf::from(
-            r"D:\Games\Star Trek Online_en\Star Trek Online\Live\logs\GameClient\combatlog.log",
+            r"D:\Games\Star Trek Online_en\Star Trek Online\Live\logs\GameClient\saved_combats\upload_Infected_Space_26-11-2022_07-40.log",
         ))
         .unwrap();
 
