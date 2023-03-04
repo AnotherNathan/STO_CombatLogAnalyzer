@@ -25,7 +25,7 @@ static COLUMNS: &[ColumnDescriptor<DamageTablePartData>] = &[
         },
     ),
     col!(
-        "Damage Resistance %",
+        "Resistance %",
         "Damage Resistance % excluding any drain damage",
         |t| t.sort_by_option_f64_asc(|p| p.damage_resistance_percentage.value),
         |t, r| {
