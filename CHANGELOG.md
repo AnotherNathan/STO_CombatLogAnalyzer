@@ -13,6 +13,7 @@
 - added hits per second numbers
 - added hit percentage numbers
 - added misses and accuracy numbers
+- added damage type infos
 - improved status indication
   - it now shows if there was an error when trying to parse the log
   - when hover over the status icon the log file size is displayed
