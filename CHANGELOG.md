@@ -1,5 +1,35 @@
 # Change Log
 
+## v1.0.0
+### Major Changes
+- added incoming and outgoing healing tabs with some diagrams
+
+### Other Changes
+- fixed a bug that prevented table columns from shrinking in order to fit its content
+- added more TFO names to the default settings
+- added more clarifications on what the numbers for certain columns mean
+- the rows in the summary table are now also selectable for better visualization
+- fixed a bug that caused the damage numbers in the diagrams to be doubled when something is selected in the table
+- added hits per second numbers
+- added hit percentage numbers
+- added misses and accuracy numbers
+- improved status indication
+  - it now shows if there was an error when trying to parse the log
+  - when hover over the status icon the log file size is displayed
+- added the ability to detect additional infos of a combat such as its difficulty (ISE detection has been added as well)
+- changed the terminology for "Sub-Source" to "Indirect Source"
+- added a little helper window to display all occurred names of a combat to simplify the creation of combat name rules
+- removed plasma storm and distributed targeting again from the default settings as these are by far not the only ones with this hull and shield damage split issue
+- fixed an issue where for hull ticks, the number for all ticks was displayed
+- added an icon to the app
+- various small improvements here and there
+- disabled log creation in the default settings
+
+### Major Changes
+- added the ability to copy a combat summary to the clipboard
+- added the ability to save combats
+- added damage resistance metrics and a chart
+
 ## v0.3.0
 ### Major Changes
 - added the ability to copy a combat summary to the clipboard
