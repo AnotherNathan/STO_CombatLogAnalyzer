@@ -202,3 +202,29 @@ pub fn format_element(bar: &Bar, _: &BarChart) -> String {
     let mut formatter = NumberFormatter::new();
     format!("{}\n{}", bar.name, formatter.format(bar.value, 2))
 }
+
+pub fn time_slices<'a, T: PreparedValue>(
+    data: &'a PreparedDataSet<T>,
+    time_slice: f64,
+) -> impl Iterator<Item = (f64, &'a [PreparedPoint<T>])> + 'a {
+    let time_slice_m = seconds_to_millis(time_slice);
+    let first_time_slice = seconds_to_millis(data.start_time_s) / time_slice_m;
+    let mut time_slice_end = first_time_slice + time_slice_m;
+    let mut values = &*data.values;
+    let sliced_values = std::iter::from_fn(move || {
+        if values.len() == 0 {
+            return None;
+        }
+        let slice_end = values
+            .iter()
+            .take_while(|v| v.time_millis < time_slice_end)
+            .count();
+        let slice = &values[0..slice_end];
+        let center = millis_to_seconds(time_slice_end - time_slice_m / 2);
+        values = &values[slice_end..];
+        time_slice_end += time_slice_m;
+        Some((center, slice))
+    });
+
+    sliced_values
+}

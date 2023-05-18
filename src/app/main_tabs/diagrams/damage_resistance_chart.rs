@@ -73,58 +73,37 @@ impl DamageResistanceBars {
     }
 
     fn update(&mut self, time_slice: f64) {
-        let time_slice_m = seconds_to_millis(time_slice);
-        let mut bars = Vec::new();
-        let first_time_slice = seconds_to_millis(self.data.start_time_s) / time_slice_m;
-        let mut time_slice_end = first_time_slice + time_slice_m;
-        let mut index = 0;
-        let mut damage = 0.0;
-        let mut shield_damage = 0.0;
-        let mut hull_damage = 0.0;
-        let mut drain_damage = 0.0;
-        let mut base_damage = 0.0;
-        loop {
-            let hit = match self.data.values.get(index) {
-                Some(h) => h,
-                None => {
-                    break;
-                }
-            };
+        let bars = time_slices(&self.data, time_slice)
+            .filter_map(|(time, s)| {
+                let (damage, shield_damage, hull_damage, drain_damage, base_damage) =
+                    s.iter().fold(
+                        Default::default(),
+                        |(damage, shield_damage, hull_damage, drain_damage, base_damage), h| {
+                            (
+                                damage + h.damage,
+                                shield_damage + h.shield_damage,
+                                hull_damage + h.hull_damage,
+                                drain_damage + h.drain_damage,
+                                base_damage + h.base_damage,
+                            )
+                        },
+                    );
 
-            if hit.time_millis < time_slice_end {
-                index += 1;
-                damage += hit.damage;
-                shield_damage += hit.shield_damage;
-                hull_damage += hit.hull_damage;
-                drain_damage += hit.drain_damage;
-                base_damage += hit.base_damage;
-                continue;
-            }
+                let total_damage = &ShieldHullValues {
+                    all: damage,
+                    shield: shield_damage,
+                    hull: hull_damage,
+                };
+                let resistance =
+                    damage_resistance_percentage(&total_damage, base_damage, drain_damage)?;
 
-            let total_damage = &ShieldHullValues {
-                all: damage,
-                shield: shield_damage,
-                hull: hull_damage,
-            };
-            let resistance = damage_resistance_percentage(&total_damage, base_damage, drain_damage);
-
-            let time = millis_to_seconds(time_slice_end - time_slice_m / 2);
-
-            if let Some(resistance) = resistance {
-                bars.push(
+                Some(
                     Bar::new(time, resistance)
                         .name(&self.data.name)
                         .width(time_slice),
-                );
-            }
-
-            damage = 0.0;
-            shield_damage = 0.0;
-            hull_damage = 0.0;
-            drain_damage = 0.0;
-            base_damage = 0.0;
-            time_slice_end += time_slice_m;
-        }
+                )
+            })
+            .collect();
 
         self.bars = bars;
     }

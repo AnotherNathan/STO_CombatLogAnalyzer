@@ -80,35 +80,16 @@ impl<T: PreparedValue> Bars<T> {
     }
 
     fn update(&mut self, time_slice: f64) {
-        let time_slice_m = seconds_to_millis(time_slice);
-        let mut bars = Vec::new();
-        let first_time_slice = seconds_to_millis(self.data.start_time_s) / time_slice_m;
-        let mut time_slice_end = first_time_slice + time_slice_m;
-        let mut index = 0;
-        let mut value = 0.0;
-        loop {
-            let point = match self.data.values.get(index) {
-                Some(h) => h,
-                None => {
-                    break;
+        let bars = time_slices(&self.data, time_slice)
+            .filter_map(|(m, s)| {
+                let value = s.iter().map(|p| p.value()).sum();
+                if value == 0.0 {
+                    return None;
                 }
-            };
 
-            if point.time_millis < time_slice_end {
-                index += 1;
-                value += point.value();
-                continue;
-            }
-
-            if value > 0.0 {
-                let bar = Bar::new(millis_to_seconds(time_slice_end - time_slice_m / 2), value)
-                    .name(&self.data.name)
-                    .width(time_slice);
-                bars.push(bar);
-            }
-            value = 0.0;
-            time_slice_end += time_slice_m;
-        }
+                Some(Bar::new(m, value).name(&self.data.name).width(time_slice))
+            })
+            .collect();
 
         self.bars = bars;
     }
