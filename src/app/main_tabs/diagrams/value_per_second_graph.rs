@@ -107,11 +107,12 @@ impl<T: PreparedValue> GraphLine<T> {
     }
 
     fn update(&mut self, filter: f64) {
-        let points_count = (self.data.duration_s * SAMPLE_RATE).round() as _;
+        let duration = self.data.duration_s.max(1.0);
+        let points_count = (duration * SAMPLE_RATE).round().max(1.0) as _;
         let mut points = Vec::with_capacity(points_count);
         for i in 0..points_count {
             let start_offset = i as f64 / (points_count - 1) as f64;
-            let time = self.data.start_time_s + self.data.duration_s * start_offset;
+            let time = self.data.start_time_s + duration * start_offset;
             let point = [
                 time,
                 Self::get_sample_gauss_filtered(&self.data.values, time, filter),
@@ -154,7 +155,7 @@ impl<T: PreparedValue> GraphLine<T> {
         Some(weight * hit.value())
     }
 
-    fn get_get_sample_gauss_filtered_half(
+    fn get_sample_gauss_filtered_half(
         points: &[PreparedPoint<T>],
         time_seconds: f64,
         sigma_seconds: f64,
@@ -189,17 +190,13 @@ impl<T: PreparedValue> GraphLine<T> {
         entry_index
             .checked_sub(1)
             .map(|i| {
-                Self::get_get_sample_gauss_filtered_half(
-                    points,
-                    time_seconds,
-                    sigma_seconds,
-                    i,
-                    |i| i.checked_sub(1),
-                )
+                Self::get_sample_gauss_filtered_half(points, time_seconds, sigma_seconds, i, |i| {
+                    i.checked_sub(1)
+                })
             })
             .unwrap_or(0.0)
             + Self::get_gauss_value(points, entry_index, time_seconds, sigma_seconds).unwrap_or(0.0)
-            + Self::get_get_sample_gauss_filtered_half(
+            + Self::get_sample_gauss_filtered_half(
                 points,
                 time_seconds,
                 sigma_seconds,
