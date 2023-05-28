@@ -3,6 +3,7 @@ use std::iter::Sum;
 use bitflags::bitflags;
 
 bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     pub struct ValueFlags: u8{
         const NONE = 0;
         const CRITICAL = 1;
