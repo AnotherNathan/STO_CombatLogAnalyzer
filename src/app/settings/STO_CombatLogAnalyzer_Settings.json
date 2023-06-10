@@ -574,6 +574,36 @@
           "enabled": true
         },
         "additional_info_rules": []
+      },
+      {
+        "name_rule": {
+          "name": "Red Alert: Tholian",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Space_Tholian_Dreadnought_Red_Alert",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
+      },
+      {
+        "name_rule": {
+          "name": "Battle of Korfez",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Dlt_Vaadwaur_Stf_System_Dreadnought_Boss",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       }
     ]
   },
