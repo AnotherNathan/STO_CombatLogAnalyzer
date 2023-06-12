@@ -604,6 +604,21 @@
           "enabled": true
         },
         "additional_info_rules": []
+      },
+      {
+        "name_rule": {
+          "name": "Battle of the Binary Stars",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Dsc_Binary_Tfo",
+              "method": "EndsWith",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       }
     ]
   },
