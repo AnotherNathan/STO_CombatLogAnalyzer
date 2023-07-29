@@ -48,7 +48,7 @@ impl SummaryTable {
                     Player::new(
                         combat_duration,
                         p,
-                        &combat.name_manger,
+                        &combat.name_manager,
                         &mut number_formatter,
                     )
                 })

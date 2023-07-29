@@ -88,11 +88,7 @@ impl HealTablePart {
 }
 
 impl HealTablePartData {
-    fn new(
-        group: &HealGroup,
-        _name_manager: &NameManager,
-        number_formatter: &mut NumberFormatter,
-    ) -> Self {
+    fn new(group: &HealGroup, combat: &Combat, number_formatter: &mut NumberFormatter) -> Self {
         Self {
             total_heal: ShieldAndHullTextValue::new(&group.total_heal, 2, number_formatter),
             hps: ShieldAndHullTextValue::new(&group.hps, 2, number_formatter),
@@ -114,7 +110,7 @@ impl HealTablePartData {
                 3,
                 number_formatter,
             ),
-            source_ticks: group.ticks.clone(),
+            source_ticks: group.ticks.get(&combat.heal_ticks_manger).to_vec(),
         }
     }
 }

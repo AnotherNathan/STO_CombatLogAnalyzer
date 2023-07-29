@@ -1,30 +1,41 @@
-use super::*;
+use super::{values_manager::Values, *};
 use std::fmt::Debug;
 
 pub trait AnalysisGroup: Clone + Debug {
+    type Value: Clone;
+
     fn name(&self) -> NameHandle;
     fn sub_groups(&self) -> &NameMap<Self>;
     fn sub_groups_mut(&mut self) -> &mut NameMap<Self>;
 
-    fn is_pool(&self) -> bool;
+    fn values(&self) -> &Values<Self::Value>;
 }
 
 pub(super) trait AnalysisGroupInternal: AnalysisGroup {
     fn new(name: NameHandle, is_pool: bool) -> Self;
 
-    fn get_non_pool_sub_group(&mut self, sub_group: NameHandle) -> &mut Self {
-        let candidate = self.get_sub_group_or_create_non_pool(sub_group);
-        if !candidate.is_pool() {
+    #[inline]
+    fn is_leaf(&self) -> bool {
+        self.values().is_leaf()
+    }
+    #[inline]
+    fn is_branch(&self) -> bool {
+        self.values().is_branch()
+    }
+
+    fn get_leaf_sub_group(&mut self, sub_group: NameHandle) -> &mut Self {
+        let candidate = self.get_sub_group_or_create_leaf(sub_group);
+        if candidate.is_leaf() {
             return candidate;
         }
 
-        candidate.get_non_pool_sub_group(sub_group)
+        candidate.get_leaf_sub_group(sub_group)
     }
 
-    fn get_pool_sub_group(&mut self, sub_group: NameHandle) -> &mut Self {
+    fn get_branch_sub_group(&mut self, sub_group: NameHandle) -> &mut Self {
         let candidate = self.sub_groups().get(&sub_group);
-        if candidate.map(|c| c.is_pool()).unwrap_or(false) {
-            return self.get_sub_group_or_create_non_pool(sub_group);
+        if candidate.map(|c| c.is_branch()).unwrap_or(false) {
+            return self.get_sub_group_or_create_leaf(sub_group);
         }
 
         // make a new pool and move the non pool sub group on there
@@ -33,10 +44,10 @@ pub(super) trait AnalysisGroupInternal: AnalysisGroup {
             pool.sub_groups_mut().insert(sub_group, non_pool_sub_group);
         }
         self.sub_groups_mut().insert(sub_group, pool);
-        self.get_pool_sub_group(sub_group)
+        self.get_branch_sub_group(sub_group)
     }
 
-    fn get_sub_group_or_create_non_pool(&mut self, sub_group: NameHandle) -> &mut Self {
+    fn get_sub_group_or_create_leaf(&mut self, sub_group: NameHandle) -> &mut Self {
         if !self.sub_groups().contains_key(&sub_group) {
             self.sub_groups_mut()
                 .insert(sub_group, Self::new(sub_group, false));
@@ -52,14 +63,12 @@ pub struct DamageGroup {
     pub name: NameHandle,
     pub sub_groups: NameMap<Self>,
 
-    is_pool: bool,
-
     #[educe(Deref, DerefMut)]
     pub damage_metrics: DamageMetrics,
     pub max_one_hit: MaxOneHit,
     pub damage_percentage: ShieldHullOptionalValues,
     pub hits_percentage: ShieldHullOptionalValues,
-    pub hits: Vec<Hit>,
+    pub hits: Hits,
     pub damage_types: NameSet,
 }
 
@@ -79,17 +88,23 @@ impl AnalysisGroup for DamageGroup {
         &mut self.sub_groups
     }
 
+    type Value = Hit;
+
     #[inline]
-    fn is_pool(&self) -> bool {
-        self.is_pool
+    fn values(&self) -> &Values<Self::Value> {
+        &self.hits
     }
 }
 
 impl AnalysisGroupInternal for DamageGroup {
-    fn new(name: NameHandle, is_pool: bool) -> Self {
+    fn new(name: NameHandle, is_branch: bool) -> Self {
         Self {
             name,
-            is_pool,
+            hits: if is_branch {
+                Hits::empty_branch()
+            } else {
+                Hits::empty_leaf()
+            },
             ..Default::default()
         }
     }
@@ -101,15 +116,13 @@ pub struct HealGroup {
     pub name: NameHandle,
     pub sub_groups: NameMap<Self>,
 
-    is_pool: bool,
-
     #[educe(Deref, DerefMut)]
     pub heal_metrics: HealMetrics,
 
     pub heal_percentage: ShieldHullOptionalValues,
     pub ticks_percentage: ShieldHullOptionalValues,
 
-    pub ticks: Vec<HealTick>,
+    pub ticks: HealTicks,
 }
 
 impl AnalysisGroup for HealGroup {
@@ -128,45 +141,57 @@ impl AnalysisGroup for HealGroup {
         &mut self.sub_groups
     }
 
+    type Value = HealTick;
+
     #[inline]
-    fn is_pool(&self) -> bool {
-        self.is_pool
+    fn values(&self) -> &Values<Self::Value> {
+        &self.ticks
     }
 }
 
 impl AnalysisGroupInternal for HealGroup {
-    fn new(name: NameHandle, is_pool: bool) -> Self {
+    fn new(name: NameHandle, is_branch: bool) -> Self {
         Self {
             name,
-            is_pool,
+            ticks: if is_branch {
+                HealTicks::empty_branch()
+            } else {
+                HealTicks::empty_leaf()
+            },
             ..Default::default()
         }
     }
 }
 
 impl DamageGroup {
-    pub(super) fn recalculate_metrics(&mut self, combat_duration: f64) {
-        if self.sub_groups.len() > 0 {
+    pub(super) fn recalculate_metrics(
+        &mut self,
+        combat_duration: f64,
+        hits_manager: &mut HitsManager,
+    ) {
+        if self.is_leaf() {
+            self.max_one_hit = MaxOneHit::from_hits(self.name, self.hits.get(hits_manager));
+            hits_manager.add_leaf(self.hits.get_leaf());
+        } else {
             self.max_one_hit.reset();
-            self.hits.clear();
             self.damage_types.clear();
 
-            for sub_group in self.sub_groups.values_mut() {
-                sub_group.recalculate_metrics(combat_duration);
-                self.hits.extend_from_slice(&sub_group.hits);
-                self.max_one_hit
-                    .update(sub_group.max_one_hit.name, sub_group.max_one_hit.damage);
-                for damage_type in sub_group.damage_types.iter() {
-                    if !self.damage_types.contains(damage_type) {
-                        self.damage_types.insert(damage_type.clone());
+            self.hits = hits_manager.track_group(|hits_manager| {
+                for sub_group in self.sub_groups.values_mut() {
+                    sub_group.recalculate_metrics(combat_duration, hits_manager);
+                    self.max_one_hit
+                        .update(sub_group.max_one_hit.name, sub_group.max_one_hit.damage);
+                    for damage_type in sub_group.damage_types.iter() {
+                        if !self.damage_types.contains(damage_type) {
+                            self.damage_types.insert(damage_type.clone());
+                        }
                     }
                 }
-            }
-        } else {
-            self.max_one_hit = MaxOneHit::from_hits(self.name, &self.hits);
+            });
         }
 
-        self.damage_metrics = DamageMetrics::calculate(&self.hits, combat_duration);
+        self.damage_metrics =
+            DamageMetrics::calculate(self.hits.get(hits_manager), combat_duration);
     }
 
     pub(super) fn recalculate_percentages(
@@ -195,7 +220,7 @@ impl DamageGroup {
         name_manager: &NameManager,
     ) {
         if path.len() == 1 {
-            let indirect_source = self.get_non_pool_sub_group(path[0]);
+            let indirect_source = self.get_leaf_sub_group(path[0]);
             indirect_source
                 .hits
                 .push(hit.to_hit(combat_start_offset_millis));
@@ -204,7 +229,7 @@ impl DamageGroup {
             return;
         }
 
-        let indirect_source = self.get_pool_sub_group(*path.last().unwrap());
+        let indirect_source = self.get_branch_sub_group(*path.last().unwrap());
         indirect_source.add_damage(
             &path[..path.len() - 1],
             hit,
@@ -249,17 +274,22 @@ impl DamageGroup {
 }
 
 impl HealGroup {
-    pub(super) fn recalculate_metrics(&mut self, combat_duration: f64) {
-        if self.sub_groups.len() > 0 {
-            self.ticks.clear();
-
-            for sub_group in self.sub_groups.values_mut() {
-                sub_group.recalculate_metrics(combat_duration);
-                self.ticks.extend_from_slice(&sub_group.ticks);
-            }
+    pub(super) fn recalculate_metrics(
+        &mut self,
+        combat_duration: f64,
+        ticks_manager: &mut HealTicksManager,
+    ) {
+        if self.is_leaf() {
+            ticks_manager.add_leaf(self.ticks.get_leaf());
+        } else {
+            self.ticks = ticks_manager.track_group(|ticks_manager| {
+                for sub_group in self.sub_groups.values_mut() {
+                    sub_group.recalculate_metrics(combat_duration, ticks_manager);
+                }
+            });
         }
 
-        self.heal_metrics = HealMetrics::calculate(&self.ticks, combat_duration);
+        self.heal_metrics = HealMetrics::calculate(self.ticks.get(ticks_manager), combat_duration);
     }
 
     pub(super) fn recalculate_percentages(
@@ -286,7 +316,7 @@ impl HealGroup {
         combat_start_offset_millis: u32,
     ) {
         if path.len() == 1 {
-            let indirect_source = self.get_non_pool_sub_group(path[0]);
+            let indirect_source = self.get_leaf_sub_group(path[0]);
             indirect_source
                 .ticks
                 .push(tick.to_tick(combat_start_offset_millis));
@@ -294,7 +324,7 @@ impl HealGroup {
             return;
         }
 
-        let indirect_source = self.get_pool_sub_group(*path.last().unwrap());
+        let indirect_source = self.get_branch_sub_group(*path.last().unwrap());
         indirect_source.add_heal(
             &path[..path.len() - 1],
             tick,

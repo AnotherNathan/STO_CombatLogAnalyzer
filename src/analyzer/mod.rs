@@ -14,12 +14,14 @@ mod heal;
 mod name_manager;
 mod parser;
 pub mod settings;
+mod values_manager;
 pub use common::*;
 pub use damage::*;
 use groups::*;
 pub use groups::{AnalysisGroup, DamageGroup, HealGroup};
 pub use heal::*;
 pub use name_manager::*;
+pub use values_manager::*;
 
 use self::{parser::*, settings::*};
 
@@ -46,7 +48,9 @@ pub struct Combat {
     pub log_pos: Option<Range<u64>>,
     pub total_deaths: u64,
     pub total_kills: u64,
-    pub name_manger: NameManager,
+    pub name_manager: NameManager,
+    pub hits_manger: HitsManager,
+    pub heal_ticks_manger: HealTicksManager,
 }
 
 #[derive(Clone, Debug)]
@@ -127,23 +131,23 @@ impl Analyzer {
 
         if let Entity::Player { full_name, .. } = &record.source {
             let player =
-                Combat::get_player(&mut combat.players, combat.name_manger.handle(full_name));
+                Combat::get_player(&mut combat.players, combat.name_manager.handle(full_name));
             player.add_out_value(
                 &record,
                 combat_start_offset_millis,
                 &self.settings,
-                &mut combat.name_manger,
+                &mut combat.name_manager,
             );
         }
 
         if let Entity::Player { full_name, .. } = &record.target {
             let player =
-                Combat::get_player(&mut combat.players, combat.name_manger.handle(full_name));
+                Combat::get_player(&mut combat.players, combat.name_manager.handle(full_name));
             player.add_in_value(
                 &record,
                 combat_start_offset_millis,
                 &self.settings,
-                &mut combat.name_manger,
+                &mut combat.name_manager,
             );
         }
 
@@ -151,12 +155,12 @@ impl Analyzer {
             (&record.indirect_source, &record.source)
         {
             let player =
-                Combat::get_player(&mut combat.players, combat.name_manger.handle(full_name));
+                Combat::get_player(&mut combat.players, combat.name_manager.handle(full_name));
             player.add_in_value(
                 &record,
                 combat_start_offset_millis,
                 &self.settings,
-                &mut combat.name_manger,
+                &mut combat.name_manager,
             );
         }
 
@@ -164,12 +168,12 @@ impl Analyzer {
             (&record.source, &record.indirect_source, &record.target)
         {
             let player =
-                Combat::get_player(&mut combat.players, combat.name_manger.handle(full_name));
+                Combat::get_player(&mut combat.players, combat.name_manager.handle(full_name));
             player.add_in_value(
                 &record,
                 combat_start_offset_millis,
                 &self.settings,
-                &mut combat.name_manger,
+                &mut combat.name_manager,
             );
         }
 
@@ -204,7 +208,9 @@ impl Combat {
             total_heal_out: Default::default(),
             total_kills: 0,
             total_deaths: 0,
-            name_manger: Default::default(),
+            name_manager: Default::default(),
+            hits_manger: Default::default(),
+            heal_ticks_manger: Default::default(),
         }
     }
 
@@ -249,9 +255,11 @@ impl Combat {
     fn update(&mut self, settings: &AnalysisSettings) {
         self.update_combat_names(settings);
 
-        self.players
-            .values_mut()
-            .for_each(|p| p.recalculate_metrics());
+        self.hits_manger.clear();
+        self.heal_ticks_manger.clear();
+        self.players.values_mut().for_each(|p| {
+            p.recalculate_metrics(&mut self.hits_manger, &mut self.heal_ticks_manger)
+        });
 
         let players = self.players.values();
 
@@ -313,34 +321,35 @@ impl Combat {
     }
 
     fn update_names(&mut self, record: &Record) {
-        self.name_manger.insert_some(
+        self.name_manager.insert_some(
             record.source.name(),
             NameFlags::SOURCE.set_if(NameFlags::PLAYER, record.source.is_player()),
         );
-        self.name_manger.insert_some(
+        self.name_manager.insert_some(
             record.source.unique_name(),
             NameFlags::SOURCE_UNIQUE.set_if(NameFlags::PLAYER, record.source.is_player()),
         );
-        self.name_manger.insert_some(
+        self.name_manager.insert_some(
             record.target.name(),
             NameFlags::TARGET.set_if(NameFlags::PLAYER, record.target.is_player()),
         );
-        self.name_manger.insert_some(
+        self.name_manager.insert_some(
             record.target.unique_name(),
             NameFlags::TARGET_UNIQUE.set_if(NameFlags::PLAYER, record.target.is_player()),
         );
-        self.name_manger.insert_some(
+        self.name_manager.insert_some(
             record.indirect_source.name(),
             NameFlags::INDIRECT_SOURCE
                 .set_if(NameFlags::PLAYER, record.indirect_source.is_player()),
         );
-        self.name_manger.insert_some(
+        self.name_manager.insert_some(
             record.indirect_source.unique_name(),
             NameFlags::INDIRECT_SOURCE_UNIQUE
                 .set_if(NameFlags::PLAYER, record.indirect_source.is_player()),
         );
-        self.name_manger.insert(record.value_name, NameFlags::VALUE);
-        self.name_manger.insert(record.value_type, NameFlags::NONE);
+        self.name_manager
+            .insert(record.value_name, NameFlags::VALUE);
+        self.name_manager.insert(record.value_type, NameFlags::NONE);
     }
 
     fn update_combat_names(&mut self, settings: &AnalysisSettings) {
@@ -349,11 +358,11 @@ impl Combat {
         settings
             .combat_name_rules
             .iter()
-            .filter(|r| self.name_manger.matches(&r.name_rule))
+            .filter(|r| self.name_manager.matches(&r.name_rule))
             .for_each(|r| {
                 self.combat_names.insert(
                     r.name_rule.name.clone(),
-                    CombatName::new(r, &self.name_manger),
+                    CombatName::new(r, &self.name_manager),
                 );
             });
     }
@@ -540,13 +549,21 @@ impl Player {
         active_time.end = record.time;
     }
 
-    fn recalculate_metrics(&mut self) {
+    fn recalculate_metrics(
+        &mut self,
+        hits_manager: &mut HitsManager,
+        heal_ticks_manager: &mut HealTicksManager,
+    ) {
         let combat_duration = Self::metrics_duration(&self.combat_time);
         let active_duration = Self::metrics_duration(&self.combat_time);
-        self.damage_out.recalculate_metrics(combat_duration);
-        self.damage_in.recalculate_metrics(active_duration);
-        self.heal_out.recalculate_metrics(active_duration);
-        self.heal_in.recalculate_metrics(active_duration);
+        self.damage_out
+            .recalculate_metrics(combat_duration, hits_manager);
+        self.damage_in
+            .recalculate_metrics(active_duration, hits_manager);
+        self.heal_out
+            .recalculate_metrics(active_duration, heal_ticks_manager);
+        self.heal_in
+            .recalculate_metrics(active_duration, heal_ticks_manager);
     }
 
     fn metrics_duration(time: &Option<Range<NaiveDateTime>>) -> f64 {

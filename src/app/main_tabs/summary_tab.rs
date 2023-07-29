@@ -75,7 +75,7 @@ impl SummaryTab {
             "summary dps chart",
             combat.players.values().map(|p| {
                 (
-                    p.damage_out.name.get(&combat.name_manger),
+                    p.damage_out.name.get(&combat.name_manager),
                     p.damage_out.dps.all,
                 )
             }),
@@ -84,7 +84,7 @@ impl SummaryTab {
             "summary damage in chart",
             combat.players.values().map(|p| {
                 (
-                    p.damage_out.name.get(&combat.name_manger),
+                    p.damage_out.name.get(&combat.name_manager),
                     p.damage_out.total_damage.all,
                 )
             }),
@@ -93,7 +93,7 @@ impl SummaryTab {
             "summary damage out chart",
             combat.players.values().map(|p| {
                 (
-                    p.damage_out.name.get(&combat.name_manger),
+                    p.damage_out.name.get(&combat.name_manager),
                     p.damage_in.total_damage.all,
                 )
             }),

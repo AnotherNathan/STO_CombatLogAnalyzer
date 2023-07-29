@@ -50,16 +50,16 @@ impl DamageDiagrams {
 
     pub fn from_damage_groups<'a>(
         groups: impl Iterator<Item = &'a DamageGroup>,
-        name_manager: &NameManager,
+        combat: &Combat,
         dps_filter: f64,
         damage_time_slice: f64,
     ) -> Self {
         let data = groups.map(|g| {
             PreparedDamageDataSet::new(
-                g.name.get(name_manager),
+                g.name.get(&combat.name_manager),
                 g.dps.all,
                 g.total_damage.all,
-                g.hits.iter(),
+                g.hits.get(&combat.hits_manger).iter(),
             )
         });
 
@@ -107,16 +107,16 @@ impl HealDiagrams {
 
     pub fn from_heal_groups<'a>(
         groups: impl Iterator<Item = &'a HealGroup>,
-        name_manager: &NameManager,
+        combat: &Combat,
         dps_filter: f64,
         damage_time_slice: f64,
     ) -> Self {
         let data = groups.map(|g| {
             PreparedHealDataSet::new(
-                g.name.get(name_manager),
+                g.name.get(&combat.name_manager),
                 g.hps.all,
                 g.total_heal.all,
-                g.ticks.iter(),
+                g.ticks.get(&combat.heal_ticks_manger).iter(),
             )
         });
 

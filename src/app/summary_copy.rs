@@ -68,7 +68,7 @@ impl SummaryCopy {
                     String::from_iter(
                         p.damage_in
                             .name
-                            .get(&combat.name_manger)
+                            .get(&combat.name_manager)
                             .chars()
                             .skip_while(|c| *c != '@')
                     ),

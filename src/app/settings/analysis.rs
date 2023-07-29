@@ -322,7 +322,7 @@ impl AnalysisTab {
                     ui,
                     "Source or Target Name",
                     &self.occurred_combat_names_search_term,
-                    combat.name_manger.source_targets(),
+                    combat.name_manager.source_targets(),
                 );
 
                 ui.add_space(SPACE);
@@ -331,7 +331,7 @@ impl AnalysisTab {
                     ui,
                     "Source or Target Unique Name",
                     &self.occurred_combat_names_search_term,
-                    combat.name_manger.source_targets_unique(),
+                    combat.name_manager.source_targets_unique(),
                 );
 
                 ui.add_space(SPACE);
@@ -340,7 +340,7 @@ impl AnalysisTab {
                     ui,
                     "Indirect Source Name",
                     &self.occurred_combat_names_search_term,
-                    combat.name_manger.indirect_sources(),
+                    combat.name_manager.indirect_sources(),
                 );
 
                 ui.add_space(SPACE);
@@ -349,7 +349,7 @@ impl AnalysisTab {
                     ui,
                     "Indirect Source Unique Name",
                     &self.occurred_combat_names_search_term,
-                    combat.name_manger.source_targets_unique(),
+                    combat.name_manager.source_targets_unique(),
                 );
 
                 ui.add_space(SPACE);
@@ -358,7 +358,7 @@ impl AnalysisTab {
                     ui,
                     "Damage / Heal Name",
                     &self.occurred_combat_names_search_term,
-                    combat.name_manger.values(),
+                    combat.name_manager.values(),
                 );
             });
     }

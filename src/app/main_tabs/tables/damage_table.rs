@@ -149,11 +149,7 @@ impl DamageTable {
 }
 
 impl DamageTablePartData {
-    fn new(
-        source: &DamageGroup,
-        name_manager: &NameManager,
-        number_formatter: &mut NumberFormatter,
-    ) -> Self {
+    fn new(source: &DamageGroup, combat: &Combat, number_formatter: &mut NumberFormatter) -> Self {
         Self {
             total_damage: ShieldAndHullTextValue::new(&source.total_damage, 2, number_formatter),
             dps: ShieldAndHullTextValue::new(&source.dps, 2, number_formatter),
@@ -165,7 +161,7 @@ impl DamageTablePartData {
             average_hit: ShieldAndHullTextValue::option(&source.average_hit, 2, number_formatter),
             critical_percentage: TextValue::option(source.critical_percentage, 3, number_formatter),
             flanking: TextValue::option(source.flanking, 3, number_formatter),
-            max_one_hit: MaxOneHit::new(source, number_formatter, name_manager),
+            max_one_hit: MaxOneHit::new(source, number_formatter, &combat.name_manager),
             damage_resistance_percentage: TextValue::option(
                 source.damage_resistance_percentage,
                 3,
@@ -173,7 +169,7 @@ impl DamageTablePartData {
             ),
             base_damage: TextValue::new(source.total_base_damage, 2, number_formatter),
             base_dps: TextValue::new(source.base_dps, 2, number_formatter),
-            damage_types: DamageTypes::new(source, name_manager),
+            damage_types: DamageTypes::new(source, &combat.name_manager),
             hits: ShieldAndHullTextCount::new(&source.damage_metrics.hits),
             hits_per_second: ShieldAndHullTextValue::new(
                 &source.hits_per_second,
@@ -187,7 +183,7 @@ impl DamageTablePartData {
             ),
             misses: TextCount::new(source.misses),
             accuracy_percentage: TextValue::option(source.accuracy_percentage, 3, number_formatter),
-            source_hits: source.hits.clone(),
+            source_hits: source.hits.get(&combat.hits_manger).to_vec(),
         }
     }
 }

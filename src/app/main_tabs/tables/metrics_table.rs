@@ -88,7 +88,7 @@ impl<T: 'static> MetricsTable<T> {
         columns: &'static [ColumnDescriptor<T>],
         combat: &Combat,
         mut group: impl FnMut(&Player) -> &G,
-        data_new: fn(&G, &NameManager, &mut NumberFormatter) -> T,
+        data_new: fn(&G, &Combat, &mut NumberFormatter) -> T,
     ) -> Self {
         let mut number_formatter = NumberFormatter::new();
         let mut id_source = 0;
@@ -100,7 +100,7 @@ impl<T: 'static> MetricsTable<T> {
                 .map(|p| {
                     MetricsTablePart::new(
                         group(p),
-                        &combat.name_manger,
+                        combat,
                         &mut number_formatter,
                         &mut id_source,
                         data_new,
@@ -183,22 +183,22 @@ impl<T: 'static> MetricsTable<T> {
 impl<T> MetricsTablePart<T> {
     fn new<G: AnalysisGroup>(
         source: &G,
-        name_manager: &NameManager,
+        combat: &Combat,
         number_formatter: &mut NumberFormatter,
         id_source: &mut u32,
-        data_new: fn(&G, &NameManager, &mut NumberFormatter) -> T,
+        data_new: fn(&G, &Combat, &mut NumberFormatter) -> T,
     ) -> Self {
         let id = *id_source;
         *id_source += 1;
         let sub_parts = source
             .sub_groups()
             .values()
-            .map(|s| MetricsTablePart::new(s, name_manager, number_formatter, id_source, data_new))
+            .map(|s| MetricsTablePart::new(s, combat, number_formatter, id_source, data_new))
             .collect();
 
         Self {
-            data: data_new(source, name_manager, number_formatter),
-            name: source.name().get(name_manager).to_string(),
+            data: data_new(source, combat, number_formatter),
+            name: source.name().get(&combat.name_manager).to_string(),
             id,
             sub_parts,
             open: false,

@@ -31,7 +31,7 @@ impl DamageTab {
         self.table = DamageTable::new(combat, self.damage_group);
         self.dmg_main_diagrams = DamageDiagrams::from_damage_groups(
             combat.players.values().map(self.damage_group),
-            &combat.name_manger,
+            combat,
             self.dps_filter,
             self.diagram_time_slice,
         );
