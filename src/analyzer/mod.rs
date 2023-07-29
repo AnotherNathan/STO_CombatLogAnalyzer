@@ -9,12 +9,15 @@ use smallvec::SmallVec;
 
 mod common;
 mod damage;
+mod groups;
 mod heal;
 mod name_manager;
 mod parser;
 pub mod settings;
 pub use common::*;
 pub use damage::*;
+use groups::*;
+pub use groups::{AnalysisGroup, DamageGroup, HealGroup};
 pub use heal::*;
 pub use name_manager::*;
 
@@ -62,88 +65,6 @@ pub struct Player {
     pub heal_in: HealGroup,
     pub deaths: u64,
     pub kills: u64,
-}
-
-pub type DamageGroup = AnalysisGroup<DamageData>;
-pub type HealGroup = AnalysisGroup<HealData>;
-
-#[derive(Clone, Debug, Educe)]
-#[educe(Deref, DerefMut)]
-pub struct AnalysisGroup<T: Clone + Sized + Debug> {
-    pub name: NameHandle,
-    #[educe(Deref, DerefMut)]
-    pub data: T,
-    pub sub_groups: NameMap<Self>,
-
-    is_pool: bool,
-}
-
-#[derive(Clone, Debug, Educe, Default)]
-#[educe(Deref, DerefMut)]
-pub struct DamageData {
-    #[educe(Deref, DerefMut)]
-    pub damage_metrics: DamageMetrics,
-    pub max_one_hit: MaxOneHit,
-    pub damage_percentage: ShieldHullOptionalValues,
-    pub hits_percentage: ShieldHullOptionalValues,
-    pub hits: Vec<Hit>,
-    pub damage_types: NameSet,
-}
-
-#[derive(Clone, Debug, Educe, Default)]
-#[educe(Deref, DerefMut)]
-pub struct HealData {
-    #[educe(Deref, DerefMut)]
-    pub heal_metrics: HealMetrics,
-
-    pub heal_percentage: ShieldHullOptionalValues,
-    pub ticks_percentage: ShieldHullOptionalValues,
-
-    pub ticks: Vec<HealTick>,
-}
-
-impl<T: Clone + Sized + Debug + Default> AnalysisGroup<T> {
-    fn new(name: NameHandle, is_pool: bool) -> Self {
-        Self {
-            name,
-            data: Default::default(),
-            sub_groups: Default::default(),
-            is_pool,
-        }
-    }
-
-    fn get_non_pool_sub_group(&mut self, sub_group: NameHandle) -> &mut Self {
-        let candidate = self.get_sub_group_or_create_non_pool(sub_group);
-        if !candidate.is_pool {
-            return candidate;
-        }
-
-        candidate.get_non_pool_sub_group(sub_group)
-    }
-
-    fn get_pool_sub_group(&mut self, sub_group: NameHandle) -> &mut Self {
-        let candidate = self.sub_groups.get(&sub_group);
-        if candidate.map(|c| c.is_pool).unwrap_or(false) {
-            return self.get_sub_group_or_create_non_pool(sub_group);
-        }
-
-        // make a new pool and move the non pool sub group on there
-        let mut pool = Self::new(sub_group, true);
-        if let Some(non_pool_sub_group) = self.sub_groups.remove(&sub_group) {
-            pool.sub_groups.insert(sub_group, non_pool_sub_group);
-        }
-        self.sub_groups.insert(sub_group, pool);
-        self.get_pool_sub_group(sub_group)
-    }
-
-    fn get_sub_group_or_create_non_pool(&mut self, sub_group: NameHandle) -> &mut Self {
-        if !self.sub_groups.contains_key(&sub_group) {
-            self.sub_groups
-                .insert(sub_group, Self::new(sub_group, false));
-        }
-
-        self.sub_groups.get_mut(&sub_group).unwrap()
-    }
 }
 
 impl Analyzer {
@@ -635,169 +556,6 @@ impl Player {
             .unwrap_or(Duration::max_value());
         let duration = duration.to_std().unwrap().as_secs_f64();
         duration
-    }
-}
-
-impl DamageGroup {
-    fn recalculate_metrics(&mut self, combat_duration: f64) {
-        if self.sub_groups.len() > 0 {
-            self.max_one_hit.reset();
-            self.hits.clear();
-            self.damage_types.clear();
-
-            for sub_group in self.sub_groups.values_mut() {
-                sub_group.recalculate_metrics(combat_duration);
-                self.data.hits.extend_from_slice(&sub_group.hits);
-                self.data
-                    .max_one_hit
-                    .update(sub_group.max_one_hit.name, sub_group.max_one_hit.damage);
-                for damage_type in sub_group.damage_types.iter() {
-                    if !self.data.damage_types.contains(damage_type) {
-                        self.data.damage_types.insert(damage_type.clone());
-                    }
-                }
-            }
-        } else {
-            self.max_one_hit = MaxOneHit::from_hits(self.name, &self.hits);
-        }
-
-        self.damage_metrics = DamageMetrics::calculate(&self.hits, combat_duration);
-    }
-
-    fn recalculate_percentages(
-        &mut self,
-        parent_total_damage: &ShieldHullValues,
-        parent_hits: &ShieldHullCounts,
-    ) {
-        self.damage_percentage =
-            ShieldHullOptionalValues::percentage(&self.total_damage, parent_total_damage);
-        self.hits_percentage = ShieldHullOptionalValues::percentage(
-            &self.damage_metrics.hits.to_values(),
-            &parent_hits.to_values(),
-        );
-        self.sub_groups.values_mut().for_each(|s| {
-            s.recalculate_percentages(
-                &self.data.damage_metrics.total_damage,
-                &self.data.damage_metrics.hits,
-            )
-        });
-    }
-
-    fn add_damage(
-        &mut self,
-        path: &[NameHandle],
-        hit: BaseHit,
-        flags: ValueFlags,
-        damage_type: NameHandle,
-        combat_start_offset_millis: u32,
-        name_manager: &NameManager,
-    ) {
-        if path.len() == 1 {
-            let indirect_source = self.get_non_pool_sub_group(path[0]);
-            indirect_source
-                .hits
-                .push(hit.to_hit(combat_start_offset_millis));
-            indirect_source.add_damage_type_non_pool(damage_type, name_manager);
-
-            return;
-        }
-
-        let indirect_source = self.get_pool_sub_group(*path.last().unwrap());
-        indirect_source.add_damage(
-            &path[..path.len() - 1],
-            hit,
-            flags,
-            damage_type,
-            combat_start_offset_millis,
-            name_manager,
-        );
-    }
-
-    fn add_damage_type_non_pool(&mut self, damage_type: NameHandle, name_manager: &NameManager) {
-        let shield_handle = name_manager.get_handle("Shield");
-        if damage_type == NameHandle::UNKNOWN {
-            return;
-        }
-
-        if self.damage_types.contains(&damage_type) {
-            return;
-        }
-
-        if self.damage_types.contains(&damage_type) {
-            return;
-        }
-
-        if Some(damage_type) == shield_handle && !self.damage_types.is_empty() {
-            return;
-        }
-
-        if shield_handle
-            .map(|s| damage_type != s && self.damage_types.contains(&s))
-            .unwrap_or(false)
-        {
-            self.damage_types.remove(&shield_handle.unwrap());
-        }
-
-        self.damage_types.insert(damage_type);
-    }
-}
-
-impl HealGroup {
-    fn recalculate_metrics(&mut self, combat_duration: f64) {
-        if self.sub_groups.len() > 0 {
-            self.ticks.clear();
-
-            for sub_group in self.sub_groups.values_mut() {
-                sub_group.recalculate_metrics(combat_duration);
-                self.data.ticks.extend_from_slice(&sub_group.ticks);
-            }
-        }
-
-        self.heal_metrics = HealMetrics::calculate(&self.ticks, combat_duration);
-    }
-
-    fn recalculate_percentages(
-        &mut self,
-        parent_total_heal: &ShieldHullValues,
-        parent_ticks: &ShieldHullCounts,
-    ) {
-        self.heal_percentage =
-            ShieldHullOptionalValues::percentage(&self.total_heal, parent_total_heal);
-        self.ticks_percentage = ShieldHullOptionalValues::percentage(
-            &self.heal_metrics.ticks.to_values(),
-            &parent_ticks.to_values(),
-        );
-        self.sub_groups.values_mut().for_each(|s| {
-            s.recalculate_percentages(
-                &self.data.heal_metrics.total_heal,
-                &self.data.heal_metrics.ticks,
-            )
-        });
-    }
-
-    fn add_heal(
-        &mut self,
-        path: &[NameHandle],
-        tick: BaseHealTick,
-        flags: ValueFlags,
-        combat_start_offset_millis: u32,
-    ) {
-        if path.len() == 1 {
-            let indirect_source = self.get_non_pool_sub_group(path[0]);
-            indirect_source
-                .ticks
-                .push(tick.to_tick(combat_start_offset_millis));
-
-            return;
-        }
-
-        let indirect_source = self.get_pool_sub_group(*path.last().unwrap());
-        indirect_source.add_heal(
-            &path[..path.len() - 1],
-            tick,
-            flags,
-            combat_start_offset_millis,
-        );
     }
 }
 

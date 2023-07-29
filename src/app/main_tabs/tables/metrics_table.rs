@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, fmt::Debug};
+use std::cmp::Reverse;
 
 use educe::Educe;
 use eframe::egui::*;
@@ -84,11 +84,11 @@ impl<T: 'static> MetricsTable<T> {
         }
     }
 
-    pub fn new_base<G: Clone + Debug>(
+    pub fn new_base<G: AnalysisGroup>(
         columns: &'static [ColumnDescriptor<T>],
         combat: &Combat,
-        mut group: impl FnMut(&Player) -> &AnalysisGroup<G>,
-        data_new: fn(&AnalysisGroup<G>, &NameManager, &mut NumberFormatter) -> T,
+        mut group: impl FnMut(&Player) -> &G,
+        data_new: fn(&G, &NameManager, &mut NumberFormatter) -> T,
     ) -> Self {
         let mut number_formatter = NumberFormatter::new();
         let mut id_source = 0;
@@ -181,24 +181,24 @@ impl<T: 'static> MetricsTable<T> {
 }
 
 impl<T> MetricsTablePart<T> {
-    fn new<G: Clone + Debug>(
-        source: &AnalysisGroup<G>,
+    fn new<G: AnalysisGroup>(
+        source: &G,
         name_manager: &NameManager,
         number_formatter: &mut NumberFormatter,
         id_source: &mut u32,
-        data_new: fn(&AnalysisGroup<G>, &NameManager, &mut NumberFormatter) -> T,
+        data_new: fn(&G, &NameManager, &mut NumberFormatter) -> T,
     ) -> Self {
         let id = *id_source;
         *id_source += 1;
         let sub_parts = source
-            .sub_groups
+            .sub_groups()
             .values()
             .map(|s| MetricsTablePart::new(s, name_manager, number_formatter, id_source, data_new))
             .collect();
 
         Self {
             data: data_new(source, name_manager, number_formatter),
-            name: source.name.get(name_manager).to_string(),
+            name: source.name().get(name_manager).to_string(),
             id,
             sub_parts,
             open: false,
