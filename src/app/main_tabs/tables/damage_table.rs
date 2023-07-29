@@ -149,7 +149,11 @@ impl DamageTable {
 }
 
 impl DamageTablePartData {
-    fn new(source: &DamageGroup, number_formatter: &mut NumberFormatter) -> Self {
+    fn new(
+        source: &DamageGroup,
+        name_manager: &NameManager,
+        number_formatter: &mut NumberFormatter,
+    ) -> Self {
         Self {
             total_damage: ShieldAndHullTextValue::new(&source.total_damage, 2, number_formatter),
             dps: ShieldAndHullTextValue::new(&source.dps, 2, number_formatter),
@@ -161,7 +165,7 @@ impl DamageTablePartData {
             average_hit: ShieldAndHullTextValue::option(&source.average_hit, 2, number_formatter),
             critical_percentage: TextValue::option(source.critical_percentage, 3, number_formatter),
             flanking: TextValue::option(source.flanking, 3, number_formatter),
-            max_one_hit: MaxOneHit::new(source, number_formatter),
+            max_one_hit: MaxOneHit::new(source, number_formatter, name_manager),
             damage_resistance_percentage: TextValue::option(
                 source.damage_resistance_percentage,
                 3,
@@ -169,7 +173,7 @@ impl DamageTablePartData {
             ),
             base_damage: TextValue::new(source.total_base_damage, 2, number_formatter),
             base_dps: TextValue::new(source.base_dps, 2, number_formatter),
-            damage_types: DamageTypes::new(source),
+            damage_types: DamageTypes::new(source, name_manager),
             hits: ShieldAndHullTextCount::new(&source.damage_metrics.hits),
             hits_per_second: ShieldAndHullTextValue::new(
                 &source.hits_per_second,
@@ -199,10 +203,14 @@ impl DamageTablePart {
 }
 
 impl MaxOneHit {
-    fn new(source: &DamageGroup, number_formatter: &mut NumberFormatter) -> Self {
+    fn new(
+        source: &DamageGroup,
+        number_formatter: &mut NumberFormatter,
+        name_manager: &NameManager,
+    ) -> Self {
         Self {
             damage: TextValue::new(source.max_one_hit.damage, 2, number_formatter),
-            name: source.max_one_hit.name.clone(),
+            name: source.max_one_hit.name.get(name_manager).to_string(),
         }
     }
 
@@ -214,11 +222,25 @@ impl MaxOneHit {
 }
 
 impl DamageTypes {
-    fn new(source: &DamageGroup) -> Self {
+    fn new(source: &DamageGroup, name_manager: &NameManager) -> Self {
         match source.damage_types.len() {
             0 => Self::Unknown,
-            1 => Self::Single(source.damage_types.iter().nth(0).unwrap().clone()),
-            _ => Self::Mixed(source.damage_types.iter().cloned().collect()),
+            1 => Self::Single(
+                source
+                    .damage_types
+                    .iter()
+                    .nth(0)
+                    .unwrap()
+                    .get(name_manager)
+                    .to_string(),
+            ),
+            _ => Self::Mixed(
+                source
+                    .damage_types
+                    .iter()
+                    .map(|d| d.get(name_manager).to_string())
+                    .collect(),
+            ),
         }
     }
 

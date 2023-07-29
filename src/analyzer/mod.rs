@@ -4,17 +4,19 @@ use chrono::{Duration, NaiveDateTime};
 use educe::Educe;
 use itertools::Itertools;
 use log::warn;
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 
 mod common;
 mod damage;
 mod heal;
+mod name_manager;
 mod parser;
 pub mod settings;
 pub use common::*;
 pub use damage::*;
 pub use heal::*;
+pub use name_manager::*;
 
 use self::{parser::*, settings::*};
 
@@ -25,8 +27,8 @@ pub struct Analyzer {
     combats: Vec<Combat>,
 }
 
-type Players = FxHashMap<String, Player>;
-type GroupingPath<'a> = SmallVec<[&'a str; 8]>;
+type Players = NameMap<Player>;
+type GroupingPath = SmallVec<[NameHandle; 8]>;
 
 #[derive(Clone, Debug)]
 pub struct Combat {
@@ -41,16 +43,7 @@ pub struct Combat {
     pub log_pos: Option<Range<u64>>,
     pub total_deaths: u64,
     pub total_kills: u64,
-    pub name_occurrences: CombatNameOccurrences,
-}
-
-#[derive(Clone, Debug)]
-pub struct CombatNameOccurrences {
-    pub source_target_names: FxHashSet<String>,
-    pub source_target_unique_names: FxHashSet<String>,
-    pub indirect_source_names: FxHashSet<String>,
-    pub indirect_source_unique_names: FxHashSet<String>,
-    pub value_names: FxHashSet<String>,
+    pub name_manger: NameManager,
 }
 
 #[derive(Clone, Debug)]
@@ -77,10 +70,10 @@ pub type HealGroup = AnalysisGroup<HealData>;
 #[derive(Clone, Debug, Educe)]
 #[educe(Deref, DerefMut)]
 pub struct AnalysisGroup<T: Clone + Sized + Debug> {
-    pub name: String,
+    pub name: NameHandle,
     #[educe(Deref, DerefMut)]
     pub data: T,
-    pub sub_groups: FxHashMap<String, Self>,
+    pub sub_groups: NameMap<Self>,
 
     is_pool: bool,
 }
@@ -94,7 +87,7 @@ pub struct DamageData {
     pub damage_percentage: ShieldHullOptionalValues,
     pub hits_percentage: ShieldHullOptionalValues,
     pub hits: Vec<Hit>,
-    pub damage_types: FxHashSet<String>,
+    pub damage_types: NameSet,
 }
 
 #[derive(Clone, Debug, Educe, Default)]
@@ -110,16 +103,16 @@ pub struct HealData {
 }
 
 impl<T: Clone + Sized + Debug + Default> AnalysisGroup<T> {
-    fn new(name: &str, is_pool: bool) -> Self {
+    fn new(name: NameHandle, is_pool: bool) -> Self {
         Self {
-            name: name.to_string(),
+            name,
             data: Default::default(),
             sub_groups: Default::default(),
             is_pool,
         }
     }
 
-    fn get_non_pool_sub_group(&mut self, sub_group: &str) -> &mut Self {
+    fn get_non_pool_sub_group(&mut self, sub_group: NameHandle) -> &mut Self {
         let candidate = self.get_sub_group_or_create_non_pool(sub_group);
         if !candidate.is_pool {
             return candidate;
@@ -128,29 +121,28 @@ impl<T: Clone + Sized + Debug + Default> AnalysisGroup<T> {
         candidate.get_non_pool_sub_group(sub_group)
     }
 
-    fn get_pool_sub_group(&mut self, sub_group: &str) -> &mut Self {
-        let candidate = self.sub_groups.get(sub_group);
+    fn get_pool_sub_group(&mut self, sub_group: NameHandle) -> &mut Self {
+        let candidate = self.sub_groups.get(&sub_group);
         if candidate.map(|c| c.is_pool).unwrap_or(false) {
             return self.get_sub_group_or_create_non_pool(sub_group);
         }
 
         // make a new pool and move the non pool sub group on there
         let mut pool = Self::new(sub_group, true);
-        if let Some(non_pool_sub_group) = self.sub_groups.remove(sub_group) {
-            pool.sub_groups
-                .insert(sub_group.to_string(), non_pool_sub_group);
+        if let Some(non_pool_sub_group) = self.sub_groups.remove(&sub_group) {
+            pool.sub_groups.insert(sub_group, non_pool_sub_group);
         }
-        self.sub_groups.insert(sub_group.to_string(), pool);
+        self.sub_groups.insert(sub_group, pool);
         self.get_pool_sub_group(sub_group)
     }
 
-    fn get_sub_group_or_create_non_pool(&mut self, sub_group: &str) -> &mut Self {
-        if !self.sub_groups.contains_key(sub_group) {
+    fn get_sub_group_or_create_non_pool(&mut self, sub_group: NameHandle) -> &mut Self {
+        if !self.sub_groups.contains_key(&sub_group) {
             self.sub_groups
-                .insert(sub_group.to_string(), Self::new(sub_group, false));
+                .insert(sub_group, Self::new(sub_group, false));
         }
 
-        self.sub_groups.get_mut(sub_group).unwrap()
+        self.sub_groups.get_mut(&sub_group).unwrap()
     }
 }
 
@@ -205,6 +197,7 @@ impl Analyzer {
         let combat = self.combats.last_mut().unwrap();
 
         combat.update_meta_data(&record);
+        combat.update_names(&record);
 
         let combat_start_offset_millis = record
             .time
@@ -212,27 +205,51 @@ impl Analyzer {
             .num_milliseconds() as u32;
 
         if let Entity::Player { full_name, .. } = &record.source {
-            let player = combat.get_player(full_name);
-            player.add_out_value(&record, combat_start_offset_millis, &self.settings);
+            let player =
+                Combat::get_player(&mut combat.players, combat.name_manger.handle(full_name));
+            player.add_out_value(
+                &record,
+                combat_start_offset_millis,
+                &self.settings,
+                &mut combat.name_manger,
+            );
         }
 
         if let Entity::Player { full_name, .. } = &record.target {
-            let player = combat.get_player(full_name);
-            player.add_in_value(&record, combat_start_offset_millis, &self.settings);
+            let player =
+                Combat::get_player(&mut combat.players, combat.name_manger.handle(full_name));
+            player.add_in_value(
+                &record,
+                combat_start_offset_millis,
+                &self.settings,
+                &mut combat.name_manger,
+            );
         }
 
         if let (Entity::Player { full_name, .. }, Entity::NonPlayer { .. }) =
             (&record.indirect_source, &record.source)
         {
-            let player = combat.get_player(full_name);
-            player.add_in_value(&record, combat_start_offset_millis, &self.settings);
+            let player =
+                Combat::get_player(&mut combat.players, combat.name_manger.handle(full_name));
+            player.add_in_value(
+                &record,
+                combat_start_offset_millis,
+                &self.settings,
+                &mut combat.name_manger,
+            );
         }
 
         if let (Entity::Player { full_name, .. }, Entity::None, Entity::None) =
             (&record.source, &record.indirect_source, &record.target)
         {
-            let player = combat.get_player(full_name);
-            player.add_in_value(&record, combat_start_offset_millis, &self.settings);
+            let player =
+                Combat::get_player(&mut combat.players, combat.name_manger.handle(full_name));
+            player.add_in_value(
+                &record,
+                combat_start_offset_millis,
+                &self.settings,
+                &mut combat.name_manger,
+            );
         }
 
         Ok(())
@@ -266,23 +283,16 @@ impl Combat {
             total_heal_out: Default::default(),
             total_kills: 0,
             total_deaths: 0,
-            name_occurrences: CombatNameOccurrences {
-                source_target_names: Default::default(),
-                source_target_unique_names: Default::default(),
-                indirect_source_names: Default::default(),
-                indirect_source_unique_names: Default::default(),
-                value_names: Default::default(),
-            },
+            name_manger: Default::default(),
         }
     }
 
-    fn get_player(&mut self, full_name: &str) -> &mut Player {
-        if !self.players.contains_key(full_name) {
-            let player = Player::new(full_name);
-            self.players
-                .insert(player.damage_out.name.to_string(), player);
+    fn get_player(players: &mut NameMap<Player>, name: NameHandle) -> &mut Player {
+        if !players.contains_key(&name) {
+            let player = Player::new(name);
+            players.insert(player.damage_out.name, player);
         }
-        self.players.get_mut(full_name).unwrap()
+        players.get_mut(&name).unwrap()
     }
 
     pub fn identifier(&self) -> String {
@@ -377,60 +387,39 @@ impl Combat {
     }
 
     fn update_meta_data(&mut self, record: &Record) {
-        self.update_names(record);
         self.update_time(record);
         self.update_log_pos(record);
     }
 
     fn update_names(&mut self, record: &Record) {
-        Self::update_entity_names(
-            &mut self.name_occurrences.source_target_names,
-            &mut self.name_occurrences.source_target_unique_names,
-            &record.source,
+        self.name_manger.insert_some(
+            record.source.name(),
+            NameFlags::SOURCE.set_if(NameFlags::PLAYER, record.source.is_player()),
         );
-        Self::update_entity_names(
-            &mut self.name_occurrences.source_target_names,
-            &mut self.name_occurrences.source_target_unique_names,
-            &record.target,
+        self.name_manger.insert_some(
+            record.source.unique_name(),
+            NameFlags::SOURCE_UNIQUE.set_if(NameFlags::PLAYER, record.source.is_player()),
         );
-        Self::update_entity_names(
-            &mut self.name_occurrences.indirect_source_names,
-            &mut self.name_occurrences.indirect_source_unique_names,
-            &record.indirect_source,
+        self.name_manger.insert_some(
+            record.target.name(),
+            NameFlags::TARGET.set_if(NameFlags::PLAYER, record.target.is_player()),
         );
-
-        if !self
-            .name_occurrences
-            .value_names
-            .contains(record.value_name)
-        {
-            self.name_occurrences
-                .value_names
-                .insert(record.value_name.to_owned());
-        }
-    }
-
-    fn update_entity_names(
-        names: &mut FxHashSet<String>,
-        unique_names: &mut FxHashSet<String>,
-        entity: &Entity,
-    ) {
-        Self::update_names_of_or_not(names, entity.name());
-        Self::update_names_of_or_not(unique_names, entity.unique_name());
-    }
-
-    fn update_names_of_or_not(names: &mut FxHashSet<String>, name: Option<&str>) {
-        if let Some(name) = name {
-            Self::update_names_of(names, name);
-        }
-    }
-
-    fn update_names_of(names: &mut FxHashSet<String>, name: &str) {
-        if names.contains(name) {
-            return;
-        }
-
-        names.insert(name.to_string());
+        self.name_manger.insert_some(
+            record.target.unique_name(),
+            NameFlags::TARGET_UNIQUE.set_if(NameFlags::PLAYER, record.target.is_player()),
+        );
+        self.name_manger.insert_some(
+            record.indirect_source.name(),
+            NameFlags::INDIRECT_SOURCE
+                .set_if(NameFlags::PLAYER, record.indirect_source.is_player()),
+        );
+        self.name_manger.insert_some(
+            record.indirect_source.unique_name(),
+            NameFlags::INDIRECT_SOURCE_UNIQUE
+                .set_if(NameFlags::PLAYER, record.indirect_source.is_player()),
+        );
+        self.name_manger.insert(record.value_name, NameFlags::VALUE);
+        self.name_manger.insert(record.value_type, NameFlags::NONE);
     }
 
     fn update_combat_names(&mut self, settings: &AnalysisSettings) {
@@ -439,11 +428,11 @@ impl Combat {
         settings
             .combat_name_rules
             .iter()
-            .filter(|r| self.name_occurrences.matches(&r.name_rule))
+            .filter(|r| self.name_manger.matches(&r.name_rule))
             .for_each(|r| {
                 self.combat_names.insert(
                     r.name_rule.name.clone(),
-                    CombatName::new(r, &self.name_occurrences),
+                    CombatName::new(r, &self.name_manger),
                 );
             });
     }
@@ -468,7 +457,7 @@ impl Combat {
 }
 
 impl Player {
-    fn new(full_name: &str) -> Self {
+    fn new(full_name: NameHandle) -> Self {
         Self {
             combat_time: None,
             active_time: None,
@@ -486,17 +475,19 @@ impl Player {
         record: &Record,
         combat_start_offset_millis: u32,
         settings: &AnalysisSettings,
+        name_manager: &mut NameManager,
     ) {
         self.update_active_time(record);
-        let mut path = Self::build_grouping_path(record, settings);
+        let mut path = Self::build_grouping_path(record, settings, name_manager);
         match record.value {
             RecordValue::Damage(damage) if !record.is_direct_self_damage() => {
                 self.damage_out.add_damage(
                     &path,
                     damage,
                     record.value_flags,
-                    record.value_type,
+                    name_manager.handle(record.value_type),
                     combat_start_offset_millis,
+                    name_manager,
                 );
 
                 self.update_combat_time(record);
@@ -507,15 +498,18 @@ impl Player {
             }
             RecordValue::Heal(heal) => {
                 let target_name = if record.is_self_directed() {
-                    record.source.name().unwrap_or("<unknown target>")
+                    record.source.name()
                 } else {
                     record
                         .target
                         .name()
                         .or_else(|| record.indirect_source.name())
-                        .unwrap_or("<unknown target>")
                 };
-                path.push(target_name);
+                path.push(
+                    target_name
+                        .map(|n| name_manager.handle(n))
+                        .unwrap_or_default(),
+                );
                 self.heal_out
                     .add_heal(&path, heal, record.value_flags, combat_start_offset_millis);
             }
@@ -528,9 +522,14 @@ impl Player {
         record: &Record,
         combat_start_offset_millis: u32,
         settings: &AnalysisSettings,
+        name_manager: &mut NameManager,
     ) {
-        let source_name = record.source.name().unwrap_or("<unknown source>");
-        let mut path = Self::build_grouping_path(record, settings);
+        let source_name = record
+            .source
+            .name()
+            .map(|n| name_manager.handle(n))
+            .unwrap_or_default();
+        let mut path = Self::build_grouping_path(record, settings, name_manager);
         path.push(source_name);
         match record.value {
             RecordValue::Damage(damage) => {
@@ -538,8 +537,9 @@ impl Player {
                     &path,
                     damage,
                     record.value_flags,
-                    record.value_type,
+                    name_manager.handle(record.value_type),
                     combat_start_offset_millis,
+                    name_manager,
                 );
                 self.update_active_time(record);
                 if record.value_flags.contains(ValueFlags::KILL) {
@@ -553,15 +553,16 @@ impl Player {
         }
     }
 
-    fn build_grouping_path<'a>(
-        record: &'a Record,
-        settings: &'a AnalysisSettings,
-    ) -> GroupingPath<'a> {
+    fn build_grouping_path(
+        record: &Record,
+        settings: &AnalysisSettings,
+        name_manager: &mut NameManager,
+    ) -> GroupingPath {
         let mut path = GroupingPath::new();
 
         match (&record.indirect_source, &record.target) {
             (Entity::None, _) | (_, Entity::None) => {
-                path.push(record.value_name);
+                path.push(name_manager.handle(record.value_name));
             }
 
             (
@@ -577,9 +578,15 @@ impl Player {
                     .iter()
                     .any(|r| r.matches_record(record))
                 {
-                    path.extend_from_slice(&[name, record.value_name]);
+                    path.extend_from_slice(&[
+                        name_manager.handle(name),
+                        name_manager.handle(record.value_name),
+                    ]);
                 } else {
-                    path.extend_from_slice(&[record.value_name, name]);
+                    path.extend_from_slice(&[
+                        name_manager.handle(record.value_name),
+                        name_manager.handle(name),
+                    ]);
                 }
             }
         }
@@ -589,7 +596,7 @@ impl Player {
             .iter()
             .find(|r| r.matches_record(record))
         {
-            path.push(rule.name.as_str());
+            path.push(name_manager.insert(rule.name.as_str(), NameFlags::NONE));
         }
 
         path
@@ -643,7 +650,7 @@ impl DamageGroup {
                 self.data.hits.extend_from_slice(&sub_group.hits);
                 self.data
                     .max_one_hit
-                    .update(&sub_group.max_one_hit.name, sub_group.max_one_hit.damage);
+                    .update(sub_group.max_one_hit.name, sub_group.max_one_hit.damage);
                 for damage_type in sub_group.damage_types.iter() {
                     if !self.data.damage_types.contains(damage_type) {
                         self.data.damage_types.insert(damage_type.clone());
@@ -651,7 +658,7 @@ impl DamageGroup {
                 }
             }
         } else {
-            self.max_one_hit = MaxOneHit::from_hits(&self.name, &self.hits);
+            self.max_one_hit = MaxOneHit::from_hits(self.name, &self.hits);
         }
 
         self.damage_metrics = DamageMetrics::calculate(&self.hits, combat_duration);
@@ -678,54 +685,60 @@ impl DamageGroup {
 
     fn add_damage(
         &mut self,
-        path: &[&str],
+        path: &[NameHandle],
         hit: BaseHit,
         flags: ValueFlags,
-        damage_type: &str,
+        damage_type: NameHandle,
         combat_start_offset_millis: u32,
+        name_manager: &NameManager,
     ) {
         if path.len() == 1 {
             let indirect_source = self.get_non_pool_sub_group(path[0]);
             indirect_source
                 .hits
                 .push(hit.to_hit(combat_start_offset_millis));
-            indirect_source.add_damage_type_non_pool(damage_type);
+            indirect_source.add_damage_type_non_pool(damage_type, name_manager);
 
             return;
         }
 
-        let indirect_source = self.get_pool_sub_group(path.last().unwrap());
+        let indirect_source = self.get_pool_sub_group(*path.last().unwrap());
         indirect_source.add_damage(
             &path[..path.len() - 1],
             hit,
             flags,
             damage_type,
             combat_start_offset_millis,
+            name_manager,
         );
     }
 
-    fn add_damage_type_non_pool(&mut self, damage_type: &str) {
-        if damage_type.is_empty() {
+    fn add_damage_type_non_pool(&mut self, damage_type: NameHandle, name_manager: &NameManager) {
+        let shield_handle = name_manager.get_handle("Shield");
+        if damage_type == NameHandle::UNKNOWN {
             return;
         }
 
-        if self.damage_types.contains(damage_type) {
+        if self.damage_types.contains(&damage_type) {
             return;
         }
 
-        if self.damage_types.contains(damage_type) {
+        if self.damage_types.contains(&damage_type) {
             return;
         }
 
-        if damage_type == "Shield" && !self.damage_types.is_empty() {
+        if Some(damage_type) == shield_handle && !self.damage_types.is_empty() {
             return;
         }
 
-        if damage_type != "Shield" && self.damage_types.contains("Shield") {
-            self.damage_types.remove("Shield");
+        if shield_handle
+            .map(|s| damage_type != s && self.damage_types.contains(&s))
+            .unwrap_or(false)
+        {
+            self.damage_types.remove(&shield_handle.unwrap());
         }
 
-        self.damage_types.insert(damage_type.to_string());
+        self.damage_types.insert(damage_type);
     }
 }
 
@@ -764,7 +777,7 @@ impl HealGroup {
 
     fn add_heal(
         &mut self,
-        path: &[&str],
+        path: &[NameHandle],
         tick: BaseHealTick,
         flags: ValueFlags,
         combat_start_offset_millis: u32,
@@ -778,7 +791,7 @@ impl HealGroup {
             return;
         }
 
-        let indirect_source = self.get_pool_sub_group(path.last().unwrap());
+        let indirect_source = self.get_pool_sub_group(*path.last().unwrap());
         indirect_source.add_heal(
             &path[..path.len() - 1],
             tick,
@@ -788,22 +801,12 @@ impl HealGroup {
     }
 }
 
-impl CombatNameOccurrences {
-    fn matches(&self, rule: &RulesGroup) -> bool {
-        rule.matches_source_or_target_names(self.source_target_names.iter())
-            || rule.matches_source_or_target_unique_names(self.source_target_unique_names.iter())
-            || rule.matches_indirect_source_names(self.indirect_source_names.iter())
-            || rule.matches_indirect_source_unique_names(self.indirect_source_unique_names.iter())
-            || rule.matches_damage_or_heal_names(self.value_names.iter())
-    }
-}
-
 impl CombatName {
-    fn new(rule: &CombatNameRule, name_occurrences: &CombatNameOccurrences) -> Self {
+    fn new(rule: &CombatNameRule, name_manager: &NameManager) -> Self {
         let additional_infos: Vec<_> = rule
             .additional_info_rules
             .iter()
-            .filter(|r| name_occurrences.matches(r))
+            .filter(|r| name_manager.matches(r))
             .map(|r| r.name.clone())
             .collect();
         Self {

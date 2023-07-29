@@ -8,7 +8,7 @@ pub struct DamageTab {
     table: DamageTable,
     dmg_main_diagrams: DamageDiagrams,
     dmg_selection_diagrams: Option<DamageDiagrams>,
-    damage_group: fn(&Player) -> &DamageGroup,
+    damage_group: for<'a> fn(&'a Player) -> &'a DamageGroup,
     dps_filter: f64,
     diagram_time_slice: f64,
     active_diagram: ActiveDamageDiagram,
@@ -31,6 +31,7 @@ impl DamageTab {
         self.table = DamageTable::new(combat, self.damage_group);
         self.dmg_main_diagrams = DamageDiagrams::from_damage_groups(
             combat.players.values().map(self.damage_group),
+            &combat.name_manger,
             self.dps_filter,
             self.diagram_time_slice,
         );

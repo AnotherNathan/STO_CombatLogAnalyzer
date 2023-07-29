@@ -31,6 +31,7 @@ impl HealTab {
         self.table = HealTable::new(combat, self.heal_group);
         self.main_diagrams = HealDiagrams::from_heal_groups(
             combat.players.values().map(self.heal_group),
+            &combat.name_manger,
             self.hps_filter,
             self.diagram_time_slice,
         );

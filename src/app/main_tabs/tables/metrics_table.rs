@@ -88,7 +88,7 @@ impl<T: 'static> MetricsTable<T> {
         columns: &'static [ColumnDescriptor<T>],
         combat: &Combat,
         mut group: impl FnMut(&Player) -> &AnalysisGroup<G>,
-        data_new: fn(&AnalysisGroup<G>, &mut NumberFormatter) -> T,
+        data_new: fn(&AnalysisGroup<G>, &NameManager, &mut NumberFormatter) -> T,
     ) -> Self {
         let mut number_formatter = NumberFormatter::new();
         let mut id_source = 0;
@@ -98,7 +98,13 @@ impl<T: 'static> MetricsTable<T> {
                 .players
                 .values()
                 .map(|p| {
-                    MetricsTablePart::new(group(p), &mut number_formatter, &mut id_source, data_new)
+                    MetricsTablePart::new(
+                        group(p),
+                        &combat.name_manger,
+                        &mut number_formatter,
+                        &mut id_source,
+                        data_new,
+                    )
                 })
                 .collect(),
             selected_id: None,
@@ -177,21 +183,22 @@ impl<T: 'static> MetricsTable<T> {
 impl<T> MetricsTablePart<T> {
     fn new<G: Clone + Debug>(
         source: &AnalysisGroup<G>,
+        name_manager: &NameManager,
         number_formatter: &mut NumberFormatter,
         id_source: &mut u32,
-        data_new: fn(&AnalysisGroup<G>, &mut NumberFormatter) -> T,
+        data_new: fn(&AnalysisGroup<G>, &NameManager, &mut NumberFormatter) -> T,
     ) -> Self {
         let id = *id_source;
         *id_source += 1;
         let sub_parts = source
             .sub_groups
             .values()
-            .map(|s| MetricsTablePart::new(s, number_formatter, id_source, data_new))
+            .map(|s| MetricsTablePart::new(s, name_manager, number_formatter, id_source, data_new))
             .collect();
 
         Self {
-            data: data_new(source, number_formatter),
-            name: source.name.clone(),
+            data: data_new(source, name_manager, number_formatter),
+            name: source.name.get(name_manager).to_string(),
             id,
             sub_parts,
             open: false,

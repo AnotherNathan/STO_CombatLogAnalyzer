@@ -322,7 +322,7 @@ impl AnalysisTab {
                     ui,
                     "Source or Target Name",
                     &self.occurred_combat_names_search_term,
-                    combat.name_occurrences.source_target_names.iter(),
+                    combat.name_manger.source_targets(),
                 );
 
                 ui.add_space(SPACE);
@@ -331,7 +331,7 @@ impl AnalysisTab {
                     ui,
                     "Source or Target Unique Name",
                     &self.occurred_combat_names_search_term,
-                    combat.name_occurrences.source_target_unique_names.iter(),
+                    combat.name_manger.source_targets_unique(),
                 );
 
                 ui.add_space(SPACE);
@@ -340,7 +340,7 @@ impl AnalysisTab {
                     ui,
                     "Indirect Source Name",
                     &self.occurred_combat_names_search_term,
-                    combat.name_occurrences.indirect_source_names.iter(),
+                    combat.name_manger.indirect_sources(),
                 );
 
                 ui.add_space(SPACE);
@@ -349,7 +349,7 @@ impl AnalysisTab {
                     ui,
                     "Indirect Source Unique Name",
                     &self.occurred_combat_names_search_term,
-                    combat.name_occurrences.indirect_source_unique_names.iter(),
+                    combat.name_manger.source_targets_unique(),
                 );
 
                 ui.add_space(SPACE);
@@ -358,7 +358,7 @@ impl AnalysisTab {
                     ui,
                     "Damage / Heal Name",
                     &self.occurred_combat_names_search_term,
-                    combat.name_occurrences.value_names.iter(),
+                    combat.name_manger.values(),
                 );
             });
     }
@@ -367,7 +367,7 @@ impl AnalysisTab {
         ui: &mut Ui,
         title: &str,
         filter: &str,
-        names: impl Iterator<Item = &'a String>,
+        names: impl Iterator<Item = &'a str>,
     ) {
         ui.push_id(title, |ui| {
             Table::new(ui)
@@ -388,7 +388,7 @@ impl AnalysisTab {
                             });
                             r.cell(|ui| {
                                 if ui.button("🗐").on_hover_text("Copy").clicked() {
-                                    ui.output_mut(|o| o.copied_text = name.clone());
+                                    ui.output_mut(|o| o.copied_text = name.to_string());
                                 }
                             });
                         });

@@ -65,7 +65,13 @@ impl SummaryCopy {
 
                 format!(
                     "{} {}",
-                    String::from_iter(p.damage_in.name.chars().skip_while(|c| *c != '@')),
+                    String::from_iter(
+                        p.damage_in
+                            .name
+                            .get(&combat.name_manger)
+                            .chars()
+                            .skip_while(|c| *c != '@')
+                    ),
                     aspects
                 )
             });

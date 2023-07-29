@@ -79,7 +79,7 @@ impl RulesGroup {
 
     pub fn matches_source_or_target_names<'a>(
         &self,
-        mut names: impl Iterator<Item = &'a String>,
+        mut names: impl Iterator<Item = &'a str>,
     ) -> bool {
         if !self.enabled {
             return false;
@@ -94,7 +94,7 @@ impl RulesGroup {
 
     pub fn matches_source_or_target_unique_names<'a>(
         &self,
-        mut names: impl Iterator<Item = &'a String>,
+        mut names: impl Iterator<Item = &'a str>,
     ) -> bool {
         if !self.enabled {
             return false;
@@ -109,7 +109,7 @@ impl RulesGroup {
 
     pub fn matches_indirect_source_names<'a>(
         &self,
-        mut names: impl Iterator<Item = &'a String>,
+        mut names: impl Iterator<Item = &'a str>,
     ) -> bool {
         if !self.enabled {
             return false;
@@ -120,7 +120,7 @@ impl RulesGroup {
 
     pub fn matches_indirect_source_unique_names<'a>(
         &self,
-        mut names: impl Iterator<Item = &'a String>,
+        mut names: impl Iterator<Item = &'a str>,
     ) -> bool {
         if !self.enabled {
             return false;
@@ -135,7 +135,7 @@ impl RulesGroup {
 
     pub fn matches_damage_or_heal_names<'a>(
         &self,
-        mut names: impl Iterator<Item = &'a String>,
+        mut names: impl Iterator<Item = &'a str>,
     ) -> bool {
         if !self.enabled {
             return false;

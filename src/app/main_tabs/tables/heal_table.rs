@@ -88,7 +88,11 @@ impl HealTablePart {
 }
 
 impl HealTablePartData {
-    fn new(group: &HealGroup, number_formatter: &mut NumberFormatter) -> Self {
+    fn new(
+        group: &HealGroup,
+        _name_manager: &NameManager,
+        number_formatter: &mut NumberFormatter,
+    ) -> Self {
         Self {
             total_heal: ShieldAndHullTextValue::new(&group.total_heal, 2, number_formatter),
             hps: ShieldAndHullTextValue::new(&group.hps, 2, number_formatter),

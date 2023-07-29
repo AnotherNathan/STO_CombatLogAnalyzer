@@ -1,5 +1,3 @@
-use std::fmt::Write;
-
 use super::*;
 use educe::Educe;
 
@@ -44,14 +42,14 @@ pub struct DamageMetrics {
 
 #[derive(Clone, Debug, Default)]
 pub struct MaxOneHit {
-    pub name: String,
+    pub name: NameHandle,
     pub damage: f64,
 }
 
 impl MaxOneHit {
-    pub fn from_hits(name: &str, hits: &[Hit]) -> Self {
+    pub fn from_hits(name: NameHandle, hits: &[Hit]) -> Self {
         Self {
-            name: name.to_string(),
+            name,
             damage: hits
                 .iter()
                 .map(|h| h.damage)
@@ -60,16 +58,15 @@ impl MaxOneHit {
         }
     }
 
-    pub fn update(&mut self, name: &str, damage: f64) {
+    pub fn update(&mut self, name: NameHandle, damage: f64) {
         if self.damage < damage {
             self.damage = damage;
-            self.name.clear();
-            self.name.write_str(name).unwrap();
+            self.name = name;
         }
     }
 
     pub fn reset(&mut self) {
-        self.name.clear();
+        self.name = Default::default();
         self.damage = Default::default();
     }
 }
