@@ -4,7 +4,7 @@ use chrono::Duration;
 use eframe::egui::*;
 
 use crate::{
-    analyzer::{Combat, NameManager, Player as AnalyzedPlayer},
+    analyzer::{Player as AnalyzedPlayer, *},
     app::main_tabs::common::*,
     custom_widgets::table::*,
     helpers::{number_formatting::NumberFormatter, *},
@@ -153,7 +153,7 @@ impl Player {
         };
         let player_active_duration = time_range_to_duration_or_zero(&player.active_time);
         Self {
-            name: player.damage_out.name.get(name_manager).to_string(),
+            name: player.damage_out.name().get(name_manager).to_string(),
             total_out_damage: ShieldAndHullTextValue::new(
                 &player.damage_out.total_damage,
                 2,

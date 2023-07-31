@@ -33,7 +33,7 @@ pub struct Analyzer {
 }
 
 type Players = NameMap<Player>;
-type GroupingPath = SmallVec<[NameHandle; 8]>;
+type GroupingPath = SmallVec<[GroupPathSegment; 8]>;
 
 #[derive(Clone, Debug)]
 pub struct Combat {
@@ -217,7 +217,7 @@ impl Combat {
     fn get_player(players: &mut NameMap<Player>, name: NameHandle) -> &mut Player {
         if !players.contains_key(&name) {
             let player = Player::new(name);
-            players.insert(player.damage_out.name, player);
+            players.insert(player.damage_out.name(), player);
         }
         players.get_mut(&name).unwrap()
     }
@@ -391,10 +391,10 @@ impl Player {
         Self {
             combat_time: None,
             active_time: None,
-            damage_out: DamageGroup::new(full_name, true),
-            damage_in: DamageGroup::new(full_name, true),
-            heal_out: HealGroup::new(full_name, true),
-            heal_in: HealGroup::new(full_name, true),
+            damage_out: DamageGroup::new_branch(GroupPathSegment::Group(full_name)),
+            damage_in: DamageGroup::new_branch(GroupPathSegment::Group(full_name)),
+            heal_out: HealGroup::new_branch(GroupPathSegment::Group(full_name)),
+            heal_in: HealGroup::new_branch(GroupPathSegment::Group(full_name)),
             deaths: 0,
             kills: 0,
         }
@@ -409,8 +409,20 @@ impl Player {
     ) {
         self.update_active_time(record);
         let mut path = Self::build_grouping_path(record, settings, name_manager);
+        let target_name = if record.is_self_directed() {
+            record.source.name()
+        } else {
+            record
+                .target
+                .name()
+                .or_else(|| record.indirect_source.name())
+        };
+        let target_name = target_name
+            .map(|n| name_manager.handle(n))
+            .unwrap_or_default();
         match record.value {
             RecordValue::Damage(damage) if !record.is_direct_self_damage() => {
+                path.insert(0, GroupPathSegment::Group(target_name));
                 self.damage_out.add_damage(
                     &path,
                     damage,
@@ -427,19 +439,7 @@ impl Player {
                 }
             }
             RecordValue::Heal(heal) => {
-                let target_name = if record.is_self_directed() {
-                    record.source.name()
-                } else {
-                    record
-                        .target
-                        .name()
-                        .or_else(|| record.indirect_source.name())
-                };
-                path.push(
-                    target_name
-                        .map(|n| name_manager.handle(n))
-                        .unwrap_or_default(),
-                );
+                path.push(GroupPathSegment::Group(target_name));
                 self.heal_out
                     .add_heal(&path, heal, record.value_flags, combat_start_offset_millis);
             }
@@ -460,7 +460,7 @@ impl Player {
             .map(|n| name_manager.handle(n))
             .unwrap_or_default();
         let mut path = Self::build_grouping_path(record, settings, name_manager);
-        path.push(source_name);
+        path.push(GroupPathSegment::Group(source_name));
         match record.value {
             RecordValue::Damage(damage) => {
                 self.damage_in.add_damage(
@@ -492,7 +492,9 @@ impl Player {
 
         match (&record.indirect_source, &record.target) {
             (Entity::None, _) | (_, Entity::None) => {
-                path.push(name_manager.handle(record.value_name));
+                path.push(GroupPathSegment::Value(
+                    name_manager.handle(record.value_name),
+                ));
             }
 
             (
@@ -509,13 +511,13 @@ impl Player {
                     .any(|r| r.matches_record(record))
                 {
                     path.extend_from_slice(&[
-                        name_manager.handle(name),
-                        name_manager.handle(record.value_name),
+                        GroupPathSegment::Value(name_manager.handle(name)),
+                        GroupPathSegment::Group(name_manager.handle(record.value_name)),
                     ]);
                 } else {
                     path.extend_from_slice(&[
-                        name_manager.handle(record.value_name),
-                        name_manager.handle(name),
+                        GroupPathSegment::Value(name_manager.handle(record.value_name)),
+                        GroupPathSegment::Group(name_manager.handle(name)),
                     ]);
                 }
             }
@@ -526,7 +528,9 @@ impl Player {
             .iter()
             .find(|r| r.matches_record(record))
         {
-            path.push(name_manager.insert(rule.name.as_str(), NameFlags::NONE));
+            path.push(GroupPathSegment::Group(
+                name_manager.insert(rule.name.as_str(), NameFlags::NONE),
+            ));
         }
 
         path

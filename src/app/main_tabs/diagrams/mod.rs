@@ -56,7 +56,7 @@ impl DamageDiagrams {
     ) -> Self {
         let data = groups.map(|g| {
             PreparedDamageDataSet::new(
-                g.name.get(&combat.name_manager),
+                g.name().get(&combat.name_manager),
                 g.dps.all,
                 g.total_damage.all,
                 g.hits.get(&combat.hits_manger).iter(),
@@ -113,7 +113,7 @@ impl HealDiagrams {
     ) -> Self {
         let data = groups.map(|g| {
             PreparedHealDataSet::new(
-                g.name.get(&combat.name_manager),
+                g.name().get(&combat.name_manager),
                 g.hps.all,
                 g.total_heal.all,
                 g.ticks.get(&combat.heal_ticks_manger).iter(),

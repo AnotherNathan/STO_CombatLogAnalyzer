@@ -11,8 +11,24 @@ pub trait AnalysisGroup: Clone + Debug {
     fn values(&self) -> &Values<Self::Value>;
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum GroupPathSegment {
+    Group(NameHandle),
+    Value(NameHandle),
+}
+
+impl Default for GroupPathSegment {
+    #[inline]
+    fn default() -> Self {
+        Self::Group(Default::default())
+    }
+}
+
 pub(super) trait AnalysisGroupInternal: AnalysisGroup {
-    fn new(name: NameHandle, is_pool: bool) -> Self;
+    fn new_leaf(segment: GroupPathSegment) -> Self;
+    fn new_branch(segment: GroupPathSegment) -> Self;
+
+    fn segment(&self) -> GroupPathSegment;
 
     #[inline]
     fn is_leaf(&self) -> bool {
@@ -23,44 +39,68 @@ pub(super) trait AnalysisGroupInternal: AnalysisGroup {
         self.values().is_branch()
     }
 
-    fn get_leaf_sub_group(&mut self, sub_group: NameHandle) -> &mut Self {
-        let candidate = self.get_sub_group_or_create_leaf(sub_group);
-        if candidate.is_leaf() {
-            return candidate;
-        }
-
-        candidate.get_leaf_sub_group(sub_group)
+    fn get_sub_group(&self, sub_group: GroupPathSegment) -> Option<&Self> {
+        self.sub_groups().get(&sub_group.name())
     }
 
-    fn get_branch_sub_group(&mut self, sub_group: NameHandle) -> &mut Self {
-        let candidate = self.sub_groups().get(&sub_group);
-        if candidate.map(|c| c.is_branch()).unwrap_or(false) {
-            return self.get_sub_group_or_create_leaf(sub_group);
-        }
-
-        // make a new pool and move the non pool sub group on there
-        let mut pool = Self::new(sub_group, true);
-        if let Some(non_pool_sub_group) = self.sub_groups_mut().remove(&sub_group) {
-            pool.sub_groups_mut().insert(sub_group, non_pool_sub_group);
-        }
-        self.sub_groups_mut().insert(sub_group, pool);
-        self.get_branch_sub_group(sub_group)
+    fn get_sub_group_mut(&mut self, sub_group: GroupPathSegment) -> Option<&mut Self> {
+        self.sub_groups_mut().get_mut(&sub_group.name())
     }
 
-    fn get_sub_group_or_create_leaf(&mut self, sub_group: NameHandle) -> &mut Self {
-        if !self.sub_groups().contains_key(&sub_group) {
-            self.sub_groups_mut()
-                .insert(sub_group, Self::new(sub_group, false));
-        }
+    fn get_leaf_sub_group(&mut self, sub_group: GroupPathSegment) -> &mut Self {
+        let candidate = self.get_sub_group(sub_group);
 
-        self.sub_groups_mut().get_mut(&sub_group).unwrap()
+        match candidate {
+            Some(candidate) if candidate.is_leaf() && candidate.segment() == sub_group => {
+                self.get_sub_group_mut(sub_group).unwrap()
+            }
+            Some(_) => self
+                .get_sub_group_mut(sub_group)
+                .unwrap()
+                .get_leaf_sub_group(sub_group),
+            None => {
+                let leaf = Self::new_leaf(sub_group);
+                self.sub_groups_mut().insert(sub_group.name(), leaf);
+                self.get_sub_group_mut(sub_group).unwrap()
+            }
+        }
+    }
+    fn get_branch_sub_group(&mut self, sub_group: GroupPathSegment) -> &mut Self {
+        let candidate = self.get_sub_group(sub_group);
+
+        match candidate {
+            Some(candidate) if candidate.is_branch() && candidate.segment() == sub_group => {
+                self.get_sub_group_mut(sub_group).unwrap()
+            }
+            Some(candidate)
+                if (candidate.is_branch() && candidate.segment().is_value()
+                    || candidate.is_leaf()) =>
+            {
+                let value_or_leaf = self.sub_groups_mut().remove(&sub_group.name()).unwrap();
+                let mut branch = Self::new_branch(sub_group);
+                branch
+                    .sub_groups_mut()
+                    .insert(value_or_leaf.name(), value_or_leaf);
+                self.sub_groups_mut().insert(sub_group.name(), branch);
+                self.get_sub_group_mut(sub_group).unwrap()
+            }
+            Some(_) => self
+                .get_sub_group_mut(sub_group)
+                .unwrap()
+                .get_branch_sub_group(sub_group),
+            None => {
+                let branch = Self::new_branch(sub_group);
+                self.sub_groups_mut().insert(sub_group.name(), branch);
+                self.get_sub_group_mut(sub_group).unwrap()
+            }
+        }
     }
 }
 
 #[derive(Clone, Debug, Educe, Default)]
 #[educe(Deref, DerefMut)]
 pub struct DamageGroup {
-    pub name: NameHandle,
+    pub segment: GroupPathSegment,
     pub sub_groups: NameMap<Self>,
 
     #[educe(Deref, DerefMut)]
@@ -75,7 +115,7 @@ pub struct DamageGroup {
 impl AnalysisGroup for DamageGroup {
     #[inline]
     fn name(&self) -> NameHandle {
-        self.name
+        self.segment.name()
     }
 
     #[inline]
@@ -97,23 +137,32 @@ impl AnalysisGroup for DamageGroup {
 }
 
 impl AnalysisGroupInternal for DamageGroup {
-    fn new(name: NameHandle, is_branch: bool) -> Self {
+    fn new_leaf(segment: GroupPathSegment) -> Self {
         Self {
-            name,
-            hits: if is_branch {
-                Hits::empty_branch()
-            } else {
-                Hits::empty_leaf()
-            },
+            segment,
+            hits: Values::empty_leaf(),
             ..Default::default()
         }
+    }
+
+    fn new_branch(segment: GroupPathSegment) -> Self {
+        Self {
+            segment,
+            hits: Values::empty_branch(),
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    fn segment(&self) -> GroupPathSegment {
+        self.segment
     }
 }
 
 #[derive(Clone, Debug, Educe, Default)]
 #[educe(Deref, DerefMut)]
 pub struct HealGroup {
-    pub name: NameHandle,
+    pub segment: GroupPathSegment,
     pub sub_groups: NameMap<Self>,
 
     #[educe(Deref, DerefMut)]
@@ -128,7 +177,7 @@ pub struct HealGroup {
 impl AnalysisGroup for HealGroup {
     #[inline]
     fn name(&self) -> NameHandle {
-        self.name
+        self.segment.name()
     }
 
     #[inline]
@@ -150,16 +199,25 @@ impl AnalysisGroup for HealGroup {
 }
 
 impl AnalysisGroupInternal for HealGroup {
-    fn new(name: NameHandle, is_branch: bool) -> Self {
+    fn new_leaf(segment: GroupPathSegment) -> Self {
         Self {
-            name,
-            ticks: if is_branch {
-                HealTicks::empty_branch()
-            } else {
-                HealTicks::empty_leaf()
-            },
+            segment,
+            ticks: Values::empty_leaf(),
             ..Default::default()
         }
+    }
+
+    fn new_branch(segment: GroupPathSegment) -> Self {
+        Self {
+            segment,
+            ticks: Values::empty_branch(),
+            ..Default::default()
+        }
+    }
+
+    #[inline]
+    fn segment(&self) -> GroupPathSegment {
+        self.segment
     }
 }
 
@@ -170,7 +228,7 @@ impl DamageGroup {
         hits_manager: &mut HitsManager,
     ) {
         if self.is_leaf() {
-            self.max_one_hit = MaxOneHit::from_hits(self.name, self.hits.get(hits_manager));
+            self.max_one_hit = MaxOneHit::from_hits(self.name(), self.hits.get(hits_manager));
             hits_manager.add_leaf(self.hits.get_leaf());
         } else {
             self.max_one_hit.reset();
@@ -212,7 +270,7 @@ impl DamageGroup {
 
     pub(super) fn add_damage(
         &mut self,
-        path: &[NameHandle],
+        path: &[GroupPathSegment],
         hit: BaseHit,
         flags: ValueFlags,
         damage_type: NameHandle,
@@ -310,7 +368,7 @@ impl HealGroup {
 
     pub(super) fn add_heal(
         &mut self,
-        path: &[NameHandle],
+        path: &[GroupPathSegment],
         tick: BaseHealTick,
         flags: ValueFlags,
         combat_start_offset_millis: u32,
@@ -331,5 +389,24 @@ impl HealGroup {
             flags,
             combat_start_offset_millis,
         );
+    }
+}
+
+impl GroupPathSegment {
+    #[inline]
+    pub fn name(&self) -> NameHandle {
+        match *self {
+            GroupPathSegment::Group(n) => n,
+            GroupPathSegment::Value(n) => n,
+        }
+    }
+
+    #[inline]
+    pub fn is_value(&self) -> bool {
+        if let Self::Value(_) = self {
+            return true;
+        }
+
+        false
     }
 }

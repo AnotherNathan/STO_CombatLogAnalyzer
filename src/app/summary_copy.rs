@@ -2,7 +2,7 @@ use eframe::egui::*;
 use itertools::Itertools;
 
 use crate::{
-    analyzer::{Combat, Player},
+    analyzer::*,
     custom_widgets::popup_button::PopupButton,
     helpers::{
         format_duration, number_formatting::NumberFormatter, time_range_to_duration_or_zero,
@@ -67,7 +67,7 @@ impl SummaryCopy {
                     "{} {}",
                     String::from_iter(
                         p.damage_in
-                            .name
+                            .name()
                             .get(&combat.name_manager)
                             .chars()
                             .skip_while(|c| *c != '@')
