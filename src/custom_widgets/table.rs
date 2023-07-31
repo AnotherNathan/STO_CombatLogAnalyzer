@@ -64,6 +64,11 @@ impl<'a> Table<'a> {
         }
     }
 
+    pub fn id(mut self, id: impl Into<Id>) -> Self {
+        self.id = id.into();
+        self
+    }
+
     pub fn min_scroll_height(mut self, min_scroll_height: f32) -> Self {
         self.min_scroll_height = min_scroll_height;
         self
@@ -134,6 +139,7 @@ impl<'a> Table<'a> {
             cell_spacing,
         } = self;
         let scroll_output = ScrollArea::vertical()
+            .id_source(id.with("__table_scroll"))
             .min_scrolled_height(min_scroll_height)
             .max_height(max_scroll_height)
             .show(ui, |ui| {

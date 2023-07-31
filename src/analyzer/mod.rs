@@ -46,8 +46,8 @@ pub struct Combat {
     pub total_heal_out: ShieldHullValues,
     pub players: Players,
     pub log_pos: Option<Range<u64>>,
-    pub total_deaths: u64,
-    pub total_kills: u64,
+    pub total_deaths: u32,
+    pub total_kills: u32,
     pub name_manager: NameManager,
     pub hits_manger: HitsManager,
     pub heal_ticks_manger: HealTicksManager,
@@ -67,8 +67,6 @@ pub struct Player {
     pub damage_in: DamageGroup,
     pub heal_out: HealGroup,
     pub heal_in: HealGroup,
-    pub deaths: u64,
-    pub kills: u64,
 }
 
 impl Analyzer {
@@ -267,8 +265,14 @@ impl Combat {
         self.total_damage_in = players.clone().map(|p| p.damage_in.total_damage).sum();
         self.total_heal_out = players.clone().map(|p| p.heal_out.total_heal).sum();
         self.total_heal_in = players.clone().map(|p| p.heal_in.total_heal).sum();
-        self.total_kills = players.clone().map(|p| p.kills).sum();
-        self.total_deaths = players.clone().map(|p| p.deaths).sum();
+        self.total_kills = players
+            .clone()
+            .map(|p| p.damage_out.kills.values().copied().sum::<u32>())
+            .sum();
+        self.total_deaths = players
+            .clone()
+            .map(|p| p.damage_in.kills.values().copied().sum::<u32>())
+            .sum();
         let total_hits_out: ShieldHullCounts = players
             .clone()
             .map(|p| p.damage_out.damage_metrics.hits)
@@ -395,8 +399,6 @@ impl Player {
             damage_in: DamageGroup::new_branch(GroupPathSegment::Group(full_name)),
             heal_out: HealGroup::new_branch(GroupPathSegment::Group(full_name)),
             heal_in: HealGroup::new_branch(GroupPathSegment::Group(full_name)),
-            deaths: 0,
-            kills: 0,
         }
     }
 
@@ -433,10 +435,6 @@ impl Player {
                 );
 
                 self.update_combat_time(record);
-
-                if record.value_flags.contains(ValueFlags::KILL) {
-                    self.kills += 1;
-                }
             }
             RecordValue::Heal(heal) => {
                 path.push(GroupPathSegment::Group(target_name));
@@ -472,9 +470,6 @@ impl Player {
                     name_manager,
                 );
                 self.update_active_time(record);
-                if record.value_flags.contains(ValueFlags::KILL) {
-                    self.deaths += 1;
-                }
             }
             RecordValue::Heal(heal) => {
                 self.heal_in

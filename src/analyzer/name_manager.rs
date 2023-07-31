@@ -25,6 +25,12 @@ pub struct NameInfo {
     pub flags: NameFlags,
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct NameInfoRef<'a> {
+    pub name: &'a str,
+    pub flags: NameFlags,
+}
+
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
     pub struct NameFlags : u8{
@@ -80,15 +86,22 @@ impl NameManager {
 
     #[inline]
     pub fn name(&self, handle: NameHandle) -> &str {
+        self.info(handle).name
+    }
+
+    #[inline]
+    pub fn info(&self, handle: NameHandle) -> NameInfoRef {
         if handle == NameHandle::UNKNOWN {
-            return "<unknown>";
+            return NameInfoRef {
+                name: "<unknown>",
+                flags: NameFlags::NONE,
+            };
         }
 
-        &self
-            .name_infos
+        self.name_infos
             .get(&handle)
             .expect("failed to find name from handle")
-            .name
+            .into()
     }
 
     #[inline]
@@ -214,5 +227,15 @@ impl Default for NameHandle {
     #[inline]
     fn default() -> Self {
         Self::UNKNOWN
+    }
+}
+
+impl<'a> From<&'a NameInfo> for NameInfoRef<'a> {
+    #[inline]
+    fn from(info: &'a NameInfo) -> Self {
+        Self {
+            name: &info.name,
+            flags: info.flags,
+        }
     }
 }

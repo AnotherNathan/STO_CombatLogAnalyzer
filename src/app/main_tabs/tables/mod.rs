@@ -1,3 +1,4 @@
+mod common;
 mod damage_table;
 mod heal_table;
 mod metrics_table;

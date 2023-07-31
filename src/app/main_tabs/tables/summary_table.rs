@@ -10,6 +10,95 @@ use crate::{
     helpers::{number_formatting::NumberFormatter, *},
 };
 
+use super::common::Kills;
+
+macro_rules! col {
+    ($name:expr, $sort:expr, $show:expr $(,)?) => {
+        ColumnDescriptor {
+            name: $name,
+            sort: $sort,
+            show: $show,
+        }
+    };
+}
+
+static COLUMNS: &[ColumnDescriptor] = &[
+    col!(
+        "Outgoing DPS",
+        |t| t.sort_by_option_f64(|p| p.dps_out.all.value),
+        |p, r| p.dps_out.show(r),
+    ),
+    col!(
+        "Total Outgoing Damage",
+        |t| t.sort_by_option_f64(|p| p.total_out_damage.all.value),
+        |p, r| p.total_out_damage.show(r),
+    ),
+    col!(
+        "Outgoing Damage %",
+        |t| t.sort_by_option_f64(|p| p.total_out_damage_percentage.all.value),
+        |p, r| p.total_out_damage_percentage.show(r),
+    ),
+    col!(
+        "Total Incoming Damage",
+        |t| t.sort_by_option_f64(|p| p.total_in_damage.all.value),
+        |p, r| p.total_in_damage.show(r),
+    ),
+    col!(
+        "Incoming Damage %",
+        |t| t.sort_by_option_f64(|p| p.total_in_damage_percentage.all.value),
+        |p, r| p.total_in_damage_percentage.show(r),
+    ),
+    col!(
+        "Combat Duration",
+        |t| t.sort_by_key(|p| p.combat_duration.duration),
+        |p, r| {
+            p.combat_duration.show(r);
+        },
+    ),
+    col!(
+        "Combat Duration %",
+        |t| t.sort_by_option_f64(|p| p.combat_duration_percentage.value),
+        |p, r| {
+            p.combat_duration.show(r);
+        },
+    ),
+    col!(
+        "Active Duration",
+        |t| t.sort_by_key(|p| p.active_duration.duration),
+        |p, r| {
+            p.active_duration.show(r);
+        },
+    ),
+    col!("Deaths", |t| t.sort_by_key(|p| p.deaths.count), |p, r| {
+        p.deaths.show(r);
+    }),
+    col!(
+        "Kills",
+        |t| t.sort_by_key(|p| p.kills.total_count),
+        |p, r| p.kills.show(r),
+    ),
+    col!(
+        "Player Kills",
+        |t| t.sort_by_key(|p| p.player_kills.count),
+        |p, r| {
+            p.player_kills.show(r);
+        },
+    ),
+    col!(
+        "NPC Kills",
+        |t| t.sort_by_key(|p| p.npc_kills.count),
+        |p, r| {
+            p.npc_kills.show(r);
+        },
+    ),
+];
+
+struct ColumnDescriptor {
+    name: &'static str,
+    sort: fn(&mut SummaryTable),
+    show: fn(&Player, &mut TableRow),
+}
+
 pub struct SummaryTable {
     players: Vec<Player>,
     selected_player: Option<usize>,
@@ -25,7 +114,9 @@ struct Player {
     combat_duration: TextDuration,
     combat_duration_percentage: TextValue,
     active_duration: TextDuration,
-    kills: TextCount,
+    kills: Kills,
+    npc_kills: TextCount,
+    player_kills: TextCount,
     deaths: TextCount,
 }
 
@@ -68,41 +159,12 @@ impl SummaryTable {
                             ui.label("Player");
                         });
                     });
-                    Self::show_column_header(r, "Outgoing DPS", || {
-                        self.sort_by_option_f64(|p| p.dps_out.all.value)
-                    });
 
-                    Self::show_column_header(r, "Total Outgoing Damage", || {
-                        self.sort_by_option_f64(|p| p.total_out_damage.all.value)
-                    });
-
-                    Self::show_column_header(r, "Outgoing Damage %", || {
-                        self.sort_by_option_f64(|p| p.total_out_damage_percentage.all.value)
-                    });
-
-                    Self::show_column_header(r, "Total Incoming Damage", || {
-                        self.sort_by_option_f64(|p| p.total_in_damage.all.value)
-                    });
-
-                    Self::show_column_header(r, "Incoming Damage %", || {
-                        self.sort_by_option_f64(|p| p.total_in_damage_percentage.all.value)
-                    });
-
-                    Self::show_column_header(r, "Combat Duration", || {
-                        self.sort_by_key(|p| p.combat_duration.duration)
-                    });
-
-                    Self::show_column_header(r, "Combat Duration %", || {
-                        self.sort_by_option_f64(|p| p.combat_duration_percentage.value)
-                    });
-
-                    Self::show_column_header(r, "Active Duration", || {
-                        self.sort_by_key(|p| p.active_duration.duration)
-                    });
-
-                    Self::show_column_header(r, "Kills", || self.sort_by_key(|p| p.kills.count));
-
-                    Self::show_column_header(r, "Deaths", || self.sort_by_key(|p| p.deaths.count));
+                    for column in COLUMNS.iter() {
+                        Self::show_column_header(r, column.name, || {
+                            (column.sort)(self);
+                        });
+                    }
                 })
                 .body(ROW_HEIGHT, |t| {
                     for (i, player) in self.players.iter().enumerate() {
@@ -152,6 +214,30 @@ impl Player {
                 * 100.0
         };
         let player_active_duration = time_range_to_duration_or_zero(&player.active_time);
+        let npc_kills: u32 = player
+            .damage_out
+            .kills
+            .iter()
+            .filter_map(|(n, k)| {
+                if !name_manager.info(*n).flags.contains(NameFlags::PLAYER) {
+                    Some(*k)
+                } else {
+                    None
+                }
+            })
+            .sum();
+        let player_kills: u32 = player
+            .damage_out
+            .kills
+            .iter()
+            .filter_map(|(n, k)| {
+                if name_manager.info(*n).flags.contains(NameFlags::PLAYER) {
+                    Some(*k)
+                } else {
+                    None
+                }
+            })
+            .sum();
         Self {
             name: player.damage_out.name().get(name_manager).to_string(),
             total_out_damage: ShieldAndHullTextValue::new(
@@ -182,8 +268,10 @@ impl Player {
                 number_formatter,
             ),
             active_duration: TextDuration::new(player_active_duration),
-            kills: TextCount::new(player.kills),
-            deaths: TextCount::new(player.deaths),
+            kills: Kills::new(&player.damage_out, name_manager),
+            deaths: TextCount::new(player.damage_in.kills.values().copied().sum::<u32>() as _),
+            npc_kills: TextCount::new(npc_kills as _),
+            player_kills: TextCount::new(player_kills as _),
         }
     }
 
@@ -193,16 +281,9 @@ impl Player {
                 ui.label(&self.name);
             });
 
-            self.dps_out.show(r);
-            self.total_out_damage.show(r);
-            self.total_out_damage_percentage.show(r);
-            self.total_in_damage.show(r);
-            self.total_in_damage_percentage.show(r);
-            self.combat_duration.show(r);
-            self.combat_duration_percentage.show(r);
-            self.active_duration.show(r);
-            self.kills.show(r);
-            self.deaths.show(r);
+            for column in COLUMNS.iter() {
+                (column.show)(self, r);
+            }
         })
     }
 }

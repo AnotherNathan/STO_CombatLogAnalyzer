@@ -3,7 +3,7 @@ use crate::{
     helpers::number_formatting::NumberFormatter,
 };
 
-use super::metrics_table::*;
+use super::{common::Kills, metrics_table::*};
 
 static COLUMNS: &[ColumnDescriptor<DamageTablePartData>] = &[
     col!(
@@ -81,6 +81,10 @@ static COLUMNS: &[ColumnDescriptor<DamageTablePartData>] = &[
             t.accuracy_percentage.show(r);
         },
     ),
+    col!("Kills", |t| t.sort_by_asc(|p| p.kills.total_count), |t, r| {
+            t.kills.show(r);
+        },
+    ),
     col!("Damage Types", |t| t.sort_by_desc(|p| p.damage_types.clone()), |t, r| {
             t.damage_types.show(r);
         },
@@ -119,6 +123,7 @@ pub struct DamageTablePartData {
     hits_percentage: ShieldAndHullTextValue,
     misses: TextCount,
     accuracy_percentage: TextValue,
+    kills: Kills,
     damage_types: DamageTypes,
     pub source_hits: Vec<Hit>,
 }
@@ -169,6 +174,7 @@ impl DamageTablePartData {
             ),
             base_damage: TextValue::new(source.total_base_damage, 2, number_formatter),
             base_dps: TextValue::new(source.base_dps, 2, number_formatter),
+            kills: Kills::new(source, &combat.name_manager),
             damage_types: DamageTypes::new(source, &combat.name_manager),
             hits: ShieldAndHullTextCount::new(&source.damage_metrics.hits),
             hits_per_second: ShieldAndHullTextValue::new(

@@ -110,6 +110,8 @@ pub struct DamageGroup {
     pub hits_percentage: ShieldHullOptionalValues,
     pub hits: Hits,
     pub damage_types: NameSet,
+
+    pub kills: NameMap<u32>,
 }
 
 impl AnalysisGroup for DamageGroup {
@@ -233,6 +235,7 @@ impl DamageGroup {
         } else {
             self.max_one_hit.reset();
             self.damage_types.clear();
+            self.kills.clear();
 
             self.hits = hits_manager.track_group(|hits_manager| {
                 for sub_group in self.sub_groups.values_mut() {
@@ -243,6 +246,10 @@ impl DamageGroup {
                         if !self.damage_types.contains(damage_type) {
                             self.damage_types.insert(damage_type.clone());
                         }
+                    }
+
+                    for (&name, &kills) in sub_group.kills.iter() {
+                        *self.kills.entry(name).or_default() += kills;
                     }
                 }
             });
@@ -283,6 +290,10 @@ impl DamageGroup {
                 .hits
                 .push(hit.to_hit(combat_start_offset_millis));
             indirect_source.add_damage_type_non_pool(damage_type, name_manager);
+
+            if flags.contains(ValueFlags::KILL) {
+                *indirect_source.kills.entry(path[0].name()).or_default() += 1;
+            }
 
             return;
         }

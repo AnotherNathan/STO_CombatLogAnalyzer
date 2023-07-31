@@ -67,8 +67,8 @@ impl SummaryTab {
             ShieldAndHullTextValue::new(&combat.total_damage_out, 2, &mut number_formatter);
         self.total_damage_in =
             ShieldAndHullTextValue::new(&combat.total_damage_in, 2, &mut number_formatter);
-        self.total_kills = TextCount::new(combat.total_kills);
-        self.total_deaths = TextCount::new(combat.total_deaths);
+        self.total_kills = TextCount::new(combat.total_kills as _);
+        self.total_deaths = TextCount::new(combat.total_deaths as _);
 
         self.summary_table = SummaryTable::new(combat);
         self.summary_dps_chart = SummaryChart::from_data(

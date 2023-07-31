@@ -56,23 +56,12 @@ pub enum TableSelection<'a, T> {
     Unselect,
 }
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct ColumnDescriptor<T: 'static> {
     pub name: &'static str,
     pub name_info: Option<&'static str>,
     pub sort: fn(&mut MetricsTable<T>),
     pub show: fn(&mut MetricsTablePart<T>, &mut TableRow),
-}
-
-impl<T> Clone for ColumnDescriptor<T> {
-    fn clone(&self) -> Self {
-        Self {
-            name: self.name.clone(),
-            name_info: self.name_info.clone(),
-            sort: self.sort.clone(),
-            show: self.show.clone(),
-        }
-    }
 }
 
 impl<T: 'static> MetricsTable<T> {
