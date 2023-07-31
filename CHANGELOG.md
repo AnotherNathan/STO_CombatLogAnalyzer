@@ -1,5 +1,27 @@
 # Change Log
 
+## v1.1.0
+### Major Changes
+- added the kill counts to damage tables
+  - by hovering on the a kills table cell a detailed list is displayed, that shows what was killed or what caused the death
+- the summary table now also contains separate player and NPC kill counts
+- the damage out table can now be expanded one level more to display, to what target damage was dealt
+- added more combat names to the default settings
+  - Best Served Cold
+  - Battle of the Binary Stars
+  - Red Alert: Tholian
+  - Battle of Korfez
+
+### Other Changes
+- added the ability to move rules up and down in the analysis tab of the settings
+- the tool version is now displayed in the window title
+- fixed a bug that caused the last bar of a bar chart part to be dropped entirely
+- a line a DPS graph now has at least the length of 1 second so that it is clearly visible
+
+### Internal Changes
+- updated eframe + egui
+- added value and name managers to reduce memory usage slightly
+
 ## v1.0.0
 ### Major Changes
 - added incoming and outgoing healing tabs with some diagrams
