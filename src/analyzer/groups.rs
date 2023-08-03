@@ -253,6 +253,10 @@ impl DamageGroup {
                     }
                 }
             });
+
+            if self.segment.is_value() {
+                self.max_one_hit = MaxOneHit::from_hits(self.name(), self.hits.get(hits_manager));
+            }
         }
 
         self.damage_metrics =
