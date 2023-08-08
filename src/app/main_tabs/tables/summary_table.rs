@@ -59,7 +59,7 @@ static COLUMNS: &[ColumnDescriptor] = &[
         "Combat Duration %",
         |t| t.sort_by_option_f64(|p| p.combat_duration_percentage.value),
         |p, r| {
-            p.combat_duration.show(r);
+            p.combat_duration_percentage.show(r);
         },
     ),
     col!(
