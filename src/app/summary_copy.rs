@@ -31,7 +31,7 @@ impl SummaryCopy {
                     ui.checkbox(&mut aspect.include, aspect.name);
                 }
 
-                ui.label("Limit the number of elements,\nif you wish to past the summary into the game chat.\nSo that it will not be truncated by the game.");
+                ui.label("Limit the number of elements,\nif you wish to paste the summary into the game chat.\nSo that it will not be truncated by the game.");
             });
 
             if ui.button("Copy Combat Summary").clicked() {
