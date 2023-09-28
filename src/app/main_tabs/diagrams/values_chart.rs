@@ -1,4 +1,5 @@
-use eframe::egui::{plot::*, *};
+use eframe::egui::*;
+use egui_plot::*;
 
 use super::common::*;
 

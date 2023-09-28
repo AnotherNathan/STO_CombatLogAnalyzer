@@ -1,7 +1,7 @@
 use std::{ops::RangeInclusive, sync::Arc};
 
 use educe::Educe;
-use eframe::egui::plot::*;
+use egui_plot::*;
 
 use crate::{
     analyzer::{HealTick, Hit, SpecificHit, ValueFlags},
@@ -190,7 +190,7 @@ pub fn millis_to_seconds(millis: u32) -> f64 {
     millis as f64 * (1.0 / 1e3)
 }
 
-pub fn format_axis(value: f64, _: &RangeInclusive<f64>) -> String {
+pub fn format_axis(value: f64, _: usize, _: &RangeInclusive<f64>) -> String {
     if value < 0.0 {
         return String::new();
     }

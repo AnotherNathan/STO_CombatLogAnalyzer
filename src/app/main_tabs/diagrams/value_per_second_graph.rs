@@ -1,6 +1,7 @@
 use std::f64::consts::PI;
 
-use eframe::egui::{widgets::plot::*, *};
+use eframe::egui::*;
+use egui_plot::*;
 
 use crate::helpers::number_formatting::NumberFormatter;
 

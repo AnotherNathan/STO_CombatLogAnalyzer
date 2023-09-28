@@ -1,4 +1,5 @@
-use eframe::egui::{plot::*, Ui};
+use eframe::egui::Ui;
+use egui_plot::*;
 
 use super::common::*;
 
@@ -32,8 +33,9 @@ impl SummaryChart {
 
     pub fn show(&mut self, ui: &mut Ui) {
         Plot::new(&self.identifier)
-            .y_axis_formatter(|_, _| String::new())
+            .y_axis_formatter(|_, _, _| String::new())
             .x_axis_formatter(format_axis)
+            .y_axis_width(0)
             .legend(Legend::default())
             .include_y(0.0)
             .show(ui, |p| {

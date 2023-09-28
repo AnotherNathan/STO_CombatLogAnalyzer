@@ -9,17 +9,18 @@ license = "MIT OR Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-eframe = { version = "0.22", default-features = false, features = [
+eframe = { version = "0.23", default-features = false, features = [
     "default_fonts",
     "glow",
 ] }
+egui_plot = "0.23"
 chrono = { version = "0.4.23", default-features = false, features = ["std"] }
 lazy_static = "1.4.0"
 regex = "1.7.0"
 bitflags = "2"
 log = { version = "0.4.17", features = ["serde"] }
 rustc-hash = "1.1.0"
-rfd = "0.11"
+rfd = "0.12"
 serde_json = "1.0.89"
 serde = { version = "1.0.150", features = ["serde_derive"] }
 smallvec = { version = "1.10.0", features = ["const_new", "const_generics"] }
@@ -27,7 +28,7 @@ crossbeam-channel = "0.5.6"
 simplelog = "0.12.0"
 notify = "6"
 timer = "0.2.0"
-itertools = "0.10.5"
+itertools = "0.11"
 educe = { version = "0.4.20", default-features = false, features = [
     "Deref",
     "DerefMut",
