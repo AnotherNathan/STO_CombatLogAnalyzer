@@ -97,6 +97,7 @@ impl eframe::App for App {
                         .set_title("Save Combat")
                         .add_filter("log", &["log"])
                         .set_file_name(&self.selected_combat.as_ref().unwrap().file_identifier())
+                        .set_parent(frame)
                         .save_file()
                     {
                         self.state

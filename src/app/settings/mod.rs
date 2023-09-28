@@ -76,10 +76,12 @@ impl SettingsWindow {
 
                 ui.separator();
                 ScrollArea::both().show(ui, |ui| match self.selected_tab {
-                    SettingsTab::File => {
-                        self.file_tab
-                            .show(&state.analysis_handler, &mut self.modified_settings, ui)
-                    }
+                    SettingsTab::File => self.file_tab.show(
+                        &state.analysis_handler,
+                        &mut self.modified_settings,
+                        ui,
+                        frame,
+                    ),
                     SettingsTab::Analysis => {
                         self.analysis_tab
                             .show(&mut self.modified_settings, selected_combat, ui)

@@ -1,4 +1,5 @@
 use eframe::egui::*;
+use eframe::Frame;
 use rfd::FileDialog;
 
 use crate::{
@@ -23,14 +24,15 @@ impl FileTab {
         analysis_handler: &AnalysisHandler,
         modified_settings: &mut Settings,
         ui: &mut Ui,
+        frame: &Frame,
     ) {
         ui.horizontal(|ui| {
             ui.label("Combatlog File");
             if ui.button("Browse").clicked() {
-                // TODO find out how to set the parent
                 if let Some(new_combatlog_file) = FileDialog::new()
                     .set_title("Choose combatlog File")
                     .add_filter("combatlog", &["log"])
+                    .set_parent(frame)
                     .pick_file()
                 {
                     modified_settings.analysis.combatlog_file =
