@@ -28,8 +28,9 @@ pub struct AnalysisHandler {
 }
 
 struct AnalysisContext {
-    rx: Receiver<Instruction>,
-    tx: Sender<AnalysisInfo>,
+    instruction_rx: Receiver<Instruction>,
+    instruction_tx: Sender<Instruction>,
+    info_tx: Sender<AnalysisInfo>,
     analyzer: Option<Analyzer>,
     ctx: Context,
     is_busy: Arc<AtomicBool>,
@@ -51,11 +52,13 @@ enum AutoRefreshState {
 }
 
 enum Instruction {
+    Exit,
     Refresh,
     AutoRefresh,
     GetCombat(usize),
     ClearLog,
     SaveCombat(usize, PathBuf),
+    SetAutoRefresh(Option<f64>),
 }
 
 pub enum AnalysisInfo {
@@ -122,11 +125,23 @@ impl AnalysisHandler {
             .send(Instruction::SaveCombat(combat_index, file))
             .unwrap();
     }
+
+    pub fn set_auto_refresh(&self, refresh_interval: Option<f64>) {
+        self.tx
+            .send(Instruction::SetAutoRefresh(refresh_interval))
+            .unwrap();
+    }
+}
+
+impl Drop for AnalysisHandler {
+    fn drop(&mut self) {
+        let _ = self.tx.send(Instruction::Exit);
+    }
 }
 
 impl AnalysisContext {
     fn new(
-        rx: Receiver<Instruction>,
+        instruction_rx: Receiver<Instruction>,
         info_tx: Sender<AnalysisInfo>,
         instruction_tx: Sender<Instruction>,
         settings: AnalysisSettings,
@@ -136,12 +151,17 @@ impl AnalysisContext {
     ) -> Self {
         let auto_refresh = auto_refresh_interval_seconds
             .map(|i| {
-                AutoRefreshContext::new(instruction_tx, i, &PathBuf::from(&settings.combatlog_file))
+                AutoRefreshContext::new(
+                    instruction_tx.clone(),
+                    i,
+                    &PathBuf::from(&settings.combatlog_file),
+                )
             })
             .flatten();
         Self {
-            rx,
-            tx: info_tx,
+            instruction_rx,
+            instruction_tx,
+            info_tx,
             analyzer: Analyzer::new(settings),
             ctx,
             is_busy,
@@ -151,12 +171,13 @@ impl AnalysisContext {
 
     fn run(&mut self) {
         loop {
-            let instruction = match self.rx.recv() {
+            let instruction = match self.instruction_rx.recv() {
                 Ok(i) => i,
-                Err(_) => break,
+                Err(_) => return,
             };
 
             match instruction {
+                Instruction::Exit => return,
                 Instruction::Refresh => self.refresh(),
                 Instruction::AutoRefresh => self.auto_refresh(),
                 Instruction::GetCombat(combat_index) => {
@@ -164,6 +185,9 @@ impl AnalysisContext {
                 }
                 Instruction::ClearLog => self.clear_log(),
                 Instruction::SaveCombat(combat_index, file) => self.save_combat(combat_index, file),
+                Instruction::SetAutoRefresh(refresh_interval) => {
+                    self.set_auto_refresh(refresh_interval)
+                }
             }
 
             Self::set_is_busy(&self.is_busy, false);
@@ -318,12 +342,25 @@ impl AnalysisContext {
     }
 
     fn send_info(&self, info: AnalysisInfo) {
-        self.tx.send(info).unwrap();
+        self.info_tx.send(info).unwrap();
         self.ctx.request_repaint();
     }
 
     fn set_is_busy(is_busy: &AtomicBool, value: bool) {
         is_busy.store(value, Ordering::Relaxed);
+    }
+
+    fn set_auto_refresh(&mut self, refresh_interval: Option<f64>) {
+        let settings = self.analyzer.as_ref().unwrap().settings();
+        self.auto_refresh = refresh_interval
+            .map(|i| {
+                AutoRefreshContext::new(
+                    self.instruction_tx.clone(),
+                    i,
+                    &PathBuf::from(&settings.combatlog_file),
+                )
+            })
+            .flatten();
     }
 }
 
@@ -332,7 +369,7 @@ impl AutoRefreshContext {
         let interval = Self::interval(interval_seconds);
         let tx_watcher = tx.clone();
         let mut watcher = recommended_watcher(move |_| {
-            tx_watcher.send(Instruction::AutoRefresh).unwrap();
+            let _ = tx_watcher.send(Instruction::AutoRefresh);
         })
         .ok()?;
 

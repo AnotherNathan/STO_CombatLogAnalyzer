@@ -24,19 +24,24 @@ struct Aspect {
 
 impl SummaryCopy {
     pub fn show(&mut self, combat: Option<&Combat>, ui: &mut Ui) {
-        ui.add_enabled_ui(combat.is_some(), |ui| {
-            PopupButton::new("⛭").show(ui, |ui| {
-                ui.label("Configure copy elements");
-                for aspect in self.aspects.iter_mut() {
-                    ui.checkbox(&mut aspect.include, aspect.name);
-                }
+        if ui
+            .add_enabled(combat.is_some(), Button::new("Copy Combat Summary"))
+            .clicked()
+        {
+            ui.output_mut(|o| o.copied_text = self.build_summary(combat.unwrap()));
+        }
 
-                ui.label("Limit the number of elements,\nif you wish to paste the summary into the game chat.\nSo that it will not be truncated by the game.");
-            });
+        ui.add_enabled(combat.is_some(), |ui: &mut Ui| {
+            PopupButton::new("⛭")
+                .show(ui, |ui| {
+                    ui.label("Configure copy elements");
+                    for aspect in self.aspects.iter_mut() {
+                        ui.checkbox(&mut aspect.include, aspect.name);
+                    }
 
-            if ui.button("Copy Combat Summary").clicked() {
-                ui.output_mut(|o|o.copied_text = self.build_summary(combat.unwrap()));
-            }
+                    ui.label("Limit the number of elements,\nif you wish to paste the summary into the game chat.\nSo that it will not be truncated by the game.");
+                })
+                .response
         });
     }
 

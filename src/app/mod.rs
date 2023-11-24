@@ -55,63 +55,82 @@ impl eframe::App for App {
         self.handle_analysis_infos();
 
         CentralPanel::default().show(ctx, |ui| {
-            self.settings_window
-                .show(&mut self.state, self.selected_combat.as_ref(), ui, frame);
+            ui.vertical(|ui| {
+                self.settings_window.show(
+                    &mut self.state,
+                    self.selected_combat.as_ref(),
+                    ui,
+                    frame,
+                );
 
-            ui.horizontal(|ui| {
-                self.status_indicator
-                    .show(self.state.analysis_handler.is_busy(), ui);
+                ui.horizontal_wrapped(|ui| {
+                    self.status_indicator
+                        .show(self.state.analysis_handler.is_busy(), ui);
 
-                ComboBox::new("combat list", "Combats")
-                    .width(400.0)
-                    .selected_text(self.main_tabs.identifier.as_str())
-                    .show_ui(ui, |ui| {
-                        for (i, combat) in self.combats.iter().enumerate().rev() {
-                            if ui
-                                .selectable_value(
-                                    &mut self.selected_combat_index,
-                                    Some(i),
-                                    combat.as_str(),
-                                )
-                                .changed()
-                            {
-                                if let Some(combat_index) = self.selected_combat_index {
-                                    self.state.analysis_handler.get_combat(combat_index);
+                    ComboBox::new("combat list", "Combats")
+                        .width(400.0)
+                        .selected_text(self.main_tabs.identifier.as_str())
+                        .show_ui(ui, |ui| {
+                            for (i, combat) in self.combats.iter().enumerate().rev() {
+                                if ui
+                                    .selectable_value(
+                                        &mut self.selected_combat_index,
+                                        Some(i),
+                                        combat.as_str(),
+                                    )
+                                    .changed()
+                                {
+                                    if let Some(combat_index) = self.selected_combat_index {
+                                        self.state.analysis_handler.get_combat(combat_index);
+                                    }
                                 }
                             }
-                        }
-                    });
+                        });
 
-                if ui.button("Refresh Now ⟲").clicked() {
-                    self.state.analysis_handler.refresh();
-                }
+                    if ui.button("Refresh Now ⟲").clicked() {
+                        self.state.analysis_handler.refresh();
+                    }
 
-                if ui
-                    .add_enabled(
-                        self.selected_combat.is_some(),
-                        Button::new("Save Combat 💾"),
-                    )
-                    .clicked()
-                {
-                    if let Some(file) = FileDialog::new()
-                        .set_title("Save Combat")
-                        .add_filter("log", &["log"])
-                        .set_file_name(&self.selected_combat.as_ref().unwrap().file_identifier())
-                        .set_parent(frame)
-                        .save_file()
+                    if ui
+                        .checkbox(
+                            &mut self.state.settings.auto_refresh.enable,
+                            "Auto Refresh when log changes",
+                        )
+                        .clicked()
                     {
                         self.state
                             .analysis_handler
-                            .save_combat(self.selected_combat_index.unwrap(), file);
+                            .set_auto_refresh(self.state.settings.auto_refresh.interval_seconds());
+                        self.state.settings.save();
                     }
-                }
 
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if ui
+                        .add_enabled(
+                            self.selected_combat.is_some(),
+                            Button::new("Save Combat 💾"),
+                        )
+                        .clicked()
+                    {
+                        if let Some(file) = FileDialog::new()
+                            .set_title("Save Combat")
+                            .add_filter("log", &["log"])
+                            .set_file_name(
+                                &self.selected_combat.as_ref().unwrap().file_identifier(),
+                            )
+                            .set_parent(frame)
+                            .save_file()
+                        {
+                            self.state
+                                .analysis_handler
+                                .save_combat(self.selected_combat_index.unwrap(), file);
+                        }
+                    }
+
                     self.summary_copy.show(self.selected_combat.as_ref(), ui);
                 });
-            });
 
-            self.main_tabs.show(ui);
+                self.main_tabs.show(ui);
+            });
         });
     }
 }
