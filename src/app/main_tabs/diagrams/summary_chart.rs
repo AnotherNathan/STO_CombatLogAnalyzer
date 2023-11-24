@@ -33,6 +33,8 @@ impl SummaryChart {
 
     pub fn show(&mut self, ui: &mut Ui) {
         Plot::new(&self.identifier)
+            .auto_bounds_x()
+            .auto_bounds_y()
             .y_axis_formatter(|_, _, _| String::new())
             .x_axis_formatter(format_axis)
             .y_axis_width(0)

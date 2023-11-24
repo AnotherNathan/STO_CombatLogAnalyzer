@@ -4,7 +4,10 @@
 use std::backtrace::Backtrace;
 
 use app::logging;
-use eframe::{epaint::vec2, IconData};
+use eframe::{
+    egui::{IconData, ViewportBuilder},
+    epaint::vec2,
+};
 
 mod analyzer;
 mod app;
@@ -21,9 +24,10 @@ fn main() {
 
     logging::initialize();
     let native_options = eframe::NativeOptions {
-        initial_window_size: Some(vec2(1280.0, 720.0)),
-        min_window_size: Some(vec2(480.0, 270.0)),
-        icon_data: Some(icon_data()),
+        viewport: ViewportBuilder::default()
+            .with_inner_size(vec2(1280.0, 720.0))
+            .with_min_inner_size(vec2(480.0, 270.0))
+            .with_icon(icon_data()),
         ..Default::default()
     };
 

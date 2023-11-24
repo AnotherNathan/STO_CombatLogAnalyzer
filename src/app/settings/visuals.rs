@@ -1,7 +1,6 @@
 use eframe::{
     egui::{style::Selection, ComboBox, Context, Ui, Visuals},
     epaint::{Rgba, Shadow},
-    Frame,
 };
 
 use crate::custom_widgets::slider_text_edit::SliderTextEdit;
@@ -12,7 +11,7 @@ use super::{app_settings::Theme, Settings};
 pub struct VisualsTab {}
 
 impl VisualsTab {
-    pub fn show(&mut self, modified_settings: &mut Settings, ui: &mut Ui, frame: &Frame) {
+    pub fn show(&mut self, modified_settings: &mut Settings, ui: &mut Ui) {
         let visuals = &mut modified_settings.visuals;
         ui.label("Theme");
         ComboBox::from_id_source("theme combo box")
@@ -57,7 +56,7 @@ impl VisualsTab {
         if response.drag_released() || response.lost_focus() {
             Self::set_ui_scale(
                 ui.ctx(),
-                frame.info().native_pixels_per_point,
+                ui.ctx().native_pixels_per_point(),
                 visuals.ui_scale,
             );
         }

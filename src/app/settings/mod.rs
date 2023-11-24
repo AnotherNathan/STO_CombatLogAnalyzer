@@ -86,10 +86,7 @@ impl SettingsWindow {
                         self.analysis_tab
                             .show(&mut self.modified_settings, selected_combat, ui)
                     }
-                    SettingsTab::Visuals => {
-                        self.visuals_tab
-                            .show(&mut self.modified_settings, ui, frame)
-                    }
+                    SettingsTab::Visuals => self.visuals_tab.show(&mut self.modified_settings, ui),
                     SettingsTab::Debug => self.debug_tab.show(&mut self.modified_settings, ui),
                 });
 
@@ -101,7 +98,7 @@ impl SettingsWindow {
                     }
 
                     if ui.button("Cancel").clicked() {
-                        self.discard_setting_changes(ui, frame, state);
+                        self.discard_setting_changes(ui, state);
                     }
                 })
             });
@@ -130,12 +127,12 @@ impl SettingsWindow {
         self.modified_settings.save();
     }
 
-    fn discard_setting_changes(&mut self, ui: &Ui, frame: &Frame, state: &AppState) {
+    fn discard_setting_changes(&mut self, ui: &Ui, state: &AppState) {
         self.is_open = false;
         if self.modified_settings.visuals != state.settings.visuals {
             self.visuals_tab.update_visuals(
                 ui.ctx(),
-                frame.info().native_pixels_per_point,
+                ui.ctx().native_pixels_per_point(),
                 &state.settings,
             );
         }

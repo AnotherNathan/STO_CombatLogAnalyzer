@@ -44,6 +44,8 @@ impl DamageResistanceChart {
         }
 
         let mut plot = Plot::new("damage resistance chart")
+            .auto_bounds_x()
+            .auto_bounds_y()
             .y_axis_formatter(format_axis)
             .x_axis_formatter(format_axis)
             .legend(Legend::default());

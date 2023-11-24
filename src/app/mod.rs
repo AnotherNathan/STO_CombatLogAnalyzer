@@ -36,7 +36,7 @@ impl App {
         cc.egui_ctx.set_style(Arc::new(style));
         let state = AppState::new(&cc.egui_ctx);
         let settings_window =
-            SettingsWindow::new(&cc.egui_ctx, cc.integration_info.native_pixels_per_point);
+            SettingsWindow::new(&cc.egui_ctx, cc.egui_ctx.native_pixels_per_point());
         Self {
             settings_window,
             combats: Default::default(),
