@@ -1,3 +1,5 @@
+use std::ops::RangeInclusive;
+
 use eframe::egui::*;
 use egui_plot::*;
 
@@ -46,8 +48,8 @@ impl DamageResistanceChart {
         let mut plot = Plot::new("damage resistance chart")
             .auto_bounds_x()
             .auto_bounds_y()
-            .y_axis_formatter(format_axis)
-            .x_axis_formatter(format_axis)
+            .y_axis_formatter(Self::format_axis)
+            .x_axis_formatter(Self::format_axis)
             .legend(Legend::default());
 
         if self.newly_created {
@@ -64,6 +66,11 @@ impl DamageResistanceChart {
                 p.bar_chart(bars.chart());
             }
         });
+    }
+
+    fn format_axis(value: f64, _: usize, _: &RangeInclusive<f64>) -> String {
+        let mut formatter = NumberFormatter::new();
+        formatter.format(value, 0)
     }
 }
 

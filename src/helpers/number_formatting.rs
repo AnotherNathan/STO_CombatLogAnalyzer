@@ -39,7 +39,7 @@ impl NumberFormatter {
         }
 
         if precision == 0 {
-            return result;
+            return Self::add_sign(result, is_negative);
         }
 
         self.buffer.clear();
@@ -47,17 +47,17 @@ impl NumberFormatter {
         self.buffer.remove(0);
         result.push_str(&self.buffer);
 
-        if is_negative {
-            result.insert(0, '-');
-        }
-
-        result
+        Self::add_sign(result, is_negative)
     }
 
     pub fn format_with_automated_suffixes(&mut self, number: f64) -> String {
         if number.abs() == 0.0 {
             return "0.0".to_string();
         }
+
+        let is_negative = number.is_sign_negative();
+
+        let number = number.abs();
 
         const THRESHOLD_AND_SUFFIX: &[(f64, &'static str)] = &[
             (1e-6, "n"),
@@ -80,11 +80,22 @@ impl NumberFormatter {
                     .copied()
                     .find_map(|(t, p)| if normalized_number < t { Some(p) } else { None })
                     .unwrap_or(0);
-                return format!("{}{}", self.format(normalized_number, precision), suffix);
+                return Self::add_sign(
+                    format!("{}{}", self.format(normalized_number, precision), suffix),
+                    is_negative,
+                );
             }
         }
 
         "<too large>".to_string()
+    }
+
+    fn add_sign(mut result: String, is_negative: bool) -> String {
+        if is_negative {
+            result.insert(0, '-');
+        }
+
+        result
     }
 }
 
@@ -108,6 +119,8 @@ mod tests {
 
         assert_eq!(formatter.format(1.567, 2), "1.57");
         assert_eq!(formatter.format(-1.567, 2), "-1.57");
+
+        assert_eq!(formatter.format(-100.0, 0), "-100");
     }
 
     #[test]
