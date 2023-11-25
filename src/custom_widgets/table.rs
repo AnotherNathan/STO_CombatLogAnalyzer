@@ -117,10 +117,10 @@ impl<'a> Table<'a> {
         }
     }
 
-    pub fn body(self, row_height: f32, add_body: impl FnOnce(&mut TableBody)) {
+    pub fn body(self, row_height: f32, add_body: impl FnOnce(&mut TableBody)) -> Rect {
         let state = State::load(&self.ui, self.id);
 
-        self.body_inner(row_height, add_body, state, None);
+        self.body_inner(row_height, add_body, state, None)
     }
 
     fn body_inner(
@@ -129,7 +129,7 @@ impl<'a> Table<'a> {
         add_body: impl FnOnce(&mut TableBody),
         mut state: State,
         header_rect: Option<Rect>,
-    ) {
+    ) -> Rect {
         let Self {
             ui,
             id,
@@ -161,23 +161,24 @@ impl<'a> Table<'a> {
                 rect
             });
 
-        let rect = scroll_output.inner.intersect(scroll_output.inner_rect);
-        let separators_rect = header_rect.map(|h| h.union(rect)).unwrap_or(rect);
-        ColumnState::draw_separators(&state.columns, ui, separators_rect, cell_spacing);
+        let body_rect = scroll_output.inner.intersect(scroll_output.inner_rect);
+        let full_rect = header_rect.map(|h| h.union(body_rect)).unwrap_or(body_rect);
+        ColumnState::draw_separators(&state.columns, ui, full_rect, cell_spacing);
         if state.finish(ui, id) {
             ui.ctx().request_repaint();
         }
+        full_rect
     }
 }
 
 impl<'a> TableWithHeader<'a> {
-    pub fn body(self, row_height: f32, add_body: impl FnOnce(&mut TableBody)) {
+    pub fn body(self, row_height: f32, add_body: impl FnOnce(&mut TableBody)) -> Rect {
         let Self {
             table,
             state,
             header_rect,
         } = self;
-        table.body_inner(row_height, add_body, state, Some(header_rect));
+        table.body_inner(row_height, add_body, state, Some(header_rect))
     }
 }
 

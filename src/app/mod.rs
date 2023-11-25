@@ -6,13 +6,14 @@ use rfd::FileDialog;
 use crate::analyzer::Combat;
 
 use self::{
-    analysis_handling::AnalysisInfo, main_tabs::*, settings::*, state::AppState, status::*,
-    summary_copy::SummaryCopy,
+    analysis_handling::AnalysisInfo, main_tabs::*, overlay::Overlay, settings::*, state::AppState,
+    status::*, summary_copy::SummaryCopy,
 };
 
 mod analysis_handling;
 pub mod logging;
 mod main_tabs;
+mod overlay;
 mod settings;
 mod state;
 mod status;
@@ -26,6 +27,7 @@ pub struct App {
     status_indicator: StatusIndicator,
     main_tabs: MainTabs,
     summary_copy: SummaryCopy,
+    overlay: Overlay,
     state: AppState,
 }
 
@@ -45,14 +47,15 @@ impl App {
             status_indicator: StatusIndicator::new(),
             main_tabs: MainTabs::empty(),
             summary_copy: Default::default(),
+            overlay: Default::default(),
             state,
         }
     }
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &eframe::egui::Context, frame: &mut eframe::Frame) {
-        self.handle_analysis_infos();
+    fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
+        self.handle_analysis_infos(ctx);
 
         CentralPanel::default().show(ctx, |ui| {
             ui.vertical(|ui| {
@@ -126,23 +129,30 @@ impl eframe::App for App {
                         }
                     }
 
-                    ui.add_space(40.0);
+                    ui.add_space(20.0);
                     self.summary_copy.show(self.selected_combat.as_ref(), ui);
+                    ui.add_space(20.0);
+                    self.overlay.show(ui, self.selected_combat.as_ref());
                 });
 
                 self.main_tabs.show(ui);
             });
         });
     }
+
+    fn clear_color(&self, _visuals: &eframe::egui::Visuals) -> [f32; 4] {
+        [0.0, 0.0, 0.0, 0.0]
+    }
 }
 
 impl App {
-    fn handle_analysis_infos(&mut self) {
+    fn handle_analysis_infos(&mut self, ctx: &Context) {
         let combatlog_file = &self.state.settings.analysis.combatlog_file;
         for info in self.state.analysis_handler.check_for_info() {
             match info {
                 AnalysisInfo::Combat(combat) => {
                     self.main_tabs.update(&combat);
+                    self.overlay.update(ctx, Some(&combat));
                     self.selected_combat = Some(combat);
                 }
                 AnalysisInfo::Refreshed {
@@ -151,6 +161,7 @@ impl App {
                     file_size,
                 } => {
                     self.main_tabs.update(&latest_combat);
+                    self.overlay.update(ctx, Some(&latest_combat));
                     self.combats = combats;
                     self.selected_combat_index = Some(self.combats.len() - 1);
                     self.selected_combat = Some(latest_combat);

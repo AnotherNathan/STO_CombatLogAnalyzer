@@ -1,6 +1,6 @@
 use eframe::{
     egui::{style::Selection, ComboBox, Context, Ui, Visuals},
-    epaint::{Rgba, Shadow},
+    epaint::{Color32, Rgba, Shadow},
 };
 
 use crate::custom_widgets::slider_text_edit::SliderTextEdit;
@@ -74,11 +74,17 @@ impl VisualsTab {
     }
 
     fn set_theme(ctx: &Context, theme: Theme) {
-        let visuals = match theme {
+        let mut visuals = match theme {
             Theme::Dark => Visuals::dark(),
             Theme::LightDark => Self::light_dark(),
             Theme::Light => Visuals::light(),
         };
+        visuals.panel_fill = Color32::from_rgba_premultiplied(
+            visuals.panel_fill.r(),
+            visuals.panel_fill.g(),
+            visuals.panel_fill.b(),
+            50,
+        );
         ctx.set_visuals(visuals);
     }
 
