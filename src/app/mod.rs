@@ -126,6 +126,7 @@ impl eframe::App for App {
                         }
                     }
 
+                    ui.add_space(40.0);
                     self.summary_copy.show(self.selected_combat.as_ref(), ui);
                 });
 

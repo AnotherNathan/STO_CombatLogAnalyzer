@@ -351,7 +351,10 @@ impl AnalysisContext {
     }
 
     fn set_auto_refresh(&mut self, refresh_interval: Option<f64>) {
-        let settings = self.analyzer.as_ref().unwrap().settings();
+        let settings = match &self.analyzer {
+            Some(analyzer) => analyzer.settings(),
+            None => return,
+        };
         self.auto_refresh = refresh_interval
             .map(|i| {
                 AutoRefreshContext::new(
