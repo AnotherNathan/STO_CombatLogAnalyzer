@@ -129,9 +129,9 @@ impl eframe::App for App {
                         }
                     }
 
-                    ui.add_space(20.0);
+                    ui.separator();
                     self.summary_copy.show(self.selected_combat.as_ref(), ui);
-                    ui.add_space(20.0);
+                    ui.separator();
                     self.overlay.show(ui, self.selected_combat.as_ref());
                 });
 

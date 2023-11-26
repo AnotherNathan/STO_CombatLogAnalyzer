@@ -152,7 +152,12 @@ static COLUMNS: &[ColumnDescriptor] = &[
 
 impl Overlay {
     pub fn show(&mut self, ui: &mut Ui, combat: Option<&Combat>) {
-        if Button::new("Overlay").selected(self.show).ui(ui).clicked() {
+        if Button::new("Overlay")
+            .selected(self.show)
+            .ui(ui)
+            .on_hover_text("Enables an Overlay, that you can move in front of the game window. Note that for the Overlay to update, Auto Refresh must be enabled.")
+            .clicked()
+        {
             self.show = !self.show;
             self.update(ui.ctx(), combat);
         }
@@ -184,7 +189,7 @@ impl Overlay {
 
         let display_data = self.display_data.clone();
         ui.ctx().show_viewport_deferred(
-            Self::id(),
+            Self::viewport_id(),
             ViewportBuilder::default()
                 .with_decorations(self.move_around)
                 .with_minimize_button(false)
@@ -235,7 +240,7 @@ impl Overlay {
                 .sort_by(|p1, p2| p1.sort_value().total_cmp(&p2.sort_value()).reverse());
         }
         *self.display_data.lock() = display_data;
-        ctx.request_repaint_of(Self::id());
+        ctx.request_repaint_of(Self::viewport_id());
     }
 
     fn show_overlay(ctx: &Context, display_data: &Mutex<DisplayData>) {
@@ -277,13 +282,16 @@ impl Overlay {
             let required_size =
                 (required_size * ctx.native_pixels_per_point().unwrap_or(1.0)).ceil();
             if display_data.current_size != required_size {
-                ctx.send_viewport_cmd_to(Self::id(), ViewportCommand::InnerSize(required_size));
+                ctx.send_viewport_cmd_to(
+                    Self::viewport_id(),
+                    ViewportCommand::InnerSize(required_size),
+                );
                 display_data.current_size = required_size;
             }
         });
     }
 
-    fn id() -> ViewportId {
+    pub fn viewport_id() -> ViewportId {
         ViewportId("overlay".into())
     }
 }

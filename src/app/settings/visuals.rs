@@ -3,7 +3,7 @@ use eframe::{
     epaint::{Color32, Rgba, Shadow},
 };
 
-use crate::custom_widgets::slider_text_edit::SliderTextEdit;
+use crate::{app::overlay::Overlay, custom_widgets::slider_text_edit::SliderTextEdit};
 
 use super::{app_settings::Theme, Settings};
 
@@ -79,13 +79,9 @@ impl VisualsTab {
             Theme::LightDark => Self::light_dark(),
             Theme::Light => Visuals::light(),
         };
-        visuals.panel_fill = Color32::from_rgba_premultiplied(
-            visuals.panel_fill.r(),
-            visuals.panel_fill.g(),
-            visuals.panel_fill.b(),
-            50,
-        );
+        visuals.panel_fill = Self::make_transparent(visuals.panel_fill);
         ctx.set_visuals(visuals);
+        ctx.request_repaint_of(Overlay::viewport_id());
     }
 
     fn set_ui_scale(ctx: &Context, native_pixels_per_point: Option<f32>, ui_scale: f64) {
@@ -119,5 +115,9 @@ impl VisualsTab {
         theme.window_stroke.color = Rgba::from_rgb(0.9, 0.9, 0.9).into();
         theme.window_shadow = Shadow::big_light();
         theme
+    }
+
+    fn make_transparent(color: Color32) -> Color32 {
+        Color32::from_rgba_premultiplied(color.r(), color.g(), color.b(), 50)
     }
 }
