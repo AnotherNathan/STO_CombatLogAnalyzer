@@ -10,6 +10,7 @@ use crate::{
 
 pub struct Overlay {
     show: bool,
+    startup: bool,
     move_around: bool,
     display_data: Arc<Mutex<DisplayData>>,
     columns: Vec<ColumnDescriptor>,
@@ -196,14 +197,21 @@ impl Overlay {
                 .with_close_button(false)
                 .with_resizable(false)
                 .with_min_inner_size(vec2(240.0, 80.0))
-                .with_visible(self.show)
+                .with_visible(self.show || self.startup)
                 .with_always_on_top()
-                .with_mouse_passthrough(!self.move_around)
-                .with_transparent(!self.move_around),
+                .with_mouse_passthrough(!self.move_around),
             move |ctx, _| {
                 Self::show_overlay(ctx, &display_data);
             },
         );
+
+        self.startup = self.startup
+            && !ui.ctx().input(|i| {
+                i.events.iter().any(|e| match e {
+                    Event::WindowFocused(_) => true,
+                    _ => false,
+                })
+            });
     }
 
     pub fn update(&mut self, ctx: &Context, combat: Option<&Combat>) {
@@ -300,6 +308,7 @@ impl Default for Overlay {
     fn default() -> Self {
         Self {
             show: false,
+            startup: true,
             move_around: true,
             display_data: Default::default(),
             columns: COLUMNS.iter().cloned().collect(),
