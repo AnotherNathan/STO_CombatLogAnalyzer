@@ -10,17 +10,22 @@ use crate::{
 
 pub struct Overlay {
     show: bool,
-    startup: bool,
     move_around: bool,
-    display_data: Arc<Mutex<DisplayData>>,
+    context: Arc<Mutex<OverlayContext>>,
     columns: Vec<ColumnDescriptor>,
+}
+
+#[derive(Default)]
+struct OverlayContext {
+    position: Option<Pos2>,
+    current_size: Vec2,
+    data: DisplayData,
 }
 
 #[derive(Default)]
 struct DisplayData {
     columns: Vec<ColumnDescriptor>,
     players: Vec<DisplayPlayer>,
-    current_size: Vec2,
 }
 
 struct DisplayPlayer {
@@ -188,29 +193,26 @@ impl Overlay {
             }
         });
 
-        let display_data = self.display_data.clone();
-        ui.ctx().show_viewport_deferred(
-            Self::viewport_id(),
-            ViewportBuilder::default()
-                .with_decorations(self.move_around)
-                .with_minimize_button(false)
-                .with_close_button(false)
-                .with_resizable(false)
-                .with_min_inner_size(vec2(240.0, 80.0))
-                .with_visible(self.show || self.startup)
-                .with_always_on_top()
-                .with_mouse_passthrough(!self.move_around),
-            move |ctx, _| {
-                Self::show_overlay(ctx, &display_data);
-            },
-        );
+        if !self.show {
+            return;
+        }
 
-        self.startup = self.startup
-            && !ui.ctx().input(|i| {
-                i.events.iter().any(|e| match e {
-                    Event::WindowFocused(_) => true,
-                    _ => false,
-                })
+        let overlay_context = self.context.clone();
+        let context = overlay_context.lock();
+        let mut builder = ViewportBuilder::default()
+            .with_decorations(self.move_around)
+            .with_minimize_button(false)
+            .with_close_button(false)
+            .with_resizable(false)
+            .with_min_inner_size(vec2(240.0, 80.0))
+            .with_inner_size(context.current_size)
+            .with_always_on_top()
+            .with_mouse_passthrough(!self.move_around);
+        builder.position = context.position;
+        drop(context);
+        ui.ctx()
+            .show_viewport_deferred(Self::viewport_id(), builder, move |ctx, _| {
+                Self::show_overlay(ctx, &overlay_context);
             });
     }
 
@@ -220,7 +222,7 @@ impl Overlay {
         let combat = match combat {
             Some(c) => c,
             None => {
-                *self.display_data.lock() = Default::default();
+                self.context.lock().data = Default::default();
                 return;
             }
         };
@@ -247,13 +249,17 @@ impl Overlay {
                 .players
                 .sort_by(|p1, p2| p1.sort_value().total_cmp(&p2.sort_value()).reverse());
         }
-        *self.display_data.lock() = display_data;
+        self.context.lock().data = display_data;
         ctx.request_repaint_of(Self::viewport_id());
     }
 
-    fn show_overlay(ctx: &Context, display_data: &Mutex<DisplayData>) {
+    fn show_overlay(ctx: &Context, context: &Mutex<OverlayContext>) {
         CentralPanel::default().show(ctx, |ui| {
-            let mut display_data = display_data.lock();
+            let mut context = context.lock();
+            context.position = ctx.input_for(Self::viewport_id(), |i| {
+                i.viewport().outer_rect.map(|r| r.left_top())
+            });
+            let display_data = &context.data;
             let required_size = Table::new(ui)
                 .min_scroll_height(f32::MAX)
                 .header(15.0, |h| {
@@ -289,12 +295,12 @@ impl Overlay {
                 + ui.spacing().item_spacing;
             let required_size =
                 (required_size * ctx.native_pixels_per_point().unwrap_or(1.0)).ceil();
-            if display_data.current_size != required_size {
+            if context.current_size != required_size {
                 ctx.send_viewport_cmd_to(
                     Self::viewport_id(),
                     ViewportCommand::InnerSize(required_size),
                 );
-                display_data.current_size = required_size;
+                context.current_size = required_size;
             }
         });
     }
@@ -308,9 +314,8 @@ impl Default for Overlay {
     fn default() -> Self {
         Self {
             show: false,
-            startup: true,
             move_around: true,
-            display_data: Default::default(),
+            context: Default::default(),
             columns: COLUMNS.iter().cloned().collect(),
         }
     }
