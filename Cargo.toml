@@ -9,11 +9,11 @@ license = "MIT OR Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-eframe = { version = "0.24", default-features = false, features = [
+eframe = { version = "0.25", default-features = false, features = [
     "default_fonts",
     "glow",
 ] }
-egui_plot = "0.24"
+egui_plot = "0.25"
 chrono = { version = "0.4.23", default-features = false, features = ["std"] }
 lazy_static = "1.4.0"
 regex = "1.7.0"

@@ -56,8 +56,7 @@ impl<T: PreparedValue> ValuePerSecondGraph<T> {
         }
 
         let mut plot = Plot::new("dps graph")
-            .auto_bounds_x()
-            .auto_bounds_y()
+            .auto_bounds(true.into())
             .y_axis_formatter(format_axis)
             .x_axis_formatter(format_axis)
             .label_formatter(Self::format_label)

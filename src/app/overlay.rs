@@ -200,6 +200,7 @@ impl Overlay {
         let overlay_context = self.context.clone();
         let context = overlay_context.lock();
         let mut builder = ViewportBuilder::default()
+            .with_title("CLA Overlay")
             .with_decorations(self.move_around)
             .with_minimize_button(false)
             .with_close_button(false)
