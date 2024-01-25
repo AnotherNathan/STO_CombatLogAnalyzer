@@ -410,12 +410,6 @@
               "expression": "U.S.S. Lafayette",
               "method": "Equals",
               "enabled": true
-            },
-            {
-              "aspect": "SourceOrTargetName",
-              "expression": "U.S.S. Roosevelt",
-              "method": "Equals",
-              "enabled": true
             }
           ],
           "enabled": true
@@ -628,6 +622,27 @@
               "aspect": "SourceOrTargetUniqueName",
               "expression": "Msn_Kcw_Rura_Penthe_System_Tfo_Prisoner_Transport",
               "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
+      },
+      {
+        "name_rule": {
+          "name": "Battle of Wolf 359",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetName",
+              "expression": "Wolf359]",
+              "method": "EndsWith",
+              "enabled": true
+            },
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Wolf359",
+              "method": "EndsWith",
               "enabled": true
             }
           ],
