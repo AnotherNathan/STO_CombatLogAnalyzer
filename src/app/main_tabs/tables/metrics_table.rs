@@ -2,6 +2,7 @@ use std::cmp::Reverse;
 
 use educe::Educe;
 use eframe::egui::*;
+use rustc_hash::FxHashSet;
 
 use crate::{
     analyzer::*,
@@ -34,7 +35,7 @@ macro_rules! col {
 pub struct MetricsTable<T: 'static> {
     columns: &'static [ColumnDescriptor<T>],
     players: Vec<MetricsTablePart<T>>,
-    selected_id: Option<u32>,
+    selected_ids: FxHashSet<u32>,
 }
 
 #[derive(Educe)]
@@ -52,8 +53,8 @@ pub struct MetricsTablePart<T> {
 
 pub enum TableSelection<'a, T> {
     SubPartsOrSingle(&'a MetricsTablePart<T>),
-    Single(&'a MetricsTablePart<T>),
-    Unselect,
+    SingleOrAdd(&'a MetricsTablePart<T>),
+    Unselect(Option<&'a str>),
 }
 
 #[derive(Clone, Copy)]
@@ -68,7 +69,7 @@ impl<T: 'static> MetricsTable<T> {
     pub fn empty_base(columns: &'static [ColumnDescriptor<T>]) -> Self {
         Self {
             players: Vec::new(),
-            selected_id: None,
+            selected_ids: Default::default(),
             columns,
         }
     }
@@ -96,7 +97,7 @@ impl<T: 'static> MetricsTable<T> {
                     )
                 })
                 .collect(),
-            selected_id: None,
+            selected_ids: Default::default(),
         };
         (table.columns[0].sort)(&mut table);
 
@@ -104,6 +105,7 @@ impl<T: 'static> MetricsTable<T> {
     }
 
     pub fn show(&mut self, ui: &mut Ui, mut on_selected: impl FnMut(TableSelection<T>)) {
+        let modifiers = ui.input(|i| i.modifiers);
         ScrollArea::horizontal().show(ui, |ui| {
             Table::new(ui)
                 .cell_spacing(10.0)
@@ -122,8 +124,9 @@ impl<T: 'static> MetricsTable<T> {
                             &self.columns,
                             &mut t,
                             0.0,
-                            &mut self.selected_id,
+                            &mut self.selected_ids,
                             &mut on_selected,
+                            modifiers,
                         );
                     }
                 });
@@ -199,10 +202,11 @@ impl<T> MetricsTablePart<T> {
         columns: &[ColumnDescriptor<T>],
         table: &mut TableBody,
         indent: f32,
-        selected_id: &mut Option<u32>,
+        selected_ids: &mut FxHashSet<u32>,
         on_selected: &mut impl FnMut(TableSelection<T>),
+        modifiers: Modifiers,
     ) {
-        let response = table.selectable_row(Some(self.id) == *selected_id, |mut r| {
+        let response = table.selectable_row(selected_ids.contains(&self.id), |mut r| {
             r.cell(|ui| {
                 ui.horizontal(|ui| {
                     ui.add_space(indent * 30.0);
@@ -225,12 +229,27 @@ impl<T> MetricsTablePart<T> {
         });
 
         if response.clicked() {
-            if *selected_id == Some(self.id) {
-                *selected_id = None;
-                on_selected(TableSelection::Unselect);
+            if selected_ids.contains(&self.id) {
+                if modifiers.contains(Modifiers::CTRL) {
+                    selected_ids.remove(&self.id);
+                } else {
+                    selected_ids.clear();
+                }
+
+                if selected_ids.len() == 0 {
+                    on_selected(TableSelection::Unselect(None));
+                } else {
+                    on_selected(TableSelection::Unselect(Some(&self.name)));
+                }
             } else {
-                *selected_id = Some(self.id);
-                on_selected(TableSelection::SubPartsOrSingle(self));
+                if modifiers.contains(Modifiers::CTRL) {
+                    selected_ids.insert(self.id);
+                    on_selected(TableSelection::SingleOrAdd(self));
+                } else {
+                    selected_ids.clear();
+                    selected_ids.insert(self.id);
+                    on_selected(TableSelection::SubPartsOrSingle(self));
+                }
             }
         }
 
@@ -246,16 +265,24 @@ impl<T> MetricsTablePart<T> {
             if ui
                 .selectable_label(false, "show diagrams for this")
                 .clicked()
+                && !selected_ids.contains(&self.id)
             {
-                *selected_id = Some(self.id);
-                on_selected(TableSelection::Single(self));
+                selected_ids.insert(self.id);
+                on_selected(TableSelection::SingleOrAdd(self));
                 ui.close_menu();
             }
         });
 
         if self.open {
             for sub_part in self.sub_parts.iter_mut() {
-                sub_part.show(columns, table, indent + 1.0, selected_id, on_selected);
+                sub_part.show(
+                    columns,
+                    table,
+                    indent + 1.0,
+                    selected_ids,
+                    on_selected,
+                    modifiers,
+                );
             }
         }
     }

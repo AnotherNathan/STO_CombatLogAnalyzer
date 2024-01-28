@@ -2,6 +2,7 @@ use std::ops::RangeInclusive;
 
 use eframe::egui::*;
 use egui_plot::*;
+use itertools::Itertools;
 
 use crate::{analyzer::*, helpers::number_formatting::NumberFormatter};
 
@@ -33,6 +34,17 @@ impl DamageResistanceChart {
             newly_created: true,
             bars,
             updated_time_slice: Some(time_slice),
+        }
+    }
+
+    pub fn add_bars(&mut self, bars: PreparedDamageDataSet, time_slice: f64) {
+        self.bars.push(DamageResistanceBars::new(bars));
+        self.update(time_slice);
+    }
+
+    pub fn remove_bars(&mut self, bars: &str) {
+        if let Some((index, _)) = self.bars.iter().find_position(|b| b.data.name == bars) {
+            self.bars.remove(index);
         }
     }
 

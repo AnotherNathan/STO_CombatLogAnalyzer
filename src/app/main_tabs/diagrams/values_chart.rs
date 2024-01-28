@@ -1,5 +1,6 @@
 use eframe::egui::*;
 use egui_plot::*;
+use itertools::Itertools;
 
 use super::common::*;
 
@@ -27,17 +28,25 @@ impl<T: PreparedValue> ValuesChart<T> {
     }
 
     pub fn from_data(bars: impl Iterator<Item = PreparedDataSet<T>>, time_slice: f64) -> Self {
-        let mut bars: Vec<_> = bars.map(|d| Bars::new(d)).collect();
-        bars.sort_unstable_by(|b1, b2| {
-            b1.data
-                .total_value
-                .total_cmp(&b2.data.total_value)
-                .reverse()
-        });
-        Self {
+        let bars: Vec<_> = bars.map(|d| Bars::new(d)).collect();
+        let mut _self = Self {
             newly_created: true,
             bars,
             updated_time_slice: Some(time_slice),
+        };
+        _self.sort();
+        _self
+    }
+
+    pub fn add_bars(&mut self, bars: PreparedDataSet<T>, time_slice: f64) {
+        self.bars.push(Bars::new(bars));
+        self.sort();
+        self.update(time_slice);
+    }
+
+    pub fn remove_bars(&mut self, bars: &str) {
+        if let Some((index, _)) = self.bars.iter().find_position(|b| b.data.name == bars) {
+            self.bars.remove(index);
         }
     }
 
@@ -69,6 +78,15 @@ impl<T: PreparedValue> ValuesChart<T> {
             for bars in self.bars.iter() {
                 p.bar_chart(bars.chart());
             }
+        });
+    }
+
+    fn sort(&mut self) {
+        self.bars.sort_unstable_by(|b1, b2| {
+            b1.data
+                .total_value
+                .total_cmp(&b2.data.total_value)
+                .reverse()
         });
     }
 }

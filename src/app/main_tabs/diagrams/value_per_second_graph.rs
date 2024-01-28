@@ -2,6 +2,7 @@ use std::f64::consts::PI;
 
 use eframe::egui::*;
 use egui_plot::*;
+use itertools::Itertools;
 
 use crate::helpers::number_formatting::NumberFormatter;
 
@@ -36,12 +37,25 @@ impl<T: PreparedValue> ValuePerSecondGraph<T> {
 
     pub fn from_data<'a>(lines: impl Iterator<Item = PreparedDataSet<T>>, filter: f64) -> Self {
         let lines: Vec<_> = lines.map(|l| GraphLine::new(l)).collect();
-        let largest_point = Self::compute_largest_point(&lines);
-        Self {
+        let mut _self = Self {
             lines,
-            largest_point,
-            newly_created: true,
             updated_filter: Some(filter),
+            ..Self::empty()
+        };
+        _self.compute_largest_point();
+
+        _self
+    }
+
+    pub fn add_line(&mut self, line: PreparedDataSet<T>, filter: f64) {
+        self.lines.push(GraphLine::new(line));
+        self.compute_largest_point();
+        self.update(filter);
+    }
+
+    pub fn remove_line(&mut self, line: &str) {
+        if let Some((index, _)) = self.lines.iter().find_position(|l| l.data.name == line) {
+            self.lines.remove(index);
         }
     }
 
@@ -52,7 +66,7 @@ impl<T: PreparedValue> ValuePerSecondGraph<T> {
     pub fn show(&mut self, ui: &mut Ui) {
         if let Some(filter) = self.updated_filter.take() {
             self.lines.iter_mut().for_each(|l| l.update(filter));
-            self.largest_point = Self::compute_largest_point(&self.lines);
+            self.compute_largest_point();
         }
 
         let mut plot = Plot::new("dps graph")
@@ -90,13 +104,14 @@ impl<T: PreparedValue> ValuePerSecondGraph<T> {
         format!("{}\nDPS: {}\nTime: {}", name, y, x)
     }
 
-    fn compute_largest_point(lines: &[GraphLine<T>]) -> f64 {
-        lines
+    fn compute_largest_point(&mut self) {
+        self.largest_point = self
+            .lines
             .iter()
             .flat_map(|l| l.points.iter())
             .map(|p| p[1])
             .max_by(|p1, p2| p1.total_cmp(p2))
-            .unwrap_or(0.0)
+            .unwrap_or(0.0);
     }
 }
 

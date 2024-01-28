@@ -82,6 +82,18 @@ impl DamageDiagrams {
         }
     }
 
+    pub fn add_data(&mut self, data: PreparedDamageDataSet, dps_filter: f64, time_slice: f64) {
+        self.dps_graph.add_line(data.clone(), dps_filter);
+        self.damage_chart.add_bars(data.clone(), time_slice);
+        self.damage_resistance_chart.add_bars(data, time_slice);
+    }
+
+    pub fn remove_data(&mut self, data: &str) {
+        self.dps_graph.remove_line(data);
+        self.damage_chart.remove_bars(data);
+        self.damage_resistance_chart.remove_bars(data);
+    }
+
     pub fn update(&mut self, dps_filter: f64, time_slice: f64) {
         self.dps_graph.update(dps_filter);
         self.damage_chart.update(time_slice);
@@ -133,6 +145,16 @@ impl HealDiagrams {
             hps_graph: HpsGraph::from_data(data.iter().cloned(), hps_filter),
             heal_chart: HealChart::from_data(data.iter().cloned(), heal_time_slice),
         }
+    }
+
+    pub fn add_data(&mut self, data: PreparedHealDataSet, hps_filter: f64, time_slice: f64) {
+        self.hps_graph.add_line(data.clone(), hps_filter);
+        self.heal_chart.add_bars(data.clone(), time_slice);
+    }
+
+    pub fn remove_data(&mut self, data: &str) {
+        self.hps_graph.remove_line(data);
+        self.heal_chart.remove_bars(data);
     }
 
     pub fn update(&mut self, hps_filter: f64, time_slice: f64) {
