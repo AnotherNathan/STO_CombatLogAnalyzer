@@ -64,7 +64,8 @@ impl SettingsWindow {
         }
         Window::new("Settings")
             .collapsible(false)
-            .fixed_size([800.0, 400.0])
+            .auto_sized()
+            .max_size([1080.0, 720.0])
             .constrain(true)
             .show(ui.ctx(), |ui| {
                 ui.horizontal(|ui| {

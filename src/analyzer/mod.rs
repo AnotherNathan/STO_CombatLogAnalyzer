@@ -409,6 +409,13 @@ impl Player {
         settings: &AnalysisSettings,
         name_manager: &mut NameManager,
     ) {
+        if settings
+            .damage_out_exclusion_rules
+            .iter()
+            .any(|r| r.matches_record(record))
+        {
+            return;
+        }
         self.update_active_time(record);
         let mut path = Self::build_grouping_path(record, settings, name_manager);
         let target_name = if record.is_self_directed() {

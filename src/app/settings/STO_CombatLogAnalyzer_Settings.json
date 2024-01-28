@@ -30,6 +30,14 @@
         "enabled": false
       }
     ],
+    "damage_out_exclusion_rules": [
+      {
+        "aspect": "DamageOrHealName",
+        "expression": "Warp Core Breach",
+        "method": "Equals",
+        "enabled": false
+      }
+    ],
     "combat_name_rules": [
       {
         "name_rule": {

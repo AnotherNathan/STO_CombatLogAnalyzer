@@ -13,6 +13,8 @@ pub struct AnalysisSettings {
     pub combat_separation_time_seconds: f64,
     pub indirect_source_grouping_revers_rules: Vec<MatchRule>,
     pub custom_group_rules: Vec<RulesGroup>,
+    #[serde(default)]
+    pub damage_out_exclusion_rules: Vec<MatchRule>,
     pub combat_name_rules: Vec<CombatNameRule>,
 }
 
@@ -265,6 +267,7 @@ impl Default for AnalysisSettings {
             combat_separation_time_seconds: 1.5 * 60.0,
             indirect_source_grouping_revers_rules: Default::default(),
             custom_group_rules: Default::default(),
+            damage_out_exclusion_rules: Default::default(),
             combat_name_rules: Default::default(),
         }
     }
