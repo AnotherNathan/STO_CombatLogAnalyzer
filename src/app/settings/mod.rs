@@ -1,3 +1,5 @@
+use std::ffi::OsStr;
+
 pub use app_settings::Settings;
 use eframe::{egui::*, Frame};
 
@@ -59,6 +61,7 @@ impl SettingsWindow {
             self.initialize(state);
         }
 
+        self.handle_dropped_file(ui, state);
         if !self.is_open {
             return;
         }
@@ -103,6 +106,27 @@ impl SettingsWindow {
                     }
                 })
             });
+    }
+
+    fn handle_dropped_file(&mut self, ui: &mut Ui, state: &mut AppState) {
+        ui.ctx().input(|i| {
+            let file = i
+                .raw
+                .dropped_files
+                .last()
+                .map(|f| f.path.as_ref())
+                .flatten();
+            if let Some(file) = file {
+                if file.extension() != Some(OsStr::new("log")) {
+                    return;
+                }
+                if !self.is_open {
+                    self.initialize(state);
+                }
+                self.modified_settings.analysis.combatlog_file = file.to_string_lossy().into();
+                self.apply_setting_changes(ui, state);
+            }
+        });
     }
 
     fn initialize(&mut self, state: &AppState) {
