@@ -35,7 +35,7 @@ macro_rules! col {
 pub struct MetricsTable<T: 'static> {
     columns: &'static [ColumnDescriptor<T>],
     players: Vec<MetricsTablePart<T>>,
-    selected_ids: FxHashSet<u32>,
+    selection: SelectionTracker,
 }
 
 #[derive(Educe)]
@@ -51,12 +51,6 @@ pub struct MetricsTablePart<T> {
     open: bool,
 }
 
-pub enum TableSelection<'a, T> {
-    SubPartsOrSingle(&'a MetricsTablePart<T>),
-    SingleOrAdd(&'a MetricsTablePart<T>),
-    Unselect(Option<&'a str>),
-}
-
 #[derive(Clone, Copy)]
 pub struct ColumnDescriptor<T: 'static> {
     pub name: &'static str,
@@ -69,7 +63,7 @@ impl<T: 'static> MetricsTable<T> {
     pub fn empty_base(columns: &'static [ColumnDescriptor<T>]) -> Self {
         Self {
             players: Vec::new(),
-            selected_ids: Default::default(),
+            selection: Default::default(),
             columns,
         }
     }
@@ -97,14 +91,14 @@ impl<T: 'static> MetricsTable<T> {
                     )
                 })
                 .collect(),
-            selected_ids: Default::default(),
+            selection: Default::default(),
         };
         (table.columns[0].sort)(&mut table);
 
         table
     }
 
-    pub fn show(&mut self, ui: &mut Ui, mut on_selected: impl FnMut(TableSelection<T>)) {
+    pub fn show(&mut self, ui: &mut Ui, mut on_selected: impl FnMut(TableSelectionEvent<T>)) {
         let modifiers = ui.input(|i| i.modifiers);
         ScrollArea::horizontal().show(ui, |ui| {
             Table::new(ui)
@@ -124,7 +118,7 @@ impl<T: 'static> MetricsTable<T> {
                             &self.columns,
                             &mut t,
                             0.0,
-                            &mut self.selected_ids,
+                            &mut self.selection,
                             &mut on_selected,
                             modifiers,
                         );
@@ -202,11 +196,11 @@ impl<T> MetricsTablePart<T> {
         columns: &[ColumnDescriptor<T>],
         table: &mut TableBody,
         indent: f32,
-        selected_ids: &mut FxHashSet<u32>,
-        on_selected: &mut impl FnMut(TableSelection<T>),
+        selection: &mut SelectionTracker,
+        on_selected: &mut impl FnMut(TableSelectionEvent<T>),
         modifiers: Modifiers,
     ) {
-        let response = table.selectable_row(selected_ids.contains(&self.id), |mut r| {
+        let response = table.selectable_row(selection.is_selected(self.id), |mut r| {
             r.cell(|ui| {
                 ui.horizontal(|ui| {
                     ui.add_space(indent * 30.0);
@@ -229,27 +223,10 @@ impl<T> MetricsTablePart<T> {
         });
 
         if response.clicked() {
-            if selected_ids.contains(&self.id) {
-                if modifiers.contains(Modifiers::CTRL) {
-                    selected_ids.remove(&self.id);
-                } else {
-                    selected_ids.clear();
-                }
-
-                if selected_ids.len() == 0 {
-                    on_selected(TableSelection::Unselect(None));
-                } else {
-                    on_selected(TableSelection::Unselect(Some(&self.name)));
-                }
+            if modifiers.contains(Modifiers::CTRL) {
+                selection.select_or_unselect_single(self, on_selected);
             } else {
-                if modifiers.contains(Modifiers::CTRL) {
-                    selected_ids.insert(self.id);
-                    on_selected(TableSelection::SingleOrAdd(self));
-                } else {
-                    selected_ids.clear();
-                    selected_ids.insert(self.id);
-                    on_selected(TableSelection::SubPartsOrSingle(self));
-                }
+                selection.select_group(self, on_selected);
             }
         }
 
@@ -265,10 +242,9 @@ impl<T> MetricsTablePart<T> {
             if ui
                 .selectable_label(false, "show diagrams for this")
                 .clicked()
-                && !selected_ids.contains(&self.id)
+                && !selection.is_selected(self.id)
             {
-                selected_ids.insert(self.id);
-                on_selected(TableSelection::SingleOrAdd(self));
+                selection.select_or_unselect_single(self, on_selected);
                 ui.close_menu();
             }
         });
@@ -279,7 +255,7 @@ impl<T> MetricsTablePart<T> {
                     columns,
                     table,
                     indent + 1.0,
-                    selected_ids,
+                    selection,
                     on_selected,
                     modifiers,
                 );
@@ -297,5 +273,75 @@ impl<T> MetricsTablePart<T> {
         self.sub_parts.sort_unstable_by_key(key);
 
         self.sub_parts.iter_mut().for_each(|p| p.sort_by_asc(key));
+    }
+}
+
+#[derive(Default)]
+enum SelectionTracker {
+    #[default]
+    None,
+    Group(u32),
+    Multi(FxHashSet<u32>),
+}
+
+pub enum TableSelectionEvent<'a, T> {
+    Clear,
+    Group(&'a MetricsTablePart<T>),
+    Single(&'a MetricsTablePart<T>),
+    AddSingle(&'a MetricsTablePart<T>),
+    Unselect(&'a str),
+}
+
+impl SelectionTracker {
+    fn is_selected(&self, id: u32) -> bool {
+        match &self {
+            Self::None => false,
+            Self::Group(i) => *i == id,
+            Self::Multi(g) => g.contains(&id),
+        }
+    }
+
+    fn select_group<T>(
+        &mut self,
+        part: &MetricsTablePart<T>,
+        on_selected: &mut impl FnMut(TableSelectionEvent<T>),
+    ) {
+        match self {
+            SelectionTracker::Group(id) if *id == part.id => {
+                *self = Self::None;
+                on_selected(TableSelectionEvent::Clear);
+            }
+            _ => {
+                *self = Self::Group(part.id);
+                on_selected(TableSelectionEvent::Group(part));
+            }
+        }
+    }
+
+    fn select_or_unselect_single<T>(
+        &mut self,
+        part: &MetricsTablePart<T>,
+        on_selected: &mut impl FnMut(TableSelectionEvent<T>),
+    ) {
+        match self {
+            SelectionTracker::None | SelectionTracker::Group(_) => {
+                let mut group: FxHashSet<_> = Default::default();
+                group.insert(part.id);
+                *self = Self::Multi(group);
+                on_selected(TableSelectionEvent::Single(part));
+            }
+            SelectionTracker::Multi(group) => {
+                if !group.contains(&part.id) {
+                    group.insert(part.id);
+                    on_selected(TableSelectionEvent::AddSingle(part));
+                } else if group.len() > 1 {
+                    group.remove(&part.id);
+                    on_selected(TableSelectionEvent::Unselect(&part.name));
+                } else {
+                    *self = Self::None;
+                    on_selected(TableSelectionEvent::Clear);
+                }
+            }
+        }
     }
 }

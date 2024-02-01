@@ -58,19 +58,27 @@ impl HealTab {
 
     fn process_diagram_change(
         diagram: &mut Option<HealDiagrams>,
-        selection: TableSelection<HealTablePartData>,
+        selection: TableSelectionEvent<HealTablePartData>,
         hps_filter: f64,
         heal_time_slice: f64,
     ) {
         match selection {
-            TableSelection::SubPartsOrSingle(part) if part.sub_parts.len() == 0 => {
+            TableSelectionEvent::Clear => *diagram = None,
+            TableSelectionEvent::Group(part) => {
+                *diagram = Some(Self::make_sub_parts_diagram_selection(
+                    part,
+                    hps_filter,
+                    heal_time_slice,
+                ))
+            }
+            TableSelectionEvent::Single(part) => {
                 *diagram = Some(Self::make_single_diagram_selection(
                     part,
                     hps_filter,
                     heal_time_slice,
                 ))
             }
-            TableSelection::SingleOrAdd(part) => match diagram.as_mut() {
+            TableSelectionEvent::AddSingle(part) => match diagram.as_mut() {
                 Some(diagram) => {
                     diagram.add_data(
                         Self::make_single_data_set(part),
@@ -86,19 +94,11 @@ impl HealTab {
                     ))
                 }
             },
-            TableSelection::SubPartsOrSingle(part) => {
-                *diagram = Some(Self::make_sub_parts_diagram_selection(
-                    part,
-                    hps_filter,
-                    heal_time_slice,
-                ));
-            }
-            TableSelection::Unselect(Some(part)) => {
+            TableSelectionEvent::Unselect(part) => {
                 if let Some(diagram) = diagram.as_mut() {
-                    diagram.remove_data(&part);
+                    diagram.remove_data(part);
                 }
             }
-            TableSelection::Unselect(None) => *diagram = None,
         }
     }
 
