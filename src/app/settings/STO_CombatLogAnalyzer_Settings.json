@@ -657,6 +657,21 @@
           "enabled": true
         },
         "additional_info_rules": []
+      },
+      {
+        "name_rule": {
+          "name": "Vault: Ensnared",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Event_Vault_Ext_Tholian_Weaver",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       }
     ]
   },
