@@ -79,9 +79,9 @@ impl DamageResistanceChart {
         });
     }
 
-    fn format_axis(value: f64, _: usize, _: &RangeInclusive<f64>) -> String {
+    fn format_axis(mark: GridMark, _: usize, _: &RangeInclusive<f64>) -> String {
         let mut formatter = NumberFormatter::new();
-        formatter.format(value, 0)
+        formatter.format(mark.value, 0)
     }
 }
 

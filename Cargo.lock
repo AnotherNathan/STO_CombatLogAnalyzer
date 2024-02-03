@@ -502,8 +502,7 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 [[package]]
 name = "ecolor"
 version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57539aabcdbb733b6806ef421b66dec158dc1582107ad6d51913db3600303354"
+source = "git+https://github.com/AnotherNathan/egui.git?branch=windows_skip_taskbar#2047f311c5f9ade68e7a6a83d70bc1b8352ca89c"
 dependencies = [
  "bytemuck",
 ]
@@ -523,8 +522,7 @@ dependencies = [
 [[package]]
 name = "eframe"
 version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79c00143a1d564cf27570234c9a199cbe75dc3d43a135510fb2b93406a87ee8e"
+source = "git+https://github.com/AnotherNathan/egui.git?branch=windows_skip_taskbar#2047f311c5f9ade68e7a6a83d70bc1b8352ca89c"
 dependencies = [
  "bytemuck",
  "cocoa",
@@ -540,12 +538,14 @@ dependencies = [
  "objc",
  "parking_lot",
  "percent-encoding",
- "raw-window-handle",
+ "raw-window-handle 0.5.2",
+ "raw-window-handle 0.6.0",
  "static_assertions",
  "thiserror",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+ "web-time",
  "winapi",
  "winit",
 ]
@@ -553,8 +553,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0bf640ed7f3bf3d14ebf00d73bacc09c886443ee84ca6494bde37953012c9e3"
+source = "git+https://github.com/AnotherNathan/egui.git?branch=windows_skip_taskbar#2047f311c5f9ade68e7a6a83d70bc1b8352ca89c"
 dependencies = [
  "ahash",
  "epaint",
@@ -565,13 +564,12 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d95d9762056c541bd2724de02910d8bccf3af8e37689dc114b21730e64f80a0"
+source = "git+https://github.com/AnotherNathan/egui.git?branch=windows_skip_taskbar#2047f311c5f9ade68e7a6a83d70bc1b8352ca89c"
 dependencies = [
  "arboard",
  "egui",
  "log",
- "raw-window-handle",
+ "raw-window-handle 0.6.0",
  "smithay-clipboard",
  "web-time",
  "webbrowser",
@@ -581,14 +579,14 @@ dependencies = [
 [[package]]
 name = "egui_glow"
 version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb2ef815e80d117339c7d6b813f7678d23522d699ccd3243e267ef06166009b9"
+source = "git+https://github.com/AnotherNathan/egui.git?branch=windows_skip_taskbar#2047f311c5f9ade68e7a6a83d70bc1b8352ca89c"
 dependencies = [
  "bytemuck",
  "egui",
  "glow",
  "log",
  "memoffset",
+ "raw-window-handle 0.5.2",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -596,8 +594,7 @@ dependencies = [
 [[package]]
 name = "egui_plot"
 version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a159fffebf052f79d1fd26d48e68906a21fec2fce808f7c0a982ec14ed506be"
+source = "git+https://github.com/AnotherNathan/egui.git?branch=windows_skip_taskbar#2047f311c5f9ade68e7a6a83d70bc1b8352ca89c"
 dependencies = [
  "egui",
 ]
@@ -611,8 +608,7 @@ checksum = "a26ae43d7bcc3b814de94796a5e736d4029efb0ee900c12e2d54c993ad1a1e07"
 [[package]]
 name = "emath"
 version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ee58355767587db7ba3738930d93cad3052cd834c2b48b9ef6ef26fe4823b7e"
+source = "git+https://github.com/AnotherNathan/egui.git?branch=windows_skip_taskbar#2047f311c5f9ade68e7a6a83d70bc1b8352ca89c"
 dependencies = [
  "bytemuck",
 ]
@@ -633,8 +629,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e638cb066bff0903bbb6143116cfd134a42279c7d68f19c0352a94f15a402de7"
+source = "git+https://github.com/AnotherNathan/egui.git?branch=windows_skip_taskbar#2047f311c5f9ade68e7a6a83d70bc1b8352ca89c"
 dependencies = [
  "ab_glyph",
  "ahash",
@@ -873,7 +868,7 @@ dependencies = [
  "libloading",
  "objc2",
  "once_cell",
- "raw-window-handle",
+ "raw-window-handle 0.5.2",
  "wayland-sys",
  "windows-sys 0.48.0",
  "x11-dl",
@@ -887,7 +882,7 @@ checksum = "1ebcdfba24f73b8412c5181e56f092b5eff16671c514ce896b258a0a64bd7735"
 dependencies = [
  "cfg_aliases",
  "glutin",
- "raw-window-handle",
+ "raw-window-handle 0.5.2",
  "winit",
 ]
 
@@ -1262,7 +1257,8 @@ dependencies = [
  "log",
  "ndk-sys",
  "num_enum",
- "raw-window-handle",
+ "raw-window-handle 0.5.2",
+ "raw-window-handle 0.6.0",
  "thiserror",
 ]
 
@@ -1582,6 +1578,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2ff9a1f06a88b01621b7ae906ef0211290d1c8a168a15542486a8f61c0833b9"
 
 [[package]]
+name = "raw-window-handle"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42a9830a0e1b9fb145ebb365b8bc4ccd75f290f98c0247deafbbe2c75cefb544"
+
+[[package]]
 name = "redox_syscall"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1630,9 +1632,8 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 
 [[package]]
 name = "rfd"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c9e7b57df6e8472152674607f6cc68aa14a748a3157a857a94f516e11aeacc2"
+version = "0.13.0"
+source = "git+https://github.com/PolyMeilex/rfd.git#2750aad675719834c14a7c201a813c9b0bb9a110"
 dependencies = [
  "block",
  "dispatch",
@@ -1644,7 +1645,7 @@ dependencies = [
  "objc",
  "objc-foundation",
  "objc_id",
- "raw-window-handle",
+ "raw-window-handle 0.6.0",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -2298,7 +2299,7 @@ dependencies = [
  "log",
  "ndk-context",
  "objc",
- "raw-window-handle",
+ "raw-window-handle 0.5.2",
  "url",
  "web-sys",
 ]
@@ -2577,7 +2578,8 @@ dependencies = [
  "once_cell",
  "orbclient",
  "percent-encoding",
- "raw-window-handle",
+ "raw-window-handle 0.5.2",
+ "raw-window-handle 0.6.0",
  "redox_syscall 0.3.5",
  "rustix",
  "smithay-client-toolkit",

@@ -9,18 +9,18 @@ license = "MIT OR Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-eframe = { version = "0.25", default-features = false, features = [
+eframe = { git = "https://github.com/AnotherNathan/egui.git", branch = "windows_skip_taskbar", default-features = false, features = [
     "default_fonts",
     "glow",
 ] }
-egui_plot = "0.25"
+egui_plot = { git = "https://github.com/AnotherNathan/egui.git", branch = "windows_skip_taskbar" }
 chrono = { version = "0.4.23", default-features = false, features = ["std"] }
 lazy_static = "1.4.0"
 regex = "1.7.0"
 bitflags = "2"
 log = { version = "0.4.17", features = ["serde"] }
 rustc-hash = "1.1.0"
-rfd = "0.12"
+rfd = { git = "https://github.com/PolyMeilex/rfd.git" }
 serde_json = "1.0.89"
 serde = { version = "1.0.150", features = ["serde_derive"] }
 smallvec = { version = "1.10.0", features = ["const_new", "const_generics"] }

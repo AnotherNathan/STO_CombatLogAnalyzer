@@ -208,6 +208,7 @@ impl Overlay {
             .with_min_inner_size(vec2(240.0, 80.0))
             .with_inner_size(context.current_size)
             .with_always_on_top()
+            .with_skip_taskbar(true)
             .with_mouse_passthrough(!self.move_around);
         builder.position = context.position;
         drop(context);
