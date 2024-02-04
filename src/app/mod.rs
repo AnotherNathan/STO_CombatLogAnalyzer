@@ -36,6 +36,8 @@ impl App {
         let mut style = Style::clone(&cc.egui_ctx.style());
         style.override_font_id = Some(FontId::monospace(12.0));
         cc.egui_ctx.set_style(Arc::new(style));
+        cc.egui_ctx
+            .memory_mut(|m| m.options.repaint_on_widget_change = false);
         let state = AppState::new(&cc.egui_ctx);
         let settings_window =
             SettingsWindow::new(&cc.egui_ctx, cc.egui_ctx.native_pixels_per_point());
