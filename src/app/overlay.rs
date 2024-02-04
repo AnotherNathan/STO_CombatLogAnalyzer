@@ -9,7 +9,6 @@ use crate::{
 };
 
 pub struct Overlay {
-    show: bool,
     move_around: bool,
     context: Arc<Mutex<OverlayContext>>,
     columns: Vec<ColumnDescriptor>,
@@ -20,6 +19,7 @@ struct OverlayContext {
     position: Option<Pos2>,
     current_size: Vec2,
     data: DisplayData,
+    show: bool,
 }
 
 #[derive(Default)]
@@ -159,12 +159,14 @@ static COLUMNS: &[ColumnDescriptor] = &[
 impl Overlay {
     pub fn show(&mut self, ui: &mut Ui, combat: Option<&Combat>) {
         if Button::new("Overlay")
-            .selected(self.show)
+            .selected(self.showing())
             .ui(ui)
             .on_hover_text("Enables an Overlay, that you can move in front of the game window. Note that for the Overlay to update, Auto Refresh must be enabled.")
             .clicked()
         {
-            self.show = !self.show;
+            let mut context = self.context.lock();
+            context.show = !context.show;
+            drop(context);
             self.update(ui.ctx(), combat);
         }
 
@@ -181,7 +183,7 @@ impl Overlay {
             }
         });
 
-        ui.add_enabled_ui(self.show, |ui: &mut Ui| {
+        ui.add_enabled_ui(self.showing(), |ui: &mut Ui| {
             if Button::new("✋")
                 .selected(self.move_around)
                 .ui(ui)
@@ -193,7 +195,7 @@ impl Overlay {
             }
         });
 
-        if !self.show {
+        if !self.showing() {
             return;
         }
 
@@ -203,7 +205,8 @@ impl Overlay {
             .with_title("CLA Overlay")
             .with_decorations(self.move_around)
             .with_minimize_button(false)
-            .with_close_button(false)
+            .with_maximize_button(false)
+            .with_close_button(true)
             .with_resizable(false)
             .with_min_inner_size(vec2(240.0, 80.0))
             .with_inner_size(context.current_size)
@@ -216,6 +219,10 @@ impl Overlay {
             .show_viewport_deferred(Self::viewport_id(), builder, move |ctx, _| {
                 Self::show_overlay(ctx, &overlay_context);
             });
+    }
+
+    fn showing(&self) -> bool {
+        self.context.lock().show
     }
 
     pub fn update(&mut self, ctx: &Context, combat: Option<&Combat>) {
@@ -258,6 +265,9 @@ impl Overlay {
     fn show_overlay(ctx: &Context, context: &Mutex<OverlayContext>) {
         CentralPanel::default().show(ctx, |ui| {
             let mut context = context.lock();
+            if ctx.input_for(Self::viewport_id(), |i| i.viewport().close_requested()) {
+                context.show = false;
+            }
             context.position = ctx.input_for(Self::viewport_id(), |i| {
                 i.viewport().outer_rect.map(|r| r.left_top())
             });
@@ -315,7 +325,6 @@ impl Overlay {
 impl Default for Overlay {
     fn default() -> Self {
         Self {
-            show: false,
             move_around: true,
             context: Default::default(),
             columns: COLUMNS.iter().cloned().collect(),
