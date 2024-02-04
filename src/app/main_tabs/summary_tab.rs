@@ -139,7 +139,7 @@ impl SummaryTab {
             Self::simple_summary_row(t, "Combat Duration", &self.combat_duration.text);
             Self::simple_summary_row(
                 t,
-                "Active Duration (duration of everything)",
+                "Active Duration (duration of everything) ",
                 &self.active_duration.text,
             );
 
@@ -174,9 +174,7 @@ impl SummaryTab {
 
     fn show_description(row: &mut TableRow, description: &str) {
         row.cell(|ui| {
-            ui.horizontal(|ui| {
-                ui.label(description);
-            });
+            ui.label(description);
         });
     }
 }
