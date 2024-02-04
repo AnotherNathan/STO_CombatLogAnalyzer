@@ -171,7 +171,7 @@ impl Overlay {
         }
 
         PopupButton::new("⛭").show(ui, |ui| {
-            ui.label("Configure what columns are display in the Overlay");
+            ui.label("Configure what columns are displayed in the Overlay");
             let mut config_changed = false;
             for column in self.columns.iter_mut() {
                 if ui.checkbox(&mut column.enabled, column.name).clicked() {
