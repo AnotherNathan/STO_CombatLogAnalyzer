@@ -139,7 +139,7 @@ impl SummaryTab {
             Self::simple_summary_row(t, "Combat Duration", &self.combat_duration.text);
             Self::simple_summary_row(
                 t,
-                "Active Duration (duration of everything) ",
+                "Active Duration (duration of everything)",
                 &self.active_duration.text,
             );
 
