@@ -76,13 +76,13 @@ static COLUMNS: &[ColumnDescriptor] = &[
             f.format(p.damage_out.damage_metrics.dps.all, 2),
         )
     }),
-    col!("Total Damage Out", |p, f| {
+    col!("Dmg Out", |p, f| {
         val(
             p.damage_out.damage_metrics.total_damage.all,
             f.format(p.damage_out.damage_metrics.total_damage.all, 2),
         )
     }),
-    col!("Damage Out %", |p, f| {
+    col!("Dmg Out %", |p, f| {
         val(
             p.damage_out.damage_percentage.all.unwrap_or(0.0),
             p.damage_out
@@ -98,13 +98,13 @@ static COLUMNS: &[ColumnDescriptor] = &[
             f.format(p.damage_out.max_one_hit.damage, 2),
         )
     }),
-    col!("Total Damage In", |p, f| {
+    col!("Dmg In", |p, f| {
         val(
             p.damage_in.damage_metrics.total_damage.all,
             f.format(p.damage_in.damage_metrics.total_damage.all, 2),
         )
     }),
-    col!("Damage In %", |p, f| {
+    col!("Dmg In %", |p, f| {
         val(
             p.damage_in.damage_percentage.all.unwrap_or(0.0),
             p.damage_in
