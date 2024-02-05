@@ -81,7 +81,10 @@ impl VisualsTab {
         };
         visuals.panel_fill = Self::make_transparent(visuals.panel_fill);
         ctx.set_visuals(visuals);
-        ctx.style_mut(|s| s.interaction.selectable_labels = false);
+        ctx.style_mut(|s| {
+            s.interaction.selectable_labels = false;
+            s.interaction.tooltip_delay = 0.0;
+        });
         ctx.request_repaint_of(Overlay::viewport_id());
     }
 
