@@ -108,6 +108,10 @@ impl SettingsWindow {
             });
     }
 
+    pub fn show_clear_log_dialog(&mut self, analysis_handler: &AnalysisHandler, ui: &mut Ui) {
+        self.file_tab.show_clear_log_dialog(analysis_handler, ui);
+    }
+
     fn handle_dropped_file(&mut self, ui: &mut Ui, state: &mut AppState) {
         ui.ctx().input(|i| {
             let file = i

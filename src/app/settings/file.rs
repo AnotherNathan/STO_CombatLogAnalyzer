@@ -10,11 +10,11 @@ use super::Settings;
 
 #[derive(Default)]
 pub struct FileTab {
-    clear_log_dialog: ClearLogConfirmationDialog,
+    clear_log_dialog: ClearLogDialog,
 }
 
 #[derive(Default)]
-struct ClearLogConfirmationDialog {
+pub struct ClearLogDialog {
     is_open: bool,
 }
 
@@ -79,12 +79,16 @@ impl FileTab {
         .show(ui);
     }
 
+    pub fn show_clear_log_dialog(&mut self, analysis_handler: &AnalysisHandler, ui: &mut Ui) {
+        self.clear_log_dialog.show(analysis_handler, ui);
+    }
+
     pub fn initialize(&mut self) {
         self.clear_log_dialog.initialize();
     }
 }
 
-impl ClearLogConfirmationDialog {
+impl ClearLogDialog {
     fn show(&mut self, analysis_handler: &AnalysisHandler, ui: &mut Ui) {
         let clear_response = ui.button("Clear Log File");
 
@@ -104,7 +108,6 @@ impl ClearLogConfirmationDialog {
             .resizable(false);
         if newly_opened {
             window = window.current_pos(clear_response.rect.min);
-            // TODO bring to front
         }
 
         window.show(ui.ctx(), |ui| {

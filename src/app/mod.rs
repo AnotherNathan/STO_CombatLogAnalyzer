@@ -96,6 +96,9 @@ impl eframe::App for App {
                         self.state.analysis_handler.refresh();
                     }
 
+                    self.settings_window
+                        .show_clear_log_dialog(&self.state.analysis_handler, ui);
+
                     if ui
                         .checkbox(
                             &mut self.state.settings.auto_refresh.enable,
