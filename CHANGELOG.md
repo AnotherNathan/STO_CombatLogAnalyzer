@@ -1,5 +1,33 @@
 # Change Log
 
+## v1.2.0
+### Major Changes
+- added an overlay to the tool
+  - can be configured what numbers are displayed
+  - can be freely moved with the mouse or docked in the current location (mouse clicks will go through the window)
+- added damage out exclusion rules to the settings
+  - this can be useful for ignoring things that may cause the combat time to be extended such as warp core explosions from pets
+  - or it can be used to remove things from the log that wish to not be included in your DPS numbers
+- in the details analysis tabs, you can now freely select multiple rows to be displayed in the diagrams, by holding the CTRL key while selecting table rows
+
+### Fixes
+- max one hit tooltips on the damage out table shows the damage source instead of the target
+- combat duration % in the summary table show the actual % instead of the duration in time
+- fixed damage resistance chart displaying no negative numbers on the y axis
+- fixed crash when toggling auto refresh without having a valid log file path
+
+### Other Changes
+- file dialogs are now modal
+- added the ability to enable/disable auto refresh without opening the settings window
+- added more TFO combat names to the default settings
+  - Battle of Wolf 359
+  - Vault: Ensnared
+- added the ability to drag on drop log files into the parser
+- added the ability to clear the log without opening the settings window 
+
+### Internal Changes
+- updated eframe + egui
+
 ## v1.1.0
 ### Major Changes
 - added the kill counts to damage tables
