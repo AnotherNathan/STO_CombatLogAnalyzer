@@ -422,7 +422,20 @@
           ],
           "enabled": true
         },
-        "additional_info_rules": []
+        "additional_info_rules": [
+          {
+            "name": "Borg",
+            "rules": [
+              {
+                "aspect": "SourceOrTargetUniqueName",
+                "expression": "Space_Borg",
+                "method": "StartsWith",
+                "enabled": true
+              }
+            ],
+            "enabled": true
+          }
+        ]
       },
       {
         "name_rule": {
