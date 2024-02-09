@@ -305,8 +305,7 @@ impl Overlay {
                 + ui.spacing().window_margin.left_top()
                 + ui.spacing().window_margin.right_bottom()
                 + ui.spacing().item_spacing;
-            let required_size =
-                (required_size * ctx.native_pixels_per_point().unwrap_or(1.0)).ceil();
+            let required_size = required_size.ceil();
             if context.current_size != required_size {
                 ctx.send_viewport_cmd_to(
                     Self::viewport_id(),

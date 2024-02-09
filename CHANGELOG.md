@@ -1,5 +1,9 @@
 # Change Log
 
+## v1.2.1
+### Fixes
+- fixed Overlay size being incorrect when the monitor scale is any value other than 100% (windows setting)
+
 ## v1.2.0
 ### Major Changes
 - added an overlay to the tool
