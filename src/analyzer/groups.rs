@@ -228,20 +228,29 @@ impl DamageGroup {
         &mut self,
         combat_duration: f64,
         hits_manager: &mut HitsManager,
+        apply_delta: &mut dyn FnMut(&DamageMetricsDelta, &MaxOneHit),
     ) {
         if self.is_leaf() {
-            self.max_one_hit = MaxOneHit::from_hits(self.name(), self.hits.get(hits_manager));
             hits_manager.add_leaf(self.hits.get_leaf());
+            let delta_hits = &self.hits.get(hits_manager)[self.damage_metrics.hits.all as usize..];
+            if delta_hits.len() > 0 {
+                self.max_one_hit.update_from_hits(self.name(), delta_hits);
+                let delta = self.damage_metrics.calc_and_apply_delta(delta_hits);
+                apply_delta(&delta, &self.max_one_hit);
+            }
         } else {
-            self.max_one_hit.reset();
-            self.damage_types.clear();
             self.kills.clear();
 
             self.hits = hits_manager.track_group(|hits_manager| {
                 for sub_group in self.sub_groups.values_mut() {
-                    sub_group.recalculate_metrics(combat_duration, hits_manager);
-                    self.max_one_hit
-                        .update(sub_group.max_one_hit.name, sub_group.max_one_hit.damage);
+                    sub_group.recalculate_metrics(combat_duration, hits_manager, &mut |d, m| {
+                        self.damage_metrics.apply_delta(d);
+                        self.max_one_hit.update(m.name, m.damage);
+                        if self.segment.is_value() {
+                            self.max_one_hit.name = self.segment.name();
+                        }
+                        apply_delta(d, &self.max_one_hit);
+                    });
                     for damage_type in sub_group.damage_types.iter() {
                         if !self.damage_types.contains(damage_type) {
                             self.damage_types.insert(damage_type.clone());
@@ -253,14 +262,9 @@ impl DamageGroup {
                     }
                 }
             });
-
-            if self.segment.is_value() {
-                self.max_one_hit = MaxOneHit::from_hits(self.name(), self.hits.get(hits_manager));
-            }
         }
-
-        self.damage_metrics =
-            DamageMetrics::calculate(self.hits.get(hits_manager), combat_duration);
+        self.damage_metrics
+            .recalculate_time_based_metrics(combat_duration);
     }
 
     pub(super) fn recalculate_percentages(
@@ -351,18 +355,28 @@ impl HealGroup {
         &mut self,
         combat_duration: f64,
         ticks_manager: &mut HealTicksManager,
+        apply_delta: &mut dyn FnMut(&HealMetricsDelta),
     ) {
         if self.is_leaf() {
             ticks_manager.add_leaf(self.ticks.get_leaf());
+            let delta_ticks =
+                &self.ticks.get(ticks_manager)[self.heal_metrics.ticks.all as usize..];
+            if delta_ticks.len() > 0 {
+                let delta = self.heal_metrics.calc_and_apply(delta_ticks);
+                apply_delta(&delta);
+            }
         } else {
             self.ticks = ticks_manager.track_group(|ticks_manager| {
                 for sub_group in self.sub_groups.values_mut() {
-                    sub_group.recalculate_metrics(combat_duration, ticks_manager);
+                    sub_group.recalculate_metrics(combat_duration, ticks_manager, &mut |d| {
+                        self.heal_metrics.apply_delta(d);
+                        apply_delta(d);
+                    });
                 }
             });
         }
-
-        self.heal_metrics = HealMetrics::calculate(self.ticks.get(ticks_manager), combat_duration);
+        self.heal_metrics
+            .recalculate_time_based_metrics(combat_duration);
     }
 
     pub(super) fn recalculate_percentages(

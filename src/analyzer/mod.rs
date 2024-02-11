@@ -561,15 +561,15 @@ impl Player {
         heal_ticks_manager: &mut HealTicksManager,
     ) {
         let combat_duration = Self::metrics_duration(&self.combat_time);
-        let active_duration = Self::metrics_duration(&self.combat_time);
+        let active_duration = Self::metrics_duration(&self.active_time);
         self.damage_out
-            .recalculate_metrics(combat_duration, hits_manager);
+            .recalculate_metrics(combat_duration, hits_manager, &mut |_, _| {});
         self.damage_in
-            .recalculate_metrics(active_duration, hits_manager);
+            .recalculate_metrics(active_duration, hits_manager, &mut |_, _| {});
         self.heal_out
-            .recalculate_metrics(active_duration, heal_ticks_manager);
+            .recalculate_metrics(active_duration, heal_ticks_manager, &mut |_| {});
         self.heal_in
-            .recalculate_metrics(active_duration, heal_ticks_manager);
+            .recalculate_metrics(active_duration, heal_ticks_manager, &mut |_| {});
     }
 
     fn metrics_duration(time: &Option<Range<NaiveDateTime>>) -> f64 {

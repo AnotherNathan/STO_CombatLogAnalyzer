@@ -89,13 +89,17 @@ impl<T: Clone> Values<T> {
 
     #[inline]
     pub fn push(&mut self, value: T) {
-        let Self::Leaf(values)=self else{panic!("cannot push value to non leaf values")};
+        let Self::Leaf(values) = self else {
+            panic!("cannot push value to non leaf values")
+        };
         values.push(value);
     }
 
     #[inline]
     pub fn get_leaf(&self) -> &[T] {
-        let Self::Leaf(values)=self else{panic!("values is not a leaf")};
+        let Self::Leaf(values) = self else {
+            panic!("values is not a leaf")
+        };
         &values
     }
 }

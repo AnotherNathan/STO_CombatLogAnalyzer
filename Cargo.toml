@@ -2,7 +2,7 @@
 
 [package]
 name = "STO_CombatLogAnalyzer"
-version = "1.2.1"
+version = "1.2.2-alpha"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 

@@ -1,4 +1,7 @@
-use std::iter::Sum;
+use std::{
+    iter::Sum,
+    ops::{Add, AddAssign},
+};
 
 use bitflags::bitflags;
 
@@ -62,6 +65,28 @@ impl Sum for ShieldHullValues {
     }
 }
 
+impl Add for ShieldHullValues {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            all: self.all + rhs.all,
+            shield: self.shield + rhs.shield,
+            hull: self.hull + rhs.hull,
+        }
+    }
+}
+
+impl AddAssign for ShieldHullValues {
+    #[inline]
+    fn add_assign(&mut self, rhs: Self) {
+        self.all += rhs.all;
+        self.shield += rhs.shield;
+        self.hull += rhs.hull;
+    }
+}
+
 impl ShieldHullOptionalValues {
     pub fn average(
         total: &ShieldHullValues,
@@ -113,6 +138,28 @@ impl Sum for ShieldHullCounts {
             (v.shield + s, v.hull + h, v.all + a)
         });
         Self { all, shield, hull }
+    }
+}
+
+impl Add for ShieldHullCounts {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            all: self.all + rhs.all,
+            shield: self.shield + rhs.shield,
+            hull: self.hull + rhs.hull,
+        }
+    }
+}
+
+impl AddAssign for ShieldHullCounts {
+    #[inline]
+    fn add_assign(&mut self, rhs: Self) {
+        self.all += rhs.all;
+        self.shield += rhs.shield;
+        self.hull += rhs.hull;
     }
 }
 
