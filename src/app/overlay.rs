@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{mem::take, sync::Arc};
 
 use eframe::{egui::*, epaint::mutex::Mutex};
 
@@ -8,18 +8,17 @@ use crate::{
     helpers::number_formatting::NumberFormatter,
 };
 
-pub struct Overlay {
-    move_around: bool,
-    context: Arc<Mutex<OverlayContext>>,
-    columns: Vec<ColumnDescriptor>,
-}
-
 #[derive(Default)]
-struct OverlayContext {
+pub struct Overlay(Mutex<OverlayInner>);
+
+struct OverlayInner {
     position: Option<Pos2>,
     current_size: Vec2,
     data: DisplayData,
     show: bool,
+    update: Update,
+    move_around: bool,
+    columns: Vec<ColumnDescriptor>,
 }
 
 #[derive(Default)]
@@ -43,6 +42,14 @@ fn val(value: f64, value_string: String) -> ColumnValue {
         value,
         value_string,
     }
+}
+
+#[derive(Default)]
+enum Update {
+    Update(Arc<Combat>),
+    Clear,
+    #[default]
+    None,
 }
 
 #[derive(Clone)]
@@ -157,121 +164,94 @@ static COLUMNS: &[ColumnDescriptor] = &[
 ];
 
 impl Overlay {
-    pub fn show(&mut self, ui: &mut Ui, combat: Option<&Combat>) {
+    pub fn show(self: &Arc<Self>, ui: &mut Ui, combat: Option<&Arc<Combat>>) {
+        let mut inner = self.0.lock();
         if Button::new("Overlay")
-            .selected(self.showing())
+            .selected(inner.show)
             .ui(ui)
             .on_hover_text("Enables an Overlay, that you can move in front of the game window. Note that for the Overlay to update, Auto Refresh must be enabled.")
             .clicked()
         {
-            let mut context = self.context.lock();
-            context.show = !context.show;
-            drop(context);
-            self.update(ui.ctx(), combat);
+            inner.show = !inner.show;
         }
 
         PopupButton::new("⛭").show(ui, |ui| {
             ui.label("Configure what columns are displayed in the Overlay");
             let mut config_changed = false;
-            for column in self.columns.iter_mut() {
+            for column in inner.columns.iter_mut() {
                 if ui.checkbox(&mut column.enabled, column.name).clicked() {
                     config_changed = true;
                 }
             }
             if config_changed {
-                self.update(ui.ctx(), combat);
+                inner.update(ui.ctx(), combat.cloned());
             }
         });
 
-        ui.add_enabled_ui(self.showing(), |ui: &mut Ui| {
+        ui.add_enabled_ui(inner.show, |ui: &mut Ui| {
             if Button::new("✋")
-                .selected(self.move_around)
+                .selected(inner.move_around)
                 .ui(ui)
                 .on_hover_text("Move the Overlay")
                 .clicked()
             {
-                self.move_around = !self.move_around;
-                self.update(ui.ctx(), combat);
+                inner.move_around = !inner.move_around;
             }
         });
 
-        if !self.showing() {
+        if !inner.show {
             return;
         }
 
-        let overlay_context = self.context.clone();
-        let context = overlay_context.lock();
+        let _self = self.clone();
         let mut builder = ViewportBuilder::default()
             .with_title("CLA Overlay")
-            .with_decorations(self.move_around)
+            .with_decorations(inner.move_around)
             .with_minimize_button(false)
             .with_maximize_button(false)
             .with_close_button(true)
             .with_resizable(false)
             .with_min_inner_size(vec2(240.0, 80.0))
-            .with_inner_size(context.current_size)
+            .with_inner_size(inner.current_size)
             .with_always_on_top()
             .with_taskbar(false)
-            .with_mouse_passthrough(!self.move_around);
-        builder.position = context.position;
-        drop(context);
+            .with_mouse_passthrough(!inner.move_around);
+        builder.position = inner.position;
+        drop(inner);
         ui.ctx()
             .show_viewport_deferred(Self::viewport_id(), builder, move |ctx, _| {
-                Self::show_overlay(ctx, &overlay_context);
+                _self.0.lock().show_overlay(ctx);
             });
     }
 
-    fn showing(&self) -> bool {
-        self.context.lock().show
+    pub fn update(&self, ctx: &Context, combat: Option<Arc<Combat>>) {
+        let mut inner = self.0.lock();
+        inner.update = Update::from_option(combat);
+        if inner.show {
+            Self::request_repaint(ctx);
+        }
     }
 
-    pub fn update(&mut self, ctx: &Context, combat: Option<&Combat>) {
-        let mut display_data = DisplayData::default();
-        display_data.columns = self.columns.iter().filter(|c| c.enabled).cloned().collect();
-        let combat = match combat {
-            Some(c) => c,
-            None => {
-                self.context.lock().data = Default::default();
-                return;
-            }
-        };
-        let mut formatter = NumberFormatter::new();
-        for (&player_name, player) in combat.players.iter() {
-            let mut display_player = DisplayPlayer {
-                name: combat
-                    .name_manager
-                    .get_name(player_name)
-                    .unwrap()
-                    .to_string(),
-                columns: Vec::new(),
-            };
-            for column in display_data.columns.iter() {
-                display_player
-                    .columns
-                    .push((column.select)(player, &mut formatter));
-            }
-            display_data.players.push(display_player);
-        }
+    pub fn viewport_id() -> ViewportId {
+        ViewportId("overlay".into())
+    }
 
-        if display_data.columns.len() > 0 {
-            display_data
-                .players
-                .sort_by(|p1, p2| p1.sort_value().total_cmp(&p2.sort_value()).reverse());
-        }
-        self.context.lock().data = display_data;
+    pub fn request_repaint(ctx: &Context) {
         ctx.request_repaint_of(Self::viewport_id());
     }
+}
 
-    fn show_overlay(ctx: &Context, context: &Mutex<OverlayContext>) {
+impl OverlayInner {
+    fn show_overlay(&mut self, ctx: &Context) {
+        self.perform_update();
         CentralPanel::default().show(ctx, |ui| {
-            let mut context = context.lock();
-            if ctx.input_for(Self::viewport_id(), |i| i.viewport().close_requested()) {
-                context.show = false;
+            if ctx.input_for(Overlay::viewport_id(), |i| i.viewport().close_requested()) {
+                self.show = false;
             }
-            context.position = ctx.input_for(Self::viewport_id(), |i| {
+            self.position = ctx.input_for(Overlay::viewport_id(), |i| {
                 i.viewport().outer_rect.map(|r| r.left_top())
             });
-            let display_data = &context.data;
+            let display_data = &self.data;
             let required_size = Table::new(ui)
                 .min_scroll_height(f32::MAX)
                 .header(15.0, |h| {
@@ -306,27 +286,70 @@ impl Overlay {
                 + ui.spacing().window_margin.right_bottom()
                 + ui.spacing().item_spacing;
             let required_size = required_size.ceil();
-            if context.current_size != required_size {
+            if self.current_size != required_size {
                 ctx.send_viewport_cmd_to(
-                    Self::viewport_id(),
+                    Overlay::viewport_id(),
                     ViewportCommand::InnerSize(required_size),
                 );
-                context.current_size = required_size;
+                self.current_size = required_size;
             }
         });
     }
 
-    pub fn viewport_id() -> ViewportId {
-        ViewportId("overlay".into())
+    fn update(&mut self, ctx: &Context, combat: Option<Arc<Combat>>) {
+        self.update = Update::from_option(combat);
+        Overlay::request_repaint(ctx);
+    }
+
+    fn perform_update(&mut self) {
+        let combat = match take(&mut self.update) {
+            Update::Update(c) => c,
+            Update::Clear => {
+                self.data = Default::default();
+                return;
+            }
+            Update::None => return,
+        };
+
+        let mut display_data = DisplayData::default();
+        display_data.columns = self.columns.iter().filter(|c| c.enabled).cloned().collect();
+        let mut formatter = NumberFormatter::new();
+        for (&player_name, player) in combat.players.iter() {
+            let mut display_player = DisplayPlayer {
+                name: combat
+                    .name_manager
+                    .get_name(player_name)
+                    .unwrap()
+                    .to_string(),
+                columns: Vec::new(),
+            };
+            for column in display_data.columns.iter() {
+                display_player
+                    .columns
+                    .push((column.select)(player, &mut formatter));
+            }
+            display_data.players.push(display_player);
+        }
+
+        if display_data.columns.len() > 0 {
+            display_data
+                .players
+                .sort_by(|p1, p2| p1.sort_value().total_cmp(&p2.sort_value()).reverse());
+        }
+        self.data = display_data;
     }
 }
 
-impl Default for Overlay {
+impl Default for OverlayInner {
     fn default() -> Self {
         Self {
             move_around: true,
-            context: Default::default(),
             columns: COLUMNS.iter().cloned().collect(),
+            update: Default::default(),
+            current_size: Vec2::ZERO,
+            data: Default::default(),
+            position: None,
+            show: false,
         }
     }
 }
@@ -334,5 +357,14 @@ impl Default for Overlay {
 impl DisplayPlayer {
     fn sort_value(&self) -> f64 {
         self.columns.first().map(|c| c.value).unwrap_or(0.0)
+    }
+}
+
+impl Update {
+    fn from_option(combat: Option<Arc<Combat>>) -> Self {
+        match combat {
+            Some(c) => Self::Update(c),
+            None => Self::Clear,
+        }
     }
 }

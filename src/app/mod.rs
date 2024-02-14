@@ -23,11 +23,11 @@ pub struct App {
     settings_window: SettingsWindow,
     combats: Vec<String>,
     selected_combat_index: Option<usize>,
-    selected_combat: Option<Combat>,
+    selected_combat: Option<Arc<Combat>>,
     status_indicator: StatusIndicator,
     main_tabs: MainTabs,
     summary_copy: SummaryCopy,
-    overlay: Overlay,
+    overlay: Arc<Overlay>,
     state: AppState,
 }
 
@@ -63,7 +63,7 @@ impl eframe::App for App {
             ui.vertical(|ui| {
                 self.settings_window.show(
                     &mut self.state,
-                    self.selected_combat.as_ref(),
+                    self.selected_combat.as_deref(),
                     ui,
                     frame,
                 );
@@ -135,7 +135,7 @@ impl eframe::App for App {
                     }
 
                     ui.separator();
-                    self.summary_copy.show(self.selected_combat.as_ref(), ui);
+                    self.summary_copy.show(self.selected_combat.as_deref(), ui);
                     ui.separator();
                     self.overlay.show(ui, self.selected_combat.as_ref());
                 });
@@ -157,7 +157,7 @@ impl App {
             match info {
                 AnalysisInfo::Combat(combat) => {
                     self.main_tabs.update(&combat);
-                    self.overlay.update(ctx, Some(&combat));
+                    self.overlay.update(ctx, Some(combat.clone()));
                     self.selected_combat = Some(combat);
                 }
                 AnalysisInfo::Refreshed {
@@ -166,7 +166,7 @@ impl App {
                     file_size,
                 } => {
                     self.main_tabs.update(&latest_combat);
-                    self.overlay.update(ctx, Some(&latest_combat));
+                    self.overlay.update(ctx, Some(latest_combat.clone()));
                     self.combats = combats;
                     self.selected_combat_index = Some(self.combats.len() - 1);
                     self.selected_combat = Some(latest_combat);

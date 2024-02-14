@@ -62,9 +62,9 @@ enum Instruction {
 }
 
 pub enum AnalysisInfo {
-    Combat(Combat),
+    Combat(Arc<Combat>),
     Refreshed {
-        latest_combat: Combat,
+        latest_combat: Arc<Combat>,
         combats: Vec<String>,
         file_size: Option<u64>,
     },
@@ -215,7 +215,7 @@ impl AnalysisContext {
             None => return AnalysisInfo::RefreshError,
         };
         let info = AnalysisInfo::Refreshed {
-            latest_combat,
+            latest_combat: latest_combat.into(),
             combats: analyzer.result().iter().map(|c| c.identifier()).collect(),
             file_size: std::fs::metadata(&analyzer.settings().combatlog_file)
                 .ok()
@@ -264,7 +264,7 @@ impl AnalysisContext {
             None => return,
         };
 
-        self.send_info(AnalysisInfo::Combat(combat));
+        self.send_info(AnalysisInfo::Combat(combat.into()));
     }
 
     fn clear_log(&mut self) {

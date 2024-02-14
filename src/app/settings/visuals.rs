@@ -85,7 +85,7 @@ impl VisualsTab {
             s.interaction.selectable_labels = false;
             s.interaction.tooltip_delay = 0.0;
         });
-        ctx.request_repaint_of(Overlay::viewport_id());
+        Overlay::request_repaint(ctx);
     }
 
     fn set_ui_scale(ctx: &Context, native_pixels_per_point: Option<f32>, ui_scale: f64) {
