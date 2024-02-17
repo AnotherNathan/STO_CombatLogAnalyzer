@@ -78,8 +78,8 @@ impl Settings {
 impl Default for AutoRefresh {
     fn default() -> Self {
         Self {
-            enable: true,
-            interval_seconds: 4.0,
+            enable: false,
+            interval_seconds: 1.0,
         }
     }
 }

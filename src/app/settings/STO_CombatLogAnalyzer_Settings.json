@@ -689,8 +689,8 @@
     ]
   },
   "auto_refresh": {
-    "enable": true,
-    "interval_seconds": 4.0
+    "enable": false,
+    "interval_seconds": 1.0
   },
   "visuals": {
     "ui_scale": 1.0,

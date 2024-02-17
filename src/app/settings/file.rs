@@ -69,11 +69,12 @@ impl FileTab {
         ui.label("Auto Refresh Interval in seconds (applies to the Overlay and when auto refresh is enabled)");
         SliderTextEdit::new(
             &mut modified_settings.auto_refresh.interval_seconds,
-            1.0..=10.0,
+            0.1..=4.0,
             "auto refresh interval slider",
         )
         .clamp_to_range(false)
-        .step_by(1.0)
+        .step_by(0.1)
+        .display_precision(2)
         .desired_text_edit_width(40.0)
         .clamp_min(0.1)
         .show(ui);
