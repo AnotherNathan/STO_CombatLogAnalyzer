@@ -27,7 +27,7 @@ pub struct App {
     status_indicator: StatusIndicator,
     main_tabs: MainTabs,
     summary_copy: SummaryCopy,
-    overlay: Arc<Overlay>,
+    overlay: Overlay,
     state: AppState,
 }
 
@@ -49,7 +49,7 @@ impl App {
             status_indicator: StatusIndicator::new(),
             main_tabs: MainTabs::empty(),
             summary_copy: Default::default(),
-            overlay: Default::default(),
+            overlay: Overlay::new(&state.analysis_handler),
             state,
         }
     }
@@ -57,7 +57,7 @@ impl App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
-        self.handle_analysis_infos(ctx);
+        self.handle_analysis_infos();
 
         CentralPanel::default().show(ctx, |ui| {
             ui.vertical(|ui| {
@@ -108,7 +108,7 @@ impl eframe::App for App {
                     {
                         self.state
                             .analysis_handler
-                            .set_auto_refresh(self.state.settings.auto_refresh.interval_seconds());
+                            .enable_auto_refresh(self.state.settings.auto_refresh.enable);
                         self.state.settings.save();
                     }
 
@@ -137,7 +137,7 @@ impl eframe::App for App {
                     ui.separator();
                     self.summary_copy.show(self.selected_combat.as_deref(), ui);
                     ui.separator();
-                    self.overlay.show(ui, self.selected_combat.as_ref());
+                    self.overlay.show(ui);
                 });
 
                 self.main_tabs.show(ui);
@@ -151,13 +151,12 @@ impl eframe::App for App {
 }
 
 impl App {
-    fn handle_analysis_infos(&mut self, ctx: &Context) {
+    fn handle_analysis_infos(&mut self) {
         let combatlog_file = &self.state.settings.analysis.combatlog_file;
         for info in self.state.analysis_handler.check_for_info() {
             match info {
                 AnalysisInfo::Combat(combat) => {
                     self.main_tabs.update(&combat);
-                    self.overlay.update(ctx, Some(combat.clone()));
                     self.selected_combat = Some(combat);
                 }
                 AnalysisInfo::Refreshed {
@@ -166,7 +165,6 @@ impl App {
                     file_size,
                 } => {
                     self.main_tabs.update(&latest_combat);
-                    self.overlay.update(ctx, Some(latest_combat.clone()));
                     self.combats = combats;
                     self.selected_combat_index = Some(self.combats.len() - 1);
                     self.selected_combat = Some(latest_combat);

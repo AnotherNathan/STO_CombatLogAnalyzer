@@ -13,7 +13,8 @@ impl AppState {
         let analysis_handler = AnalysisHandler::new(
             settings.analysis.clone(),
             ctx.clone(),
-            settings.auto_refresh.interval_seconds(),
+            settings.auto_refresh.interval_seconds,
+            settings.auto_refresh.enable,
         );
 
         Self {

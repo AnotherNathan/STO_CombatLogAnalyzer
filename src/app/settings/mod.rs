@@ -98,7 +98,7 @@ impl SettingsWindow {
 
                 ui.horizontal(|ui| {
                     if ui.button("Ok").clicked() {
-                        self.apply_setting_changes(ui, state);
+                        self.apply_setting_changes(state);
                     }
 
                     if ui.button("Cancel").clicked() {
@@ -128,7 +128,7 @@ impl SettingsWindow {
                     self.initialize(state);
                 }
                 self.modified_settings.analysis.combatlog_file = file.to_string_lossy().into();
-                self.apply_setting_changes(ui, state);
+                self.apply_setting_changes(state);
             }
         });
     }
@@ -139,17 +139,22 @@ impl SettingsWindow {
         self.file_tab.initialize();
     }
 
-    fn apply_setting_changes(&mut self, ui: &Ui, state: &mut AppState) {
+    fn apply_setting_changes(&mut self, state: &mut AppState) {
         self.is_open = false;
-        if self.modified_settings.analysis != state.settings.analysis
-            || self.modified_settings.auto_refresh != state.settings.auto_refresh
-        {
-            state.analysis_handler = AnalysisHandler::new(
-                self.modified_settings.analysis.clone(),
-                ui.ctx().clone(),
-                self.modified_settings.auto_refresh.interval_seconds(),
-            );
+        if self.modified_settings.analysis != state.settings.analysis {
+            state
+                .analysis_handler
+                .set_settings(self.modified_settings.analysis.clone());
             state.analysis_handler.refresh();
+        }
+
+        if self.modified_settings.auto_refresh != state.settings.auto_refresh {
+            state
+                .analysis_handler
+                .set_auto_refresh_interval(self.modified_settings.auto_refresh.interval_seconds);
+            state
+                .analysis_handler
+                .enable_auto_refresh(self.modified_settings.auto_refresh.enable);
         }
 
         state.settings = self.modified_settings.clone();

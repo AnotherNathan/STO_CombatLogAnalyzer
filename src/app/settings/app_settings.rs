@@ -75,16 +75,6 @@ impl Settings {
     }
 }
 
-impl AutoRefresh {
-    pub fn interval_seconds(&self) -> Option<f64> {
-        if self.enable {
-            Some(self.interval_seconds)
-        } else {
-            None
-        }
-    }
-}
-
 impl Default for AutoRefresh {
     fn default() -> Self {
         Self {

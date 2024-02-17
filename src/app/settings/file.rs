@@ -64,9 +64,9 @@ impl FileTab {
 
         ui.checkbox(
             &mut modified_settings.auto_refresh.enable,
-            "Auto Refresh when log changes",
+            "Auto Refresh when log changes (Overlay will always auto refresh)",
         );
-        ui.label("Auto Refresh Interval in seconds");
+        ui.label("Auto Refresh Interval in seconds (applies to the Overlay and when auto refresh is enabled)");
         SliderTextEdit::new(
             &mut modified_settings.auto_refresh.interval_seconds,
             1.0..=10.0,
