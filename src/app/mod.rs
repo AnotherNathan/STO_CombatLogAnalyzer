@@ -3,7 +3,7 @@ use std::sync::Arc;
 use eframe::egui::*;
 use rfd::FileDialog;
 
-use crate::analyzer::Combat;
+use crate::{analyzer::Combat, upload::Upload};
 
 use self::{
     analysis_handling::AnalysisInfo, main_tabs::*, overlay::Overlay, settings::*, state::AppState,
@@ -28,6 +28,7 @@ pub struct App {
     main_tabs: MainTabs,
     summary_copy: SummaryCopy,
     overlay: Overlay,
+    upload: Upload,
     state: AppState,
 }
 
@@ -50,6 +51,7 @@ impl App {
             main_tabs: MainTabs::empty(),
             summary_copy: Default::default(),
             overlay: Overlay::new(&state.analysis_handler),
+            upload: Default::default(),
             state,
         }
     }
@@ -133,6 +135,13 @@ impl eframe::App for App {
                                 .save_combat(self.selected_combat_index.unwrap(), file);
                         }
                     }
+
+                    self.upload.show(
+                        ui,
+                        self.selected_combat.as_deref(),
+                        &self.state.settings.analysis,
+                        &self.state.settings.upload.oscr_url,
+                    );
 
                     ui.separator();
                     self.summary_copy.show(self.selected_combat.as_deref(), ui);

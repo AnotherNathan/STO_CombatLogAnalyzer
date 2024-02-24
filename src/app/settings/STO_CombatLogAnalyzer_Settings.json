@@ -699,5 +699,8 @@
   "debug": {
     "enable_log": false,
     "log_level_filter": "INFO"
+  },
+  "upload": {
+    "oscr_url": "https://oscr-server.vercel.app/"
   }
 }

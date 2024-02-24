@@ -5,7 +5,9 @@ use eframe::{egui::*, Frame};
 
 use crate::analyzer::Combat;
 
-use self::{analysis::AnalysisTab, debug::DebugTab, file::FileTab, visuals::VisualsTab};
+use self::{
+    analysis::AnalysisTab, debug::DebugTab, file::FileTab, upload::UploadTab, visuals::VisualsTab,
+};
 
 use super::{analysis_handling::AnalysisHandler, state::AppState};
 
@@ -13,6 +15,7 @@ mod analysis;
 mod app_settings;
 mod debug;
 mod file;
+mod upload;
 mod visuals;
 
 pub struct SettingsWindow {
@@ -22,6 +25,7 @@ pub struct SettingsWindow {
     file_tab: FileTab,
     analysis_tab: AnalysisTab,
     visuals_tab: VisualsTab,
+    upload_tab: UploadTab,
     debug_tab: DebugTab,
 }
 
@@ -32,6 +36,7 @@ enum SettingsTab {
     Analysis,
     Visuals,
     Debug,
+    Upload,
 }
 
 impl SettingsWindow {
@@ -46,6 +51,7 @@ impl SettingsWindow {
             file_tab: Default::default(),
             analysis_tab: Default::default(),
             debug_tab: Default::default(),
+            upload_tab: Default::default(),
             visuals_tab,
         }
     }
@@ -75,6 +81,7 @@ impl SettingsWindow {
                     ui.selectable_value(&mut self.selected_tab, SettingsTab::File, "File");
                     ui.selectable_value(&mut self.selected_tab, SettingsTab::Analysis, "Analysis");
                     ui.selectable_value(&mut self.selected_tab, SettingsTab::Visuals, "Visuals");
+                    ui.selectable_value(&mut self.selected_tab, SettingsTab::Upload, "Upload");
                     ui.selectable_value(&mut self.selected_tab, SettingsTab::Debug, "Debug");
                 });
 
@@ -91,6 +98,7 @@ impl SettingsWindow {
                             .show(&mut self.modified_settings, selected_combat, ui)
                     }
                     SettingsTab::Visuals => self.visuals_tab.show(&mut self.modified_settings, ui),
+                    SettingsTab::Upload => self.upload_tab.show(&mut self.modified_settings, ui),
                     SettingsTab::Debug => self.debug_tab.show(&mut self.modified_settings, ui),
                 });
 

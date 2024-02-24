@@ -4,12 +4,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::analyzer::settings::AnalysisSettings;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Settings {
     pub analysis: AnalysisSettings,
     pub auto_refresh: AutoRefresh,
     pub visuals: Visuals,
     pub debug: DebugSettings,
+    #[serde(default)]
+    pub upload: UploadSettings,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -38,6 +40,11 @@ pub struct DebugSettings {
     pub log_level_filter: log::LevelFilter,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct UploadSettings {
+    pub oscr_url: String,
+}
+
 static DEFAULT_SETTINGS: &str = include_str!("STO_CombatLogAnalyzer_Settings.json");
 
 impl Settings {
@@ -53,7 +60,6 @@ impl Settings {
             .and_then(|f| std::fs::read_to_string(&f).ok())
             .map(|d| serde_json::from_str(&d).ok())
             .flatten()
-            .unwrap_or_else(|| serde_json::from_str(DEFAULT_SETTINGS).ok())
             .unwrap_or_else(|| Self::default())
     }
 
@@ -72,6 +78,12 @@ impl Settings {
         };
 
         let _ = std::fs::write(&file_path, data);
+    }
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        serde_json::from_str(DEFAULT_SETTINGS).unwrap()
     }
 }
 
@@ -109,5 +121,11 @@ impl Default for DebugSettings {
             enable_log: false,
             log_level_filter: log::LevelFilter::Info,
         }
+    }
+}
+
+impl Default for UploadSettings {
+    fn default() -> Self {
+        Settings::default().upload.clone()
     }
 }

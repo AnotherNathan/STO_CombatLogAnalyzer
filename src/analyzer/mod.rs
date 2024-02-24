@@ -1,4 +1,11 @@
-use std::{borrow::Cow, fmt::Debug, ops::Range};
+use std::{
+    borrow::Cow,
+    fmt::Debug,
+    fs::File,
+    io::{BufReader, Read, Seek, SeekFrom},
+    ops::Range,
+    path::Path,
+};
 
 use chrono::{Duration, NaiveDateTime};
 use educe::Educe;
@@ -579,6 +586,29 @@ impl Player {
             .unwrap_or(Duration::max_value());
         let duration = duration.to_std().unwrap().as_secs_f64();
         duration
+    }
+}
+
+impl Combat {
+    pub fn read_log_combat_data(&self, file_path: &Path) -> Option<Vec<u8>> {
+        let pos = match self.log_pos.clone() {
+            Some(p) => p,
+            None => return None,
+        };
+
+        let file = match File::options().create(false).read(true).open(file_path) {
+            Ok(f) => f,
+            Err(_) => return None,
+        };
+
+        let mut combat_data = Vec::new();
+        combat_data.resize((pos.end - pos.start) as _, 0);
+        let mut reader = BufReader::with_capacity(1 << 20, file);
+        reader.seek(SeekFrom::Start(pos.start)).ok()?;
+
+        reader.read_exact(&mut combat_data).ok()?;
+
+        Some(combat_data)
     }
 }
 

@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufRead, BufReader, Seek, SeekFrom, Write},
+    io::Write,
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
@@ -352,7 +352,7 @@ impl AnalysisContext {
 
         let last_combat = analyzer.result().last();
         let last_combat_data = last_combat
-            .map(|c| Self::read_log_combat_data(settings.combatlog_file(), c))
+            .map(|c| c.read_log_combat_data(settings.combatlog_file()))
             .flatten();
 
         self.analyzer = None;
@@ -368,7 +368,7 @@ impl AnalysisContext {
         };
 
         if let Some(last_combat_data) = last_combat_data {
-            let _ = file.write_all(last_combat_data.as_bytes());
+            let _ = file.write_all(last_combat_data.as_slice());
         }
 
         drop(file);
@@ -380,41 +380,15 @@ impl AnalysisContext {
         let analyzer = unwrap_or_return!(&self.analyzer);
         let combat = unwrap_or_return!(analyzer.result().get(combat_index));
         Self::set_is_busy(&self.is_busy, true);
-        let combat_data =
-            match Self::read_log_combat_data(analyzer.settings().combatlog_file(), combat) {
-                Some(d) => d,
-                None => {
-                    Self::set_is_busy(&self.is_busy, false);
-                    return;
-                }
-            };
-        let _ = std::fs::write(file, combat_data.as_bytes());
-        Self::set_is_busy(&self.is_busy, false);
-    }
-
-    fn read_log_combat_data(file_path: &Path, combat: &Combat) -> Option<String> {
-        let pos = match combat.log_pos.clone() {
-            Some(p) => p,
-            None => return None,
-        };
-
-        let file = match File::options().create(false).read(true).open(file_path) {
-            Ok(f) => f,
-            Err(_) => return None,
-        };
-
-        let mut combat_data = String::new();
-        let mut reader = BufReader::with_capacity(1 << 20, file);
-        reader.seek(SeekFrom::Start(pos.start)).ok()?;
-
-        loop {
-            let count = reader.read_line(&mut combat_data).ok()?;
-            if count == 0 || reader.stream_position().ok()? >= pos.end {
-                break;
+        let combat_data = match combat.read_log_combat_data(analyzer.settings().combatlog_file()) {
+            Some(d) => d,
+            None => {
+                Self::set_is_busy(&self.is_busy, false);
+                return;
             }
-        }
-
-        Some(combat_data)
+        };
+        let _ = std::fs::write(file, combat_data.as_slice());
+        Self::set_is_busy(&self.is_busy, false);
     }
 
     fn send_info(&self, info: AnalysisInfo, handler: u32) {

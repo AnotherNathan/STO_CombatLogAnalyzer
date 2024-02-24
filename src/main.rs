@@ -13,6 +13,7 @@ mod analyzer;
 mod app;
 mod custom_widgets;
 mod helpers;
+mod upload;
 
 fn main() {
     std::panic::set_hook(Box::new(|i| {
@@ -20,6 +21,8 @@ fn main() {
         let backtrace = Backtrace::capture();
         log::error!("backtrace:");
         log::error!("{}", backtrace);
+        println!("{}", i);
+        println!("{}", backtrace);
     }));
 
     logging::initialize();
