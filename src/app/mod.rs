@@ -3,7 +3,10 @@ use std::sync::Arc;
 use eframe::egui::*;
 use rfd::FileDialog;
 
-use crate::{analyzer::Combat, upload::Upload};
+use crate::{
+    analyzer::Combat,
+    upload::{Records, Upload},
+};
 
 use self::{
     analysis_handling::AnalysisInfo, main_tabs::*, overlay::Overlay, settings::*, state::AppState,
@@ -29,6 +32,7 @@ pub struct App {
     summary_copy: SummaryCopy,
     overlay: Overlay,
     upload: Upload,
+    records: Records,
     state: AppState,
 }
 
@@ -52,6 +56,7 @@ impl App {
             summary_copy: Default::default(),
             overlay: Overlay::new(&state.analysis_handler),
             upload: Default::default(),
+            records: Default::default(),
             state,
         }
     }
@@ -63,12 +68,15 @@ impl eframe::App for App {
 
         CentralPanel::default().show(ctx, |ui| {
             ui.vertical(|ui| {
-                self.settings_window.show(
-                    &mut self.state,
-                    self.selected_combat.as_deref(),
-                    ui,
-                    frame,
-                );
+                ui.horizontal(|ui| {
+                    self.settings_window.show(
+                        &mut self.state,
+                        self.selected_combat.as_deref(),
+                        ui,
+                        frame,
+                    );
+                    self.records.show(ui, &self.state.settings.upload.oscr_url);
+                });
 
                 ui.horizontal_wrapped(|ui| {
                     self.status_indicator

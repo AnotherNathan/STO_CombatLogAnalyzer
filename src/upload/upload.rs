@@ -1,12 +1,12 @@
-use std::{fmt::Display, io::Write, mem::replace, thread::JoinHandle};
+use std::{io::Write, thread::JoinHandle, time::Duration};
 
 use eframe::egui::*;
 use reqwest::{
     blocking::{
         multipart::{Form, Part},
-        ClientBuilder, Response,
+        ClientBuilder,
     },
-    Error, StatusCode, Url,
+    Url,
 };
 use serde::Deserialize;
 
@@ -14,6 +14,8 @@ use crate::{
     analyzer::{settings::AnalysisSettings, Combat},
     custom_widgets::table::Table,
 };
+
+use super::common::{spawn_request, RequestError};
 
 #[derive(Default)]
 pub struct Upload {
@@ -36,19 +38,14 @@ impl Upload {
                 .on_hover_text(UPLOAD_TOOLTIP)
                 .clicked()
             {
-                self.state = self.begin_upload(combat.unwrap(), settings, url);
+                self.state = self.begin_upload(ui.ctx().clone(), combat.unwrap(), settings, url);
             };
         });
-        match &self.state {
+        match &mut self.state {
             UploadState::Idle => (),
             UploadState::Uploading(join_handle) => {
-                if join_handle.is_finished() {
-                    let UploadState::Uploading(join_handle) =
-                        replace(&mut self.state, UploadState::Idle)
-                    else {
-                        panic!()
-                    };
-                    self.state = join_handle.join().unwrap();
+                if join_handle.as_ref().unwrap().is_finished() {
+                    self.state = join_handle.take().unwrap().join().unwrap();
                     ui.ctx().request_repaint_of(ViewportId::ROOT);
                 }
 
@@ -111,7 +108,7 @@ impl Upload {
             }
             UploadState::UploadError(error) => {
                 if let Some(true) = Self::window(ui, false, |ui| {
-                    ui.label(error);
+                    ui.label(&*error);
                     ui.add_space(40.0);
                     if ui.button("Close").clicked() {
                         true
@@ -141,7 +138,13 @@ impl Upload {
             .flatten()
     }
 
-    fn begin_upload(&self, combat: &Combat, settings: &AnalysisSettings, url: &str) -> UploadState {
+    fn begin_upload(
+        &self,
+        ctx: Context,
+        combat: &Combat,
+        settings: &AnalysisSettings,
+        url: &str,
+    ) -> UploadState {
         let combat_data = combat.read_log_combat_data(settings.combatlog_file());
         let combat_data = match combat_data {
             Some(d) => d,
@@ -154,25 +157,27 @@ impl Upload {
             }
         };
         let combat_name = combat.name();
-        let join_handle = std::thread::Builder::new()
-            .stack_size(512 * 1024)
-            .spawn(move || Self::upload(url, combat_data, combat_name))
-            .unwrap();
-        UploadState::Uploading(join_handle)
+        let join_handle = spawn_request(move || Self::upload(ctx, url, combat_data, combat_name));
+        UploadState::Uploading(Some(join_handle))
     }
 
-    fn upload(url: Url, combat_data: Vec<u8>, combat_name: String) -> UploadState {
-        match Self::do_upload(url, combat_data, combat_name) {
+    fn upload(ctx: Context, url: Url, combat_data: Vec<u8>, combat_name: String) -> UploadState {
+        let state = match Self::do_upload(url, combat_data, combat_name) {
             Ok(r) => UploadState::UploadComplete(r),
-            Err(e) => UploadState::UploadError(format!("{}", e)),
-        }
+            Err(e) => UploadState::UploadError(format!(
+                "{}",
+                e.action_error("Failed to upload combat log.")
+            )),
+        };
+        ctx.request_repaint_after_for(Duration::from_millis(10), ViewportId::ROOT);
+        state
     }
 
     fn do_upload(
         mut url: Url,
         combat_data: Vec<u8>,
         combat_name: String,
-    ) -> Result<Vec<UploadResponse>, UploadError> {
+    ) -> Result<Vec<UploadResponse>, RequestError> {
         let mut data = Vec::new();
         let mut encoder = flate2::GzBuilder::new().write(&mut data, flate2::Compression::best());
         encoder.write_all(combat_data.as_slice()).unwrap();
@@ -182,7 +187,7 @@ impl Upload {
         let form = Form::new().part("file", Part::bytes(data).file_name(combat_name));
         let response = client.post(url).multipart(form).send()?;
         if !response.status().is_success() {
-            return Err(UploadError::from(response));
+            return Err(RequestError::from(response));
         }
 
         let response = response.json::<Vec<UploadResponse>>()?;
@@ -194,7 +199,7 @@ impl Upload {
 enum UploadState {
     #[default]
     Idle,
-    Uploading(JoinHandle<Self>),
+    Uploading(Option<JoinHandle<Self>>),
     UploadComplete(Vec<UploadResponse>),
     UploadError(String),
 }
@@ -208,88 +213,9 @@ impl UploadState {
     }
 }
 
-enum UploadError {
-    Status(StatusCode, Option<String>),
-    Err(Error),
-}
-
-impl UploadError {
-    fn base_msg(f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Failed to upload combat log.")
-    }
-
-    fn status_code(f: &mut std::fmt::Formatter<'_>, status: StatusCode) -> std::fmt::Result {
-        write!(f, "\n\nStatus Code: {}", status)
-    }
-
-    fn details_or_status_and_error(
-        f: &mut std::fmt::Formatter<'_>,
-        status: StatusCode,
-        error: &Option<String>,
-    ) -> std::fmt::Result {
-        match error
-            .as_ref()
-            .map(|e| serde_json::from_str::<ServerError>(e).ok())
-            .flatten()
-        {
-            Some(error) => write!(f, "\n\nDetails: {}", error.detail)?,
-            None => {
-                Self::status_code(f, status)?;
-                Self::error(f, error)?;
-            }
-        }
-
-        Ok(())
-    }
-
-    fn error(f: &mut std::fmt::Formatter<'_>, error: &Option<String>) -> std::fmt::Result {
-        if let Some(error) = error.as_ref() {
-            write!(f, "\n\nError: {}", error)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl Display for UploadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Self::base_msg(f)?;
-        match self {
-            UploadError::Status(status, error) => {
-                if *status == StatusCode::INTERNAL_SERVER_ERROR {
-                    Self::details_or_status_and_error(f, *status, error)?;
-                } else {
-                    Self::status_code(f, *status)?;
-                    Self::error(f, error)?;
-                }
-            }
-            UploadError::Err(err) => write!(f, "Failed to upload combat log.\n\nError: {}", err)?,
-        }
-
-        Ok(())
-    }
-}
-
-impl From<Error> for UploadError {
-    fn from(value: Error) -> Self {
-        Self::Err(value)
-    }
-}
-
-impl From<Response> for UploadError {
-    fn from(value: Response) -> Self {
-        Self::Status(value.status(), value.text().ok())
-    }
-}
-
 #[derive(Deserialize)]
 struct UploadResponse {
     name: String,
     updated: bool,
-    detail: String,
-}
-
-#[derive(Deserialize)]
-struct ServerError {
     detail: String,
 }
