@@ -1,11 +1,14 @@
-use std::{borrow::Cow, thread::JoinHandle, time::Duration};
+use std::{thread::JoinHandle, time::Duration};
 
 use eframe::egui::*;
 use reqwest::{blocking::ClientBuilder, Url};
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::{custom_widgets::table::Table, helpers::number_formatting::NumberFormatter};
+use crate::{
+    custom_widgets::{number_edit::NumberEdit, table::Table},
+    helpers::number_formatting::NumberFormatter,
+};
 
 use super::common::{spawn_request, RequestError};
 
@@ -22,12 +25,21 @@ impl Records {
             self.state = Self::begin_load_ladders(ui.ctx().clone(), url);
         }
 
+        let url = match Url::parse(url) {
+            Ok(u) => u,
+            Err(_) => {
+                ui.label("the provided upload URL is invalid");
+                return;
+            }
+        };
+
         let mut open = self.state.show();
         Window::new("Records")
             .collapsible(false)
             .constrain(true)
             .open(&mut open)
-            .default_size([720.0, 480.0])
+            .default_size([1280.0, 720.0])
+            .max_size(ui.ctx().screen_rect().size() - vec2(120.0, 120.0))
             .show(ui.ctx(), |ui| match &mut self.state {
                 LaddersState::Collapsed => (),
                 LaddersState::Loading(join_handle) => {
@@ -63,7 +75,7 @@ impl Records {
 
     fn show_ladders(
         ui: &mut Ui,
-        url: &str,
+        url: Url,
         selected_ladder: &mut usize,
         ladders: &Ladders,
         entries_state: &mut LadderEntriesState,
@@ -71,13 +83,13 @@ impl Records {
         if Self::show_ladders_combo_box(ui, selected_ladder, ladders) {
             *entries_state = Self::begin_load_ladder_entries(
                 ui.ctx().clone(),
-                Url::parse(url).unwrap(),
+                url.clone(),
                 ladders.ladders[*selected_ladder].clone(),
                 1,
             );
         }
         ui.separator();
-        Self::show_entries(ui, entries_state);
+        Self::show_entries(ui, url, &ladders.ladders[*selected_ladder], entries_state);
     }
 
     fn show_ladders_combo_box(ui: &mut Ui, selected_ladder: &mut usize, ladders: &Ladders) -> bool {
@@ -94,7 +106,12 @@ impl Records {
             .unwrap_or(false)
     }
 
-    fn show_entries(ui: &mut Ui, state: &mut LadderEntriesState) {
+    fn show_entries(
+        ui: &mut Ui,
+        url: Url,
+        selected_ladder: &Ladder,
+        state: &mut LadderEntriesState,
+    ) {
         match state {
             LadderEntriesState::Loading(join_handle) => {
                 if join_handle.as_ref().unwrap().is_finished() {
@@ -109,8 +126,43 @@ impl Records {
                 ui.label(WidgetText::from("⏳").color(Color32::YELLOW));
                 ui.add_space(20.0);
             }
-            LadderEntriesState::Loaded { entries } => {
-                Self::show_entries_table(ui, entries);
+            LadderEntriesState::Loaded(loaded_state) => {
+                let mut change_page = None;
+                ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
+                    ui.label("Page:");
+                    ui.add_enabled_ui(loaded_state.entries.page > 1, |ui| {
+                        if ui.button("⏴").clicked() {
+                            change_page = Some(loaded_state.entries.page - 1);
+                        }
+                    });
+                    if NumberEdit::new(&mut loaded_state.page, "page edit")
+                        .clamp_min(1)
+                        .clamp_max(loaded_state.entries.page_count)
+                        .desired_text_edit_width(40.0)
+                        .show(ui)
+                        .lost_focus()
+                        && loaded_state.page != loaded_state.entries.page
+                    {
+                        change_page = Some(loaded_state.page);
+                    }
+                    ui.add_enabled_ui(
+                        loaded_state.entries.page < loaded_state.entries.page_count,
+                        |ui| {
+                            if ui.button("⏵").clicked() {
+                                change_page = Some(loaded_state.entries.page + 1);
+                            }
+                        },
+                    );
+                });
+                Self::show_entries_table(ui, loaded_state);
+                if let Some(change_page) = change_page {
+                    *state = Self::begin_load_ladder_entries(
+                        ui.ctx().clone(),
+                        url,
+                        selected_ladder.clone(),
+                        change_page,
+                    );
+                }
             }
             LadderEntriesState::LoadError(err) => {
                 ui.label(&*err);
@@ -118,8 +170,8 @@ impl Records {
         }
     }
 
-    fn show_entries_table(ui: &mut Ui, entries: &LadderEntries) {
-        if entries.entries.len() == 0 {
+    fn show_entries_table(ui: &mut Ui, loaded_state: &mut LoadedEntriesState) {
+        if loaded_state.entries.entries.len() == 0 {
             ui.label("no entries");
             return;
         }
@@ -127,28 +179,15 @@ impl Records {
         ScrollArea::horizontal().show(ui, |ui| {
             Table::new(ui)
                 .header(15.0, |r| {
-                    r.cell(|ui| {
-                        ui.label("Rank");
-                    });
-                    r.cell(|ui| {
-                        ui.label("Player");
-                    });
-
-                    for header in entries.data_headers.iter() {
+                    for header in loaded_state.entries.data_headers.iter() {
                         r.cell(|ui| {
                             ui.label(&*header);
                         });
                     }
                 })
                 .body(25.0, |b| {
-                    for entry in entries.entries.iter() {
-                        b.row(|r| {
-                            r.cell(|ui| {
-                                ui.label(&entry.rank);
-                            });
-                            r.cell(|ui| {
-                                ui.label(&entry.player);
-                            });
+                    for (index, entry) in loaded_state.entries.entries.iter().enumerate() {
+                        if b.selectable_row(loaded_state.selected_row == Some(index), |r| {
                             for data in entry.data.iter() {
                                 if data.is_number {
                                     r.cell_with_layout(
@@ -163,7 +202,15 @@ impl Records {
                                     });
                                 }
                             }
-                        });
+                        })
+                        .clicked()
+                        {
+                            if loaded_state.selected_row == Some(index) {
+                                loaded_state.selected_row = None
+                            } else {
+                                loaded_state.selected_row = Some(index)
+                            }
+                        }
                     }
                 });
         });
@@ -239,7 +286,11 @@ impl Records {
         page: i32,
     ) -> LadderEntriesState {
         let state = match Self::do_load_ladder_entries(url, ladder, page) {
-            Ok(entries) => LadderEntriesState::Loaded { entries },
+            Ok(entries) => LadderEntriesState::Loaded(LoadedEntriesState {
+                page: entries.page,
+                selected_row: None,
+                entries,
+            }),
             Err(err) => LadderEntriesState::LoadError(format!(
                 "{}",
                 err.action_error("Failed to load record table entries.")
@@ -297,8 +348,14 @@ impl LaddersState {
 
 enum LadderEntriesState {
     Loading(Option<JoinHandle<Self>>),
-    Loaded { entries: LadderEntries },
+    Loaded(LoadedEntriesState),
     LoadError(String),
+}
+
+struct LoadedEntriesState {
+    page: i32,
+    selected_row: Option<usize>,
+    entries: LadderEntries,
 }
 
 #[derive(Deserialize, Debug)]
@@ -315,12 +372,6 @@ struct LadderModel {
     is_solo: bool,
 }
 
-impl LadderModel {
-    fn display_name(&self) -> String {
-        format!("{} ({}) - {}", self.name, self.difficulty, self.metric)
-    }
-}
-
 #[derive(Deserialize, Debug)]
 struct LadderEntriesModel {
     count: i32,
@@ -329,12 +380,9 @@ struct LadderEntriesModel {
 
 #[derive(Deserialize, Debug)]
 struct LadderEntryModel {
-    id: i32,
     date: String,
     player: String,
     data: serde_json::Map<String, serde_json::Value>,
-    combatlog: i32,
-    ladder: i32,
 }
 
 struct Ladders {
@@ -374,7 +422,7 @@ impl From<LadderModel> for Ladder {
 }
 
 struct LadderEntries {
-    count: i32,
+    page_count: i32,
     page: i32,
     data_headers: Vec<String>,
     entries: Vec<LadderEntry>,
@@ -383,14 +431,20 @@ struct LadderEntries {
 impl LadderEntries {
     fn new(page: i32, model: LadderEntriesModel) -> Self {
         let mut formatter = NumberFormatter::new();
-        let first_rank = (page - 1) * PAGE_SIZE;
+        let first_rank = (page - 1) * PAGE_SIZE + 1;
         Self {
-            count: model.count,
+            page_count: model.count / PAGE_SIZE + if model.count % PAGE_SIZE > 0 { 1 } else { 0 },
             page,
             data_headers: model
                 .results
                 .first()
-                .map(|e| e.data.keys().cloned().collect())
+                .map(|e| {
+                    ["Rank".to_owned(), "Player".to_owned()]
+                        .into_iter()
+                        .chain(e.data.keys().cloned().map(|h| h.replace('_', " ")))
+                        .chain(std::iter::once("Date".to_owned()))
+                        .collect()
+                })
                 .unwrap_or(Vec::new()),
             entries: model
                 .results
@@ -403,20 +457,19 @@ impl LadderEntries {
 }
 
 struct LadderEntry {
-    rank: String,
-    player: String,
     data: Vec<DataValue>,
 }
 
 impl LadderEntry {
     fn new(rank: i32, model: LadderEntryModel, formatter: &mut NumberFormatter) -> Self {
         Self {
-            rank: rank.to_string(),
-            player: model.player,
-            data: model
-                .data
-                .values()
-                .map(|value| match value {
+            data: [
+                DataValue::number(rank.to_string()),
+                DataValue::non_number(model.player),
+            ]
+            .into_iter()
+            .chain(model.data.values().map(|value| {
+                match value {
                     Value::Null => DataValue::non_number(String::new()),
                     Value::Bool(bool) => {
                         DataValue::non_number(if *bool { "✔" } else { "✖" }.into())
@@ -432,8 +485,10 @@ impl LadderEntry {
                     Value::String(str) => DataValue::non_number(str.into()),
                     Value::Array(array) => DataValue::non_number(format!("{:?}", array).into()),
                     Value::Object(object) => DataValue::non_number(format!("{:?}", object).into()),
-                })
-                .collect(),
+                }
+            }))
+            .chain(std::iter::once(DataValue::non_number(model.date)))
+            .collect(),
         }
     }
 }
