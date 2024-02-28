@@ -20,7 +20,7 @@ regex = "1.7.0"
 bitflags = "2"
 log = { version = "0.4.17", features = ["serde"] }
 rustc-hash = "1.1.0"
-rfd = { git = "https://github.com/PolyMeilex/rfd.git" }
+rfd = { version = "0.14", default-features = false }
 serde_json = "1.0.89"
 serde = { version = "1.0.150", features = ["serde_derive"] }
 smallvec = { version = "1.10.0", features = ["const_new", "const_generics"] }
