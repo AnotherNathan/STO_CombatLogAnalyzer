@@ -382,6 +382,7 @@ struct LadderEntriesModel {
 struct LadderEntryModel {
     date: String,
     player: String,
+    rank: i32,
     data: serde_json::Map<String, serde_json::Value>,
 }
 
@@ -431,7 +432,6 @@ struct LadderEntries {
 impl LadderEntries {
     fn new(page: i32, model: LadderEntriesModel) -> Self {
         let mut formatter = NumberFormatter::new();
-        let first_rank = (page - 1) * PAGE_SIZE + 1;
         Self {
             page_count: model.count / PAGE_SIZE + if model.count % PAGE_SIZE > 0 { 1 } else { 0 },
             page,
@@ -449,8 +449,7 @@ impl LadderEntries {
             entries: model
                 .results
                 .into_iter()
-                .enumerate()
-                .map(|(index, e)| LadderEntry::new(first_rank + index as i32, e, &mut formatter))
+                .map(|e| LadderEntry::new(e, &mut formatter))
                 .collect(),
         }
     }
@@ -461,10 +460,10 @@ struct LadderEntry {
 }
 
 impl LadderEntry {
-    fn new(rank: i32, model: LadderEntryModel, formatter: &mut NumberFormatter) -> Self {
+    fn new(model: LadderEntryModel, formatter: &mut NumberFormatter) -> Self {
         Self {
             data: [
-                DataValue::number(rank.to_string()),
+                DataValue::number(model.rank.to_string()),
                 DataValue::non_number(model.player),
             ]
             .into_iter()
