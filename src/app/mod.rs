@@ -75,7 +75,8 @@ impl eframe::App for App {
                         ui,
                         frame,
                     );
-                    self.records.show(ui, &self.state.settings.upload.oscr_url);
+                    self.records
+                        .show(ui, frame, &self.state.settings.upload.oscr_url);
                 });
 
                 ui.horizontal_wrapped(|ui| {

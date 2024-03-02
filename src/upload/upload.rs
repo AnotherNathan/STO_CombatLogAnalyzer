@@ -34,7 +34,7 @@ impl Upload {
     ) {
         ui.add_enabled_ui(self.state.is_idle() && combat.is_some(), |ui| {
             if ui
-                .button("Upload ☁")
+                .button("Upload 🌎")
                 .on_hover_text(UPLOAD_TOOLTIP)
                 .clicked()
             {

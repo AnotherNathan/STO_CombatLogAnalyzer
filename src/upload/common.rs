@@ -1,16 +1,22 @@
-use std::{fmt::Display, thread::JoinHandle};
+use std::{
+    fmt::{Debug, Display},
+    thread::JoinHandle,
+};
 
 use reqwest::{blocking::Response, Error, StatusCode};
 use serde::Deserialize;
 
+#[derive(Debug)]
 pub struct RequestError {
     action_error: &'static str,
     kind: RequestErrorKind,
 }
 
+#[derive(Debug)]
 pub enum RequestErrorKind {
     Status(StatusCode, Option<String>),
     Err(Error),
+    File(std::io::Error),
 }
 
 impl RequestError {
@@ -75,6 +81,12 @@ impl From<Response> for RequestError {
     }
 }
 
+impl From<std::io::Error> for RequestError {
+    fn from(value: std::io::Error) -> Self {
+        Self::new(RequestErrorKind::File(value))
+    }
+}
+
 impl Display for RequestError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.fmt_base(f)?;
@@ -90,6 +102,7 @@ impl Display for RequestError {
             RequestErrorKind::Err(err) => {
                 write!(f, "Failed to upload combat log.\n\nError: {}", err)?
             }
+            RequestErrorKind::File(err) => write!(f, "{}", err)?,
         }
 
         Ok(())

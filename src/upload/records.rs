@@ -1,12 +1,16 @@
-use std::{thread::JoinHandle, time::Duration};
+use std::{fs::File, io::Write, path::PathBuf, thread::JoinHandle, time::Duration};
 
-use eframe::egui::*;
+use eframe::{egui::*, Frame};
+use flate2::write::GzDecoder;
 use reqwest::{blocking::ClientBuilder, Url};
 use serde::Deserialize;
 use serde_json::Value;
 
 use crate::{
-    custom_widgets::{number_edit::NumberEdit, table::Table},
+    custom_widgets::{
+        number_edit::NumberEdit,
+        table::{Table, TableRow},
+    },
     helpers::number_formatting::NumberFormatter,
 };
 
@@ -15,49 +19,60 @@ use super::common::{spawn_request, RequestError};
 const PAGE_SIZE: i32 = 50;
 
 #[derive(Default)]
-pub struct Records {
-    state: LaddersState,
+pub enum Records {
+    #[default]
+    Collapsed,
+    Loading(Option<JoinHandle<Self>>),
+    #[allow(private_interfaces)]
+    Loaded(LoadedLadders),
+    LoadError(String),
 }
 
 impl Records {
-    pub fn show(&mut self, ui: &mut Ui, url: &str) {
-        if ui.selectable_label(self.state.show(), "Records").clicked() {
-            self.state = Self::begin_load_ladders(ui.ctx().clone(), url);
-        }
-
+    pub fn show(&mut self, ui: &mut Ui, frame: &Frame, url: &str) {
         let url = match Url::parse(url) {
             Ok(u) => u,
             Err(_) => {
-                ui.label("the provided upload URL is invalid");
+                ui.label("the provided upload URL is invalid (change in Settings->Upload)");
                 return;
             }
         };
+        if ui.selectable_label(!self.collapsed(), "Records").clicked() {
+            *self = Self::begin_load_ladders(ui.ctx().clone(), url.clone());
+        }
 
-        let mut open = self.state.show();
+        let mut open = !self.collapsed();
         Window::new("Records")
             .collapsible(false)
             .constrain(true)
             .open(&mut open)
             .default_size([1280.0, 720.0])
             .max_size(ui.ctx().screen_rect().size() - vec2(120.0, 120.0))
-            .show(ui.ctx(), |ui| match &mut self.state {
-                LaddersState::Collapsed => (),
-                LaddersState::Loading(join_handle) => {
+            .show(ui.ctx(), |ui| match self {
+                Self::Collapsed => (),
+                Self::Loading(join_handle) => {
                     if join_handle.as_ref().unwrap().is_finished() {
-                        self.state = join_handle.take().unwrap().join().unwrap();
+                        *self = join_handle.take().unwrap().join().unwrap();
                         ui.ctx().request_repaint_of(ViewportId::ROOT);
                     }
 
                     Self::show_loading_ladders(ui);
                 }
-                LaddersState::Loaded(state) => Self::show_ladders(ui, url, state),
-                LaddersState::LoadError(err) => {
+                Self::Loaded(loaded_ladders) => loaded_ladders.show(ui, frame, url),
+                Self::LoadError(err) => {
                     ui.label(&*err);
                 }
             });
 
         if !open {
-            self.state = LaddersState::Collapsed;
+            *self = Self::Collapsed;
+        }
+    }
+
+    fn collapsed(&self) -> bool {
+        match self {
+            Self::Collapsed => true,
+            _ => false,
         }
     }
 
@@ -69,204 +84,20 @@ impl Records {
         ui.add_space(20.0);
     }
 
-    fn show_ladders(ui: &mut Ui, url: Url, state: &mut LaddersLoadedState) {
-        if Self::show_ladders_combo_box(ui, &mut state.selected_ladder, &state.ladders) {
-            state.entries_state = Self::begin_load_ladder_entries(
-                ui.ctx().clone(),
-                url.clone(),
-                state.ladders.ladders[state.selected_ladder].clone(),
-                1,
-                state.search_player.clone(),
-            );
-        }
-        ui.horizontal(|ui| {
-            let mut search = TextEdit::singleline(&mut state.search_player)
-                .desired_width(400.0)
-                .hint_text("search for Player")
-                .show(ui)
-                .response
-                .lost_focus()
-                && ui.input(|i| i.key_pressed(Key::Enter));
-            search |= ui.button("Search").clicked();
-            if search {
-                state.entries_state = Self::begin_load_ladder_entries(
-                    ui.ctx().clone(),
-                    url.clone(),
-                    state.ladders.ladders[state.selected_ladder].clone(),
-                    1,
-                    state.search_player.clone(),
-                );
-            }
-        });
-        ui.separator();
-        Self::show_entries(
-            ui,
-            url,
-            &state.ladders.ladders[state.selected_ladder],
-            &state.search_player,
-            &mut state.entries_state,
-        );
-    }
-
-    fn show_ladders_combo_box(ui: &mut Ui, selected_ladder: &mut usize, ladders: &Ladders) -> bool {
-        ComboBox::new("ladders", "Record Tables")
-            .selected_text(&ladders.ladders[*selected_ladder].name)
-            .width(400.0)
-            .show_ui(ui, |ui| {
-                ladders.ladders.iter().enumerate().any(|(index, ladder)| {
-                    ui.selectable_value(selected_ladder, index, &ladder.name)
-                        .changed()
-                })
-            })
-            .inner
-            .unwrap_or(false)
-    }
-
-    fn show_entries(
-        ui: &mut Ui,
-        url: Url,
-        selected_ladder: &Ladder,
-        search_player: &String,
-        state: &mut LadderEntriesState,
-    ) {
-        match state {
-            LadderEntriesState::Loading(join_handle) => {
-                if join_handle.as_ref().unwrap().is_finished() {
-                    let join_handle = join_handle.take().unwrap();
-                    *state = join_handle.join().unwrap();
-                    ui.ctx().request_repaint_of(ViewportId::ROOT);
-                }
-
-                ui.add_space(20.0);
-                ui.label("loading table entries...");
-                ui.add_space(40.0);
-                ui.label(WidgetText::from("⏳").color(Color32::YELLOW));
-                ui.add_space(20.0);
-            }
-            LadderEntriesState::Loaded(loaded_state) => {
-                let mut change_page = None;
-                ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
-                    ui.label("Page:");
-                    ui.add_enabled_ui(loaded_state.entries.page > 1, |ui| {
-                        if ui.button("⏴").clicked() {
-                            change_page = Some(loaded_state.entries.page - 1);
-                        }
-                    });
-                    if NumberEdit::new(&mut loaded_state.page, "page edit")
-                        .clamp_min(1)
-                        .clamp_max(loaded_state.entries.page_count)
-                        .desired_text_edit_width(40.0)
-                        .show(ui)
-                        .lost_focus()
-                        && loaded_state.page != loaded_state.entries.page
-                    {
-                        change_page = Some(loaded_state.page);
-                    }
-                    ui.add_enabled_ui(
-                        loaded_state.entries.page < loaded_state.entries.page_count,
-                        |ui| {
-                            if ui.button("⏵").clicked() {
-                                change_page = Some(loaded_state.entries.page + 1);
-                            }
-                        },
-                    );
-                });
-                Self::show_entries_table(ui, loaded_state);
-                if let Some(change_page) = change_page {
-                    *state = Self::begin_load_ladder_entries(
-                        ui.ctx().clone(),
-                        url,
-                        selected_ladder.clone(),
-                        change_page,
-                        search_player.clone(),
-                    );
-                }
-            }
-            LadderEntriesState::LoadError(err) => {
-                ui.label(&*err);
-            }
-        }
-    }
-
-    fn show_entries_table(ui: &mut Ui, loaded_state: &mut LoadedEntriesState) {
-        if loaded_state.entries.entries.len() == 0 {
-            ui.label("no entries");
-            return;
-        }
-
-        ScrollArea::horizontal().show(ui, |ui| {
-            Table::new(ui)
-                .header(15.0, |r| {
-                    for header in loaded_state.entries.data_headers.iter() {
-                        r.cell(|ui| {
-                            ui.label(&*header);
-                        });
-                    }
-                })
-                .body(25.0, |b| {
-                    for (index, entry) in loaded_state.entries.entries.iter().enumerate() {
-                        if b.selectable_row(loaded_state.selected_row == Some(index), |r| {
-                            for data in entry.data.iter() {
-                                if data.is_number {
-                                    r.cell_with_layout(
-                                        Layout::right_to_left(Align::Center),
-                                        |ui| {
-                                            ui.label(&data.value);
-                                        },
-                                    );
-                                } else {
-                                    r.cell(|ui| {
-                                        ui.label(&data.value);
-                                    });
-                                }
-                            }
-                        })
-                        .clicked()
-                        {
-                            if loaded_state.selected_row == Some(index) {
-                                loaded_state.selected_row = None
-                            } else {
-                                loaded_state.selected_row = Some(index)
-                            }
-                        }
-                    }
-                });
-        });
-    }
-
-    fn begin_load_ladders(ctx: Context, url: &str) -> LaddersState {
-        let url = match Url::parse(url) {
-            Ok(u) => u,
-            Err(_) => {
-                return LaddersState::LoadError("the provided upload URL is invalid".into());
-            }
-        };
-
+    fn begin_load_ladders(ctx: Context, url: Url) -> Self {
         let join_handle = spawn_request(move || Self::load_ladders(ctx, url));
-        LaddersState::Loading(Some(join_handle))
+        Self::Loading(Some(join_handle))
     }
 
-    fn load_ladders(ctx: Context, url: Url) -> LaddersState {
+    fn load_ladders(ctx: Context, url: Url) -> Self {
         let state = match Self::do_load_ladders(url.clone()) {
             Ok(ladders) => {
-                if ladders.ladders.len() == 0 {
-                    return LaddersState::LoadError("Failed to load records tables.".into());
+                if ladders.results.len() == 0 {
+                    return Self::LoadError("Failed to load records tables.".into());
                 }
-                let ladder = ladders.ladders.first().unwrap();
-                LaddersState::Loaded(LaddersLoadedState {
-                    entries_state: Self::begin_load_ladder_entries(
-                        ctx.clone(),
-                        url,
-                        ladder.clone(),
-                        1,
-                        String::new(),
-                    ),
-                    ladders,
-                    selected_ladder: 0,
-                    search_player: String::new(),
-                })
+                Self::Loaded(LoadedLadders::new(ladders, &ctx, url))
             }
-            Err(err) => LaddersState::LoadError(format!(
+            Err(err) => Self::LoadError(format!(
                 "{}",
                 err.action_error("Failed to load records tables.")
             )),
@@ -275,7 +106,7 @@ impl Records {
         state
     }
 
-    fn do_load_ladders(mut url: Url) -> Result<Ladders, RequestError> {
+    fn do_load_ladders(mut url: Url) -> Result<LaddersModel, RequestError> {
         let client = ClientBuilder::new().build().unwrap();
         url.set_path("/ladder/");
         let response = client
@@ -286,7 +117,158 @@ impl Records {
             return Err(RequestError::from(response));
         }
         let ladders = response.json::<LaddersModel>()?;
-        Ok(ladders.into())
+        Ok(ladders)
+    }
+}
+
+struct LoadedLadders {
+    ladders: Vec<Ladder>,
+    selected_ladder: usize,
+    entries: Entries,
+    search_player: String,
+}
+
+impl LoadedLadders {
+    fn new(ladders: LaddersModel, ctx: &Context, url: Url) -> Self {
+        let ladders: Vec<Ladder> = ladders.results.into_iter().map(|l| l.into()).collect();
+        let ladder = ladders.first().unwrap();
+        Self {
+            entries: Entries::begin_load_ladder_entries(
+                ctx.clone(),
+                url,
+                ladder.clone(),
+                1,
+                String::new(),
+            ),
+            selected_ladder: 0,
+            search_player: String::new(),
+            ladders,
+        }
+    }
+
+    fn show(&mut self, ui: &mut Ui, frame: &Frame, url: Url) {
+        if self.show_ladders_combo_box(ui) {
+            self.entries = Entries::begin_load_ladder_entries(
+                ui.ctx().clone(),
+                url.clone(),
+                self.ladders[self.selected_ladder].clone(),
+                1,
+                self.search_player.clone(),
+            );
+        }
+        ui.horizontal(|ui| {
+            let mut search = TextEdit::singleline(&mut self.search_player)
+                .desired_width(400.0)
+                .hint_text("search for Player")
+                .show(ui)
+                .response
+                .lost_focus()
+                && ui.input(|i| i.key_pressed(Key::Enter));
+            search |= ui.button("Search").clicked();
+            if search {
+                self.entries = Entries::begin_load_ladder_entries(
+                    ui.ctx().clone(),
+                    url.clone(),
+                    self.ladders[self.selected_ladder].clone(),
+                    1,
+                    self.search_player.clone(),
+                );
+            }
+        });
+        ui.separator();
+        self.entries.show(
+            ui,
+            frame,
+            url,
+            &self.ladders[self.selected_ladder],
+            &self.search_player,
+        );
+    }
+
+    fn show_ladders_combo_box(&mut self, ui: &mut Ui) -> bool {
+        ComboBox::new("ladders", "Record Tables")
+            .selected_text(&self.ladders[self.selected_ladder].name)
+            .width(400.0)
+            .show_ui(ui, |ui| {
+                self.ladders.iter().enumerate().any(|(index, ladder)| {
+                    ui.selectable_value(&mut self.selected_ladder, index, &ladder.name)
+                        .changed()
+                })
+            })
+            .inner
+            .unwrap_or(false)
+    }
+}
+
+enum Entries {
+    Loading(Option<JoinHandle<Self>>),
+    Loaded(LoadedEntries),
+    LoadError(String),
+}
+
+impl Entries {
+    fn show(
+        &mut self,
+        ui: &mut Ui,
+        frame: &Frame,
+        url: Url,
+        selected_ladder: &Ladder,
+        search_player: &String,
+    ) {
+        match self {
+            Entries::Loading(join_handle) => {
+                if join_handle.as_ref().unwrap().is_finished() {
+                    let join_handle = join_handle.take().unwrap();
+                    *self = join_handle.join().unwrap();
+                    ui.ctx().request_repaint_of(ViewportId::ROOT);
+                }
+
+                ui.add_space(20.0);
+                ui.label("loading table entries...");
+                ui.add_space(40.0);
+                ui.label(WidgetText::from("⏳").color(Color32::YELLOW));
+                ui.add_space(20.0);
+            }
+            Entries::Loaded(entries) => {
+                let mut change_page = None;
+                ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
+                    ui.label("Page:");
+                    ui.add_enabled_ui(entries.page > 1, |ui| {
+                        if ui.button("⏴").clicked() {
+                            change_page = Some(entries.page - 1);
+                        }
+                    });
+                    if NumberEdit::new(&mut entries.page, "page edit")
+                        .clamp_min(1)
+                        .clamp_max(entries.page_count)
+                        .desired_text_edit_width(40.0)
+                        .show(ui)
+                        .lost_focus()
+                        && entries.page != entries.page
+                    {
+                        change_page = Some(entries.page);
+                    }
+                    ui.add_enabled_ui(entries.page < entries.page_count, |ui| {
+                        if ui.button("⏵").clicked() {
+                            change_page = Some(entries.page + 1);
+                        }
+                    });
+                });
+                entries.show(ui, frame, &url);
+                if let Some(change_page) = change_page {
+                    *self = Self::begin_load_ladder_entries(
+                        ui.ctx().clone(),
+                        url,
+                        selected_ladder.clone(),
+                        change_page,
+                        search_player.clone(),
+                    );
+                }
+            }
+            Entries::LoadError(err) => {
+                ui.label(&*err);
+            }
+        }
     }
 
     fn begin_load_ladder_entries(
@@ -295,10 +277,10 @@ impl Records {
         ladder: Ladder,
         page: i32,
         player: String,
-    ) -> LadderEntriesState {
+    ) -> Entries {
         let join_handle =
             spawn_request(move || Self::load_ladder_entries(ctx, url, ladder, page, player));
-        LadderEntriesState::Loading(Some(join_handle))
+        Entries::Loading(Some(join_handle))
     }
 
     fn load_ladder_entries(
@@ -307,14 +289,10 @@ impl Records {
         ladder: Ladder,
         page: i32,
         player: String,
-    ) -> LadderEntriesState {
+    ) -> Entries {
         let state = match Self::do_load_ladder_entries(url, ladder, page, player) {
-            Ok(entries) => LadderEntriesState::Loaded(LoadedEntriesState {
-                page: entries.page,
-                selected_row: None,
-                entries,
-            }),
-            Err(err) => LadderEntriesState::LoadError(format!(
+            Ok(entries) => Entries::Loaded(LoadedEntries::new(page, entries)),
+            Err(err) => Entries::LoadError(format!(
                 "{}",
                 err.action_error("Failed to load record table entries.")
             )),
@@ -328,7 +306,7 @@ impl Records {
         ladder: Ladder,
         page: i32,
         player: String,
-    ) -> Result<LadderEntries, RequestError> {
+    ) -> Result<LadderEntriesModel, RequestError> {
         let client = ClientBuilder::new().build().unwrap();
         url.set_path("/ladder-entries/");
         let ladder_id = ladder.id.to_string();
@@ -350,45 +328,211 @@ impl Records {
             return Err(RequestError::from(response));
         }
         let ladder_entries = response.json::<LadderEntriesModel>()?;
-        Ok(LadderEntries::new(page, ladder_entries))
+        Ok(ladder_entries)
     }
 }
 
-#[derive(Default)]
-enum LaddersState {
-    #[default]
-    Collapsed,
-    Loading(Option<JoinHandle<Self>>),
-    Loaded(LaddersLoadedState),
-    LoadError(String),
-}
-
-struct LaddersLoadedState {
-    ladders: Ladders,
-    selected_ladder: usize,
-    entries_state: LadderEntriesState,
-    search_player: String,
-}
-
-impl LaddersState {
-    fn show(&self) -> bool {
-        match self {
-            LaddersState::Collapsed => false,
-            _ => true,
-        }
-    }
-}
-
-enum LadderEntriesState {
-    Loading(Option<JoinHandle<Self>>),
-    Loaded(LoadedEntriesState),
-    LoadError(String),
-}
-
-struct LoadedEntriesState {
+struct LoadedEntries {
     page: i32,
     selected_row: Option<usize>,
-    entries: LadderEntries,
+    page_count: i32,
+    data_headers: Vec<String>,
+    entries: Vec<LadderEntry>,
+    download_log_state: DownloadLogState,
+}
+
+impl LoadedEntries {
+    fn new(page: i32, model: LadderEntriesModel) -> Self {
+        let mut formatter = NumberFormatter::new();
+        Self {
+            page_count: model.count / PAGE_SIZE + if model.count % PAGE_SIZE > 0 { 1 } else { 0 },
+            page,
+            data_headers: model
+                .results
+                .first()
+                .map(|e| {
+                    ["Rank".to_owned(), "Player".to_owned()]
+                        .into_iter()
+                        .chain(e.data.keys().cloned().map(|h| h.replace('_', " ")))
+                        .chain(std::iter::once("Date".to_owned()))
+                        .collect()
+                })
+                .unwrap_or(Vec::new()),
+            entries: model
+                .results
+                .into_iter()
+                .map(|e| LadderEntry::new(e, &mut formatter))
+                .collect(),
+            selected_row: None,
+            download_log_state: DownloadLogState::Idle,
+        }
+    }
+
+    fn show(&mut self, ui: &mut Ui, frame: &Frame, url: &Url) {
+        if self.entries.len() == 0 {
+            ui.label("no entries");
+            return;
+        }
+
+        ScrollArea::horizontal().show(ui, |ui| {
+            Table::new(ui)
+                .header(15.0, |r| {
+                    for header in self.data_headers.iter() {
+                        r.cell(|ui| {
+                            ui.label(&*header);
+                        });
+                    }
+                    r.cell(|ui| {
+                        ui.label("📥");
+                    })
+                    .on_hover_text("download log");
+                })
+                .body(25.0, |b| {
+                    for (index, entry) in self.entries.iter().enumerate() {
+                        if b.selectable_row(self.selected_row == Some(index), |r| {
+                            for data in entry.data.iter() {
+                                if data.is_number {
+                                    r.cell_with_layout(
+                                        Layout::right_to_left(Align::Center),
+                                        |ui| {
+                                            ui.label(&data.value);
+                                        },
+                                    );
+                                } else {
+                                    r.cell(|ui| {
+                                        ui.label(&data.value);
+                                    });
+                                }
+                            }
+
+                            self.download_log_state.show_download_button(
+                                r,
+                                frame,
+                                url,
+                                entry.combatlog_id,
+                            );
+                        })
+                        .clicked()
+                        {
+                            if self.selected_row == Some(index) {
+                                self.selected_row = None
+                            } else {
+                                self.selected_row = Some(index)
+                            }
+                        }
+                    }
+                });
+        });
+
+        self.download_log_state.show_download(ui);
+    }
+}
+
+enum DownloadLogState {
+    Idle,
+    Downloading(String, Option<JoinHandle<Self>>),
+    DownloadFailed(String),
+}
+
+impl DownloadLogState {
+    fn is_idle(&self) -> bool {
+        match self {
+            DownloadLogState::Idle => true,
+            _ => false,
+        }
+    }
+
+    fn show_download_button(&mut self, row: &mut TableRow, frame: &Frame, url: &Url, log_id: i32) {
+        if row
+            .selectable_cell(false, |ui| {
+                ui.add_enabled_ui(self.is_idle(), |ui| {
+                    ui.label("📥");
+                });
+            })
+            .on_hover_text("download log")
+            .clicked()
+        {
+            if let Some(file) = rfd::FileDialog::new()
+                .set_parent(frame)
+                .set_title("Download combatlog File")
+                .add_filter("combatlog", &["log"])
+                .save_file()
+            {
+                *self = Self::begin_download_log(url.clone(), file, log_id);
+            }
+        }
+    }
+
+    fn show_download(&mut self, ui: &Ui) {
+        match self {
+            DownloadLogState::Idle => (),
+            DownloadLogState::Downloading(message, join_handle) => {
+                Window::new("Download log")
+                    .auto_sized()
+                    .constrain(true)
+                    .collapsible(false)
+                    .show(ui.ctx(), |ui| {
+                        ui.add_space(20.0);
+                        ui.label(&*message);
+                        ui.add_space(40.0);
+                        ui.label(WidgetText::from("⏳").color(Color32::YELLOW));
+                        ui.add_space(20.0);
+                    });
+                if join_handle.as_ref().unwrap().is_finished() {
+                    *self = join_handle.take().unwrap().join().unwrap();
+                    ui.ctx().request_repaint_of(ViewportId::ROOT);
+                }
+            }
+            DownloadLogState::DownloadFailed(error) => {
+                let mut open = true;
+                Window::new("Download log failed")
+                    .auto_sized()
+                    .constrain(true)
+                    .collapsible(false)
+                    .open(&mut open)
+                    .show(ui.ctx(), |ui| {
+                        ui.label(&*error);
+                    });
+
+                if !open {
+                    *self = DownloadLogState::Idle;
+                }
+            }
+        }
+    }
+
+    fn begin_download_log(url: Url, path: PathBuf, log_id: i32) -> DownloadLogState {
+        DownloadLogState::Downloading(
+            format!("downloading log to {:?}...", path),
+            Some(spawn_request(move || Self::download_log(url, path, log_id))),
+        )
+    }
+
+    fn download_log(url: Url, path: PathBuf, log_id: i32) -> DownloadLogState {
+        match Self::do_download_log(url, path, log_id) {
+            Ok(_) => DownloadLogState::Idle,
+            Err(err) => DownloadLogState::DownloadFailed(
+                err.action_error("Failed to download log.").to_string(),
+            ),
+        }
+    }
+
+    fn do_download_log(mut url: Url, path: PathBuf, log_id: i32) -> Result<(), RequestError> {
+        let client = ClientBuilder::new().build().unwrap();
+        url.set_path(&format!("/combatlog/{}/download/", log_id));
+        let mut response = client.get(url).send()?;
+        if !response.status().is_success() {
+            return Err(RequestError::from(response));
+        }
+
+        let mut data = Vec::new();
+        response.copy_to(&mut data)?;
+
+        let file = File::create(path)?;
+        GzDecoder::new(file).write_all(&data)?;
+
+        Ok(())
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -416,19 +560,8 @@ struct LadderEntryModel {
     date: String,
     player: String,
     rank: i32,
+    combatlog: i32,
     data: serde_json::Map<String, serde_json::Value>,
-}
-
-struct Ladders {
-    ladders: Vec<Ladder>,
-}
-
-impl From<LaddersModel> for Ladders {
-    fn from(value: LaddersModel) -> Self {
-        Self {
-            ladders: value.results.into_iter().map(|l| l.into()).collect(),
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -455,41 +588,9 @@ impl From<LadderModel> for Ladder {
     }
 }
 
-struct LadderEntries {
-    page_count: i32,
-    page: i32,
-    data_headers: Vec<String>,
-    entries: Vec<LadderEntry>,
-}
-
-impl LadderEntries {
-    fn new(page: i32, model: LadderEntriesModel) -> Self {
-        let mut formatter = NumberFormatter::new();
-        Self {
-            page_count: model.count / PAGE_SIZE + if model.count % PAGE_SIZE > 0 { 1 } else { 0 },
-            page,
-            data_headers: model
-                .results
-                .first()
-                .map(|e| {
-                    ["Rank".to_owned(), "Player".to_owned()]
-                        .into_iter()
-                        .chain(e.data.keys().cloned().map(|h| h.replace('_', " ")))
-                        .chain(std::iter::once("Date".to_owned()))
-                        .collect()
-                })
-                .unwrap_or(Vec::new()),
-            entries: model
-                .results
-                .into_iter()
-                .map(|e| LadderEntry::new(e, &mut formatter))
-                .collect(),
-        }
-    }
-}
-
 struct LadderEntry {
     data: Vec<DataValue>,
+    combatlog_id: i32,
 }
 
 impl LadderEntry {
@@ -521,6 +622,7 @@ impl LadderEntry {
             }))
             .chain(std::iter::once(DataValue::non_number(model.date)))
             .collect(),
+            combatlog_id: model.combatlog,
         }
     }
 }
