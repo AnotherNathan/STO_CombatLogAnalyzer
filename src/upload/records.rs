@@ -50,11 +50,7 @@ impl Records {
 
                     Self::show_loading_ladders(ui);
                 }
-                LaddersState::Loaded {
-                    ladders,
-                    entries_state,
-                    selected_ladder,
-                } => Self::show_ladders(ui, url, selected_ladder, &ladders, entries_state),
+                LaddersState::Loaded(state) => Self::show_ladders(ui, url, state),
                 LaddersState::LoadError(err) => {
                     ui.label(&*err);
                 }
@@ -73,23 +69,43 @@ impl Records {
         ui.add_space(20.0);
     }
 
-    fn show_ladders(
-        ui: &mut Ui,
-        url: Url,
-        selected_ladder: &mut usize,
-        ladders: &Ladders,
-        entries_state: &mut LadderEntriesState,
-    ) {
-        if Self::show_ladders_combo_box(ui, selected_ladder, ladders) {
-            *entries_state = Self::begin_load_ladder_entries(
+    fn show_ladders(ui: &mut Ui, url: Url, state: &mut LaddersLoadedState) {
+        if Self::show_ladders_combo_box(ui, &mut state.selected_ladder, &state.ladders) {
+            state.entries_state = Self::begin_load_ladder_entries(
                 ui.ctx().clone(),
                 url.clone(),
-                ladders.ladders[*selected_ladder].clone(),
+                state.ladders.ladders[state.selected_ladder].clone(),
                 1,
+                state.search_player.clone(),
             );
         }
+        ui.horizontal(|ui| {
+            let mut search = TextEdit::singleline(&mut state.search_player)
+                .desired_width(400.0)
+                .hint_text("must match Player exactly (e.g. Sisko@benjamin)")
+                .show(ui)
+                .response
+                .lost_focus()
+                && ui.input(|i| i.key_pressed(Key::Enter));
+            search |= ui.button("Search").clicked();
+            if search {
+                state.entries_state = Self::begin_load_ladder_entries(
+                    ui.ctx().clone(),
+                    url.clone(),
+                    state.ladders.ladders[state.selected_ladder].clone(),
+                    1,
+                    state.search_player.clone(),
+                );
+            }
+        });
         ui.separator();
-        Self::show_entries(ui, url, &ladders.ladders[*selected_ladder], entries_state);
+        Self::show_entries(
+            ui,
+            url,
+            &state.ladders.ladders[state.selected_ladder],
+            &state.search_player,
+            &mut state.entries_state,
+        );
     }
 
     fn show_ladders_combo_box(ui: &mut Ui, selected_ladder: &mut usize, ladders: &Ladders) -> bool {
@@ -110,6 +126,7 @@ impl Records {
         ui: &mut Ui,
         url: Url,
         selected_ladder: &Ladder,
+        search_player: &String,
         state: &mut LadderEntriesState,
     ) {
         match state {
@@ -161,6 +178,7 @@ impl Records {
                         url,
                         selected_ladder.clone(),
                         change_page,
+                        search_player.clone(),
                     );
                 }
             }
@@ -235,16 +253,18 @@ impl Records {
                     return LaddersState::LoadError("Failed to load records tables.".into());
                 }
                 let ladder = ladders.ladders.first().unwrap();
-                LaddersState::Loaded {
+                LaddersState::Loaded(LaddersLoadedState {
                     entries_state: Self::begin_load_ladder_entries(
                         ctx.clone(),
                         url,
                         ladder.clone(),
                         1,
+                        String::new(),
                     ),
                     ladders,
                     selected_ladder: 0,
-                }
+                    search_player: String::new(),
+                })
             }
             Err(err) => LaddersState::LoadError(format!(
                 "{}",
@@ -274,8 +294,10 @@ impl Records {
         url: Url,
         ladder: Ladder,
         page: i32,
+        player: String,
     ) -> LadderEntriesState {
-        let join_handle = spawn_request(move || Self::load_ladder_entries(ctx, url, ladder, page));
+        let join_handle =
+            spawn_request(move || Self::load_ladder_entries(ctx, url, ladder, page, player));
         LadderEntriesState::Loading(Some(join_handle))
     }
 
@@ -284,8 +306,9 @@ impl Records {
         url: Url,
         ladder: Ladder,
         page: i32,
+        player: String,
     ) -> LadderEntriesState {
-        let state = match Self::do_load_ladder_entries(url, ladder, page) {
+        let state = match Self::do_load_ladder_entries(url, ladder, page, player) {
             Ok(entries) => LadderEntriesState::Loaded(LoadedEntriesState {
                 page: entries.page,
                 selected_row: None,
@@ -304,18 +327,25 @@ impl Records {
         mut url: Url,
         ladder: Ladder,
         page: i32,
+        player: String,
     ) -> Result<LadderEntries, RequestError> {
         let client = ClientBuilder::new().build().unwrap();
         url.set_path("/ladder-entries/");
-        let response = client
-            .get(url)
-            .query(&[
-                ("ladder", ladder.id.to_string().as_str()),
-                ("page_size", &PAGE_SIZE.to_string()),
-                ("ordering", &format!("-data__{}", ladder.metric)),
-                ("page", &page.to_string()),
-            ])
-            .send()?;
+        let ladder_id = ladder.id.to_string();
+        let page_size = PAGE_SIZE.to_string();
+        let ordering = format!("-data__{}", ladder.metric);
+        let page_str = page.to_string();
+        let mut query = vec![
+            ("ladder", ladder_id.as_str()),
+            ("page_size", &page_size),
+            ("ordering", &ordering),
+            ("page", &page_str),
+        ];
+
+        if !player.is_empty() {
+            query.push(("player", &player));
+        }
+        let response = client.get(url).query(&query).send()?;
         if !response.status().is_success() {
             return Err(RequestError::from(response));
         }
@@ -329,12 +359,15 @@ enum LaddersState {
     #[default]
     Collapsed,
     Loading(Option<JoinHandle<Self>>),
-    Loaded {
-        ladders: Ladders,
-        selected_ladder: usize,
-        entries_state: LadderEntriesState,
-    },
+    Loaded(LaddersLoadedState),
     LoadError(String),
+}
+
+struct LaddersLoadedState {
+    ladders: Ladders,
+    selected_ladder: usize,
+    entries_state: LadderEntriesState,
+    search_player: String,
 }
 
 impl LaddersState {

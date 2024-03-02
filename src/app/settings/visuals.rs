@@ -104,7 +104,6 @@ impl VisualsTab {
         theme.hyperlink_color = Rgba::from_rgb(0.2, 0.2, 0.9).into();
         theme.panel_fill = background;
         theme.warn_fg_color = Rgba::from_rgb(0.8, 0.7, 0.3).into();
-        theme.override_text_color = Some(Rgba::from_rgb(0.92, 0.92, 0.92).into());
         theme.selection = Selection {
             bg_fill: Rgba::from_rgb(0.2, 0.2, 0.7).into(),
             ..Default::default()
@@ -114,6 +113,9 @@ impl VisualsTab {
         theme.widgets.inactive.bg_fill = Rgba::from_rgb(0.2, 0.2, 0.2).into();
         theme.widgets.hovered.bg_fill = Rgba::from_rgb(0.25, 0.25, 0.25).into();
         theme.widgets.active.bg_fill = Rgba::from_rgb(0.3, 0.3, 0.3).into();
+
+        theme.widgets.noninteractive.fg_stroke.color = Rgba::from_rgb(0.92, 0.92, 0.92).into();
+        theme.widgets.inactive.fg_stroke.color = Rgba::from_rgb(0.92, 0.92, 0.92).into();
 
         theme.window_fill = background;
         theme.window_stroke.color = Rgba::from_rgb(0.9, 0.9, 0.9).into();
