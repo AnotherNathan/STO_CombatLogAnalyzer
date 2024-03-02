@@ -82,7 +82,7 @@ impl Records {
         ui.horizontal(|ui| {
             let mut search = TextEdit::singleline(&mut state.search_player)
                 .desired_width(400.0)
-                .hint_text("must match Player exactly (e.g. Sisko@benjamin)")
+                .hint_text("search for Player")
                 .show(ui)
                 .response
                 .lost_focus()
@@ -343,7 +343,7 @@ impl Records {
         ];
 
         if !player.is_empty() {
-            query.push(("player", &player));
+            query.push(("player__icontains", &player)); // i for case insensitive
         }
         let response = client.get(url).query(&query).send()?;
         if !response.status().is_success() {
