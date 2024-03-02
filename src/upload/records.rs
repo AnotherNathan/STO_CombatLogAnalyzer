@@ -2,6 +2,7 @@ use std::{fs::File, io::Write, path::PathBuf, thread::JoinHandle, time::Duration
 
 use eframe::{egui::*, Frame};
 use flate2::write::GzDecoder;
+use itertools::Either;
 use reqwest::{blocking::ClientBuilder, Url};
 use serde::Deserialize;
 use serde_json::Value;
@@ -17,6 +18,14 @@ use crate::{
 use super::common::{spawn_request, RequestError};
 
 const PAGE_SIZE: i32 = 50;
+static CHERRY_DATA_PICKS: &[&str] = &[
+    "Rank",
+    "Player",
+    "DPS",
+    "debuff",
+    "combat time",
+    "damage share",
+];
 
 #[derive(Default)]
 pub enum Records {
@@ -125,7 +134,6 @@ struct LoadedLadders {
     ladders: Vec<Ladder>,
     selected_ladder: usize,
     entries: Entries,
-    search_player: String,
 }
 
 impl LoadedLadders {
@@ -139,9 +147,9 @@ impl LoadedLadders {
                 ladder.clone(),
                 1,
                 String::new(),
+                false,
             ),
             selected_ladder: 0,
-            search_player: String::new(),
             ladders,
         }
     }
@@ -153,36 +161,14 @@ impl LoadedLadders {
                 url.clone(),
                 self.ladders[self.selected_ladder].clone(),
                 1,
-                self.search_player.clone(),
+                String::new(),
+                false,
             );
         }
-        ui.horizontal(|ui| {
-            let mut search = TextEdit::singleline(&mut self.search_player)
-                .desired_width(400.0)
-                .hint_text("search for Player")
-                .show(ui)
-                .response
-                .lost_focus()
-                && ui.input(|i| i.key_pressed(Key::Enter));
-            search |= ui.button("Search").clicked();
-            if search {
-                self.entries = Entries::begin_load_ladder_entries(
-                    ui.ctx().clone(),
-                    url.clone(),
-                    self.ladders[self.selected_ladder].clone(),
-                    1,
-                    self.search_player.clone(),
-                );
-            }
-        });
         ui.separator();
-        self.entries.show(
-            ui,
-            frame,
-            url,
-            &self.ladders[self.selected_ladder],
-            &self.search_player,
-        );
+
+        self.entries
+            .show(ui, frame, url, &self.ladders[self.selected_ladder]);
     }
 
     fn show_ladders_combo_box(&mut self, ui: &mut Ui) -> bool {
@@ -207,14 +193,7 @@ enum Entries {
 }
 
 impl Entries {
-    fn show(
-        &mut self,
-        ui: &mut Ui,
-        frame: &Frame,
-        url: Url,
-        selected_ladder: &Ladder,
-        search_player: &String,
-    ) {
+    fn show(&mut self, ui: &mut Ui, frame: &Frame, url: Url, selected_ladder: &Ladder) {
         match self {
             Entries::Loading(join_handle) => {
                 if join_handle.as_ref().unwrap().is_finished() {
@@ -230,8 +209,22 @@ impl Entries {
                 ui.add_space(20.0);
             }
             Entries::Loaded(entries) => {
+                let search = ui
+                    .horizontal(|ui| {
+                        let mut search = TextEdit::singleline(&mut entries.search_player)
+                            .desired_width(400.0)
+                            .hint_text("search for Player")
+                            .show(ui)
+                            .response
+                            .lost_focus()
+                            && ui.input(|i| i.key_pressed(Key::Enter));
+                        search |= ui.button("Search").clicked();
+                        search
+                    })
+                    .inner;
+
                 let mut change_page = None;
-                ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
+                ui.horizontal(|ui| {
                     ui.label("Page:");
                     ui.add_enabled_ui(entries.page > 1, |ui| {
                         if ui.button("⏴").clicked() {
@@ -253,15 +246,28 @@ impl Entries {
                             change_page = Some(entries.page + 1);
                         }
                     });
+
+                    ui.add_space(20.0);
+                    ui.checkbox(&mut entries.show_full_data, "Show full data");
                 });
                 entries.show(ui, frame, &url);
-                if let Some(change_page) = change_page {
+                if search {
+                    *self = Self::begin_load_ladder_entries(
+                        ui.ctx().clone(),
+                        url.clone(),
+                        selected_ladder.clone(),
+                        1,
+                        entries.search_player.clone(),
+                        entries.show_full_data,
+                    );
+                } else if let Some(change_page) = change_page {
                     *self = Self::begin_load_ladder_entries(
                         ui.ctx().clone(),
                         url,
                         selected_ladder.clone(),
                         change_page,
-                        search_player.clone(),
+                        entries.search_player.clone(),
+                        entries.show_full_data,
                     );
                 }
             }
@@ -276,10 +282,12 @@ impl Entries {
         url: Url,
         ladder: Ladder,
         page: i32,
-        player: String,
+        search_player: String,
+        show_full_data: bool,
     ) -> Entries {
-        let join_handle =
-            spawn_request(move || Self::load_ladder_entries(ctx, url, ladder, page, player));
+        let join_handle = spawn_request(move || {
+            Self::load_ladder_entries(ctx, url, ladder, page, search_player, show_full_data)
+        });
         Entries::Loading(Some(join_handle))
     }
 
@@ -288,10 +296,16 @@ impl Entries {
         url: Url,
         ladder: Ladder,
         page: i32,
-        player: String,
+        search_player: String,
+        show_full_data: bool,
     ) -> Entries {
-        let state = match Self::do_load_ladder_entries(url, ladder, page, player) {
-            Ok(entries) => Entries::Loaded(LoadedEntries::new(page, entries)),
+        let state = match Self::do_load_ladder_entries(url, ladder, page, &search_player) {
+            Ok(entries) => Entries::Loaded(LoadedEntries::new(
+                page,
+                entries,
+                search_player,
+                show_full_data,
+            )),
             Err(err) => Entries::LoadError(format!(
                 "{}",
                 err.action_error("Failed to load record table entries.")
@@ -305,7 +319,7 @@ impl Entries {
         mut url: Url,
         ladder: Ladder,
         page: i32,
-        player: String,
+        search_player: &str,
     ) -> Result<LadderEntriesModel, RequestError> {
         let client = ClientBuilder::new().build().unwrap();
         url.set_path("/ladder-entries/");
@@ -320,8 +334,8 @@ impl Entries {
             ("page", &page_str),
         ];
 
-        if !player.is_empty() {
-            query.push(("player__icontains", &player)); // i for case insensitive
+        if !search_player.is_empty() {
+            query.push(("player__icontains", search_player)); // i for case insensitive
         }
         let response = client.get(url).query(&query).send()?;
         if !response.status().is_success() {
@@ -337,34 +351,51 @@ struct LoadedEntries {
     selected_row: Option<usize>,
     page_count: i32,
     data_headers: Vec<String>,
+    cherry_pick_indices: Vec<usize>,
     entries: Vec<LadderEntry>,
     download_log_state: DownloadLogState,
+    search_player: String,
+    show_full_data: bool,
 }
 
 impl LoadedEntries {
-    fn new(page: i32, model: LadderEntriesModel) -> Self {
+    fn new(
+        page: i32,
+        model: LadderEntriesModel,
+        search_player: String,
+        show_full_data: bool,
+    ) -> Self {
         let mut formatter = NumberFormatter::new();
+        let data_headers: Vec<_> = model
+            .results
+            .first()
+            .map(|e| {
+                ["Rank".to_owned(), "Player".to_owned()]
+                    .into_iter()
+                    .chain(e.data.keys().cloned().map(|h| h.replace('_', " ")))
+                    .chain(std::iter::once("Date".to_owned()))
+                    .collect()
+            })
+            .unwrap_or(Vec::new());
+        let entries: Vec<_> = model
+            .results
+            .into_iter()
+            .map(|e| LadderEntry::new(e, &mut formatter))
+            .collect();
+        let cherry_pick_indices: Vec<_> = CHERRY_DATA_PICKS
+            .iter()
+            .filter_map(|d| data_headers.iter().position(|k| k == d))
+            .collect();
         Self {
             page_count: model.count / PAGE_SIZE + if model.count % PAGE_SIZE > 0 { 1 } else { 0 },
             page,
-            data_headers: model
-                .results
-                .first()
-                .map(|e| {
-                    ["Rank".to_owned(), "Player".to_owned()]
-                        .into_iter()
-                        .chain(e.data.keys().cloned().map(|h| h.replace('_', " ")))
-                        .chain(std::iter::once("Date".to_owned()))
-                        .collect()
-                })
-                .unwrap_or(Vec::new()),
-            entries: model
-                .results
-                .into_iter()
-                .map(|e| LadderEntry::new(e, &mut formatter))
-                .collect(),
+            data_headers,
+            cherry_pick_indices,
+            entries,
             selected_row: None,
             download_log_state: DownloadLogState::Idle,
+            search_player,
+            show_full_data,
         }
     }
 
@@ -377,7 +408,17 @@ impl LoadedEntries {
         ScrollArea::horizontal().show(ui, |ui| {
             Table::new(ui)
                 .header(15.0, |r| {
-                    for header in self.data_headers.iter() {
+                    let headers = if self.show_full_data {
+                        Either::Left(self.data_headers.iter())
+                    } else {
+                        Either::Right(
+                            self.cherry_pick_indices
+                                .iter()
+                                .copied()
+                                .map(|i| &self.data_headers[i]),
+                        )
+                    };
+                    for header in headers {
                         r.cell(|ui| {
                             ui.label(&*header);
                         });
@@ -390,7 +431,17 @@ impl LoadedEntries {
                 .body(25.0, |b| {
                     for (index, entry) in self.entries.iter().enumerate() {
                         if b.selectable_row(self.selected_row == Some(index), |r| {
-                            for data in entry.data.iter() {
+                            let data = if self.show_full_data {
+                                Either::Left(entry.data.iter())
+                            } else {
+                                Either::Right(
+                                    self.cherry_pick_indices
+                                        .iter()
+                                        .copied()
+                                        .map(|i| &entry.data[i]),
+                                )
+                            };
+                            for data in data {
                                 if data.is_number {
                                     r.cell_with_layout(
                                         Layout::right_to_left(Align::Center),
