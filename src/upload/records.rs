@@ -443,7 +443,7 @@ impl From<LadderModel> for Ladder {
         Self {
             name: if value.is_solo {
                 format!(
-                    "{} ({}) solo - {}",
+                    "[Solo] {} ({}) - {}",
                     value.name, value.difficulty, value.metric
                 )
             } else {
