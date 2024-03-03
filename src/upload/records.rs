@@ -231,15 +231,15 @@ impl Entries {
                             change_page = Some(entries.page - 1);
                         }
                     });
-                    if NumberEdit::new(&mut entries.page, "page edit")
+                    if NumberEdit::new(&mut entries.entered_page, "page edit")
                         .clamp_min(1)
                         .clamp_max(entries.page_count)
                         .desired_text_edit_width(40.0)
                         .show(ui)
                         .lost_focus()
-                        && entries.page != entries.page
+                        && entries.page != entries.entered_page
                     {
-                        change_page = Some(entries.page);
+                        change_page = Some(entries.entered_page);
                     }
                     ui.add_enabled_ui(entries.page < entries.page_count, |ui| {
                         if ui.button("⏵").clicked() {
@@ -348,6 +348,7 @@ impl Entries {
 
 struct LoadedEntries {
     page: i32,
+    entered_page: i32,
     selected_row: Option<usize>,
     page_count: i32,
     data_headers: Vec<String>,
@@ -389,6 +390,7 @@ impl LoadedEntries {
         Self {
             page_count: model.count / PAGE_SIZE + if model.count % PAGE_SIZE > 0 { 1 } else { 0 },
             page,
+            entered_page: page,
             data_headers,
             cherry_pick_indices,
             entries,

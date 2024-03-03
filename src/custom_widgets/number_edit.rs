@@ -1,4 +1,4 @@
-use std::{hash::Hash, str::FromStr};
+use std::{fmt::Debug, hash::Hash, str::FromStr};
 
 use eframe::egui::*;
 
@@ -16,7 +16,7 @@ struct State {
     is_editing_value_text: bool,
 }
 
-impl<'a, T: FromStr + Ord + ToString + Copy> NumberEdit<'a, T> {
+impl<'a, T: FromStr + Ord + ToString + Copy + Debug> NumberEdit<'a, T> {
     pub fn new(value: &'a mut T, id_source: impl Hash) -> Self {
         Self {
             value,
