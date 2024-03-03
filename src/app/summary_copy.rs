@@ -134,8 +134,8 @@ impl Default for SummaryCopy {
                     true,
                 ),
                 aspect(
-                    "Damage Resistance %",
-                    "DmgRes%",
+                    "Damage Resistance Out %",
+                    "DmgResOut%",
                     false,
                     |p| p.damage_out.damage_resistance_percentage.unwrap_or(0.0),
                     |v, f| f.format(v, 1),
@@ -159,7 +159,7 @@ impl Default for SummaryCopy {
                 ),
                 aspect(
                     "Damage Resistance In %",
-                    "DmgIn%",
+                    "DmgResIn%",
                     false,
                     |p| p.damage_in.damage_resistance_percentage.unwrap_or(0.0),
                     |v, f| f.format(v, 1),
