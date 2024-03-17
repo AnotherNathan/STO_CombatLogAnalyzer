@@ -13,6 +13,7 @@ use serde::Deserialize;
 use crate::{
     analyzer::{settings::AnalysisSettings, Combat},
     custom_widgets::table::Table,
+    helpers::number_formatting::NumberFormatter,
 };
 
 use super::common::{spawn_request, RequestError};
@@ -72,6 +73,9 @@ impl Upload {
                             r.cell(|ui| {
                                 ui.label("Details");
                             });
+                            r.cell(|ui| {
+                                ui.label("Value");
+                            });
                         })
                         .body(25.0, |b| {
                             for result in result.iter() {
@@ -92,6 +96,9 @@ impl Upload {
                                     );
                                     r.cell(|ui| {
                                         ui.label(&result.detail);
+                                    });
+                                    r.cell(|ui| {
+                                        ui.label(&result.value);
                                     });
                                 });
                             }
@@ -190,7 +197,11 @@ impl Upload {
             return Err(RequestError::from(response));
         }
 
-        let response = response.json::<Vec<UploadResponse>>()?;
+        let response: Vec<_> = response
+            .json::<Vec<UploadResponseModel>>()?
+            .into_iter()
+            .map(|r| r.into())
+            .collect();
         Ok(response)
     }
 }
@@ -214,8 +225,28 @@ impl UploadState {
 }
 
 #[derive(Deserialize)]
+struct UploadResponseModel {
+    name: String,
+    updated: bool,
+    detail: String,
+    value: f64,
+}
+
+#[derive(Deserialize)]
 struct UploadResponse {
     name: String,
     updated: bool,
     detail: String,
+    value: String,
+}
+impl From<UploadResponseModel> for UploadResponse {
+    fn from(value: UploadResponseModel) -> Self {
+        let mut formatter = NumberFormatter::new();
+        Self {
+            name: value.name,
+            updated: value.updated,
+            detail: value.detail,
+            value: formatter.format(value.value, 2),
+        }
+    }
 }
