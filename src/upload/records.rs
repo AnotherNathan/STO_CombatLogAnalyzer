@@ -1,9 +1,11 @@
 use std::{fs::File, io::Write, path::PathBuf, thread::JoinHandle, time::Duration};
 
+use chrono::DateTime;
 use eframe::{egui::*, Frame};
 use flate2::write::GzDecoder;
 use itertools::Either;
 use reqwest::{blocking::ClientBuilder, Url};
+use rustc_hash::FxHashMap;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -18,13 +20,14 @@ use crate::{
 use super::common::{spawn_request, RequestError};
 
 const PAGE_SIZE: i32 = 50;
-static CHERRY_DATA_PICKS: &[&str] = &[
+static REDUCED_COLUMNS: &[&str] = &[
     "Rank",
     "Player",
     "DPS",
     "debuff",
     "combat time",
     "damage share",
+    "Date",
 ];
 
 #[derive(Default)]
@@ -351,9 +354,9 @@ struct LoadedEntries {
     entered_page: i32,
     selected_row: Option<usize>,
     page_count: i32,
-    data_headers: Vec<String>,
-    cherry_pick_indices: Vec<usize>,
-    entries: Vec<LadderEntry>,
+    reduced_columns_count: usize,
+    entries: Vec<TableColumn>,
+    combat_log_ids: Vec<i32>,
     download_log_state: DownloadLogState,
     search_player: String,
     show_full_data: bool,
@@ -367,33 +370,15 @@ impl LoadedEntries {
         show_full_data: bool,
     ) -> Self {
         let mut formatter = NumberFormatter::new();
-        let data_headers: Vec<_> = model
-            .results
-            .first()
-            .map(|e| {
-                ["Rank".to_owned(), "Player".to_owned()]
-                    .into_iter()
-                    .chain(e.data.keys().cloned().map(|h| h.replace('_', " ")))
-                    .chain(std::iter::once("Date".to_owned()))
-                    .collect()
-            })
-            .unwrap_or(Vec::new());
-        let entries: Vec<_> = model
-            .results
-            .into_iter()
-            .map(|e| LadderEntry::new(e, &mut formatter))
-            .collect();
-        let cherry_pick_indices: Vec<_> = CHERRY_DATA_PICKS
-            .iter()
-            .filter_map(|d| data_headers.iter().position(|k| k == d))
-            .collect();
+        let (reduced_columns_count, entries) = TableColumn::build_table(&model, &mut formatter);
+        let combat_log_ids = model.results.iter().map(|e| e.combatlog).collect();
         Self {
             page_count: model.count / PAGE_SIZE + if model.count % PAGE_SIZE > 0 { 1 } else { 0 },
             page,
             entered_page: page,
-            data_headers,
-            cherry_pick_indices,
+            reduced_columns_count,
             entries,
+            combat_log_ids,
             selected_row: None,
             download_log_state: DownloadLogState::Idle,
             search_player,
@@ -407,22 +392,18 @@ impl LoadedEntries {
             return;
         }
 
+        let columns = if self.show_full_data {
+            Either::Left(self.entries.iter())
+        } else {
+            Either::Right(self.entries.iter().take(self.reduced_columns_count))
+        };
+        let entries_count = self.entries.first().map(|c| c.values.len()).unwrap_or(0);
         ScrollArea::horizontal().show(ui, |ui| {
             Table::new(ui)
                 .header(15.0, |r| {
-                    let headers = if self.show_full_data {
-                        Either::Left(self.data_headers.iter())
-                    } else {
-                        Either::Right(
-                            self.cherry_pick_indices
-                                .iter()
-                                .copied()
-                                .map(|i| &self.data_headers[i]),
-                        )
-                    };
-                    for header in headers {
+                    for column in columns.clone() {
                         r.cell(|ui| {
-                            ui.label(&*header);
+                            ui.label(&column.name);
                         });
                     }
                     r.cell(|ui| {
@@ -431,19 +412,10 @@ impl LoadedEntries {
                     .on_hover_text("download log");
                 })
                 .body(25.0, |b| {
-                    for (index, entry) in self.entries.iter().enumerate() {
+                    for index in 0..entries_count {
                         if b.selectable_row(self.selected_row == Some(index), |r| {
-                            let data = if self.show_full_data {
-                                Either::Left(entry.data.iter())
-                            } else {
-                                Either::Right(
-                                    self.cherry_pick_indices
-                                        .iter()
-                                        .copied()
-                                        .map(|i| &entry.data[i]),
-                                )
-                            };
-                            for data in data {
+                            for column in columns.clone() {
+                                let data = &column.values[index];
                                 if data.is_number {
                                     r.cell_with_layout(
                                         Layout::right_to_left(Align::Center),
@@ -462,7 +434,7 @@ impl LoadedEntries {
                                 r,
                                 frame,
                                 url,
-                                entry.combatlog_id,
+                                self.combat_log_ids[index],
                             );
                         })
                         .clicked()
@@ -641,51 +613,30 @@ impl From<LadderModel> for Ladder {
     }
 }
 
-struct LadderEntry {
-    data: Vec<DataValue>,
-    combatlog_id: i32,
-}
-
-impl LadderEntry {
-    fn new(model: LadderEntryModel, formatter: &mut NumberFormatter) -> Self {
-        Self {
-            data: [
-                DataValue::number(model.rank.to_string()),
-                DataValue::non_number(model.player),
-            ]
-            .into_iter()
-            .chain(model.data.values().map(|value| {
-                match value {
-                    Value::Null => DataValue::non_number(String::new()),
-                    Value::Bool(bool) => {
-                        DataValue::non_number(if *bool { "✔" } else { "✖" }.into())
-                    }
-                    Value::Number(number) => DataValue::number(
-                        if number.is_f64() {
-                            formatter.format(number.as_f64().unwrap(), 2)
-                        } else {
-                            number.to_string()
-                        }
-                        .into(),
-                    ),
-                    Value::String(str) => DataValue::non_number(str.into()),
-                    Value::Array(array) => DataValue::non_number(format!("{:?}", array).into()),
-                    Value::Object(object) => DataValue::non_number(format!("{:?}", object).into()),
-                }
-            }))
-            .chain(std::iter::once(DataValue::non_number(model.date)))
-            .collect(),
-            combatlog_id: model.combatlog,
-        }
-    }
-}
-
 struct DataValue {
     value: String,
     is_number: bool,
 }
 
 impl DataValue {
+    fn from_json_value(value: &Value, formatter: &mut NumberFormatter) -> Self {
+        match value {
+            Value::Null => Self::non_number(String::new()),
+            Value::Bool(bool) => Self::non_number(if *bool { "✔" } else { "✖" }.into()),
+            Value::Number(number) => Self::number(
+                if number.is_f64() {
+                    formatter.format(number.as_f64().unwrap(), 2)
+                } else {
+                    number.to_string()
+                }
+                .into(),
+            ),
+            Value::String(str) => Self::non_number(str.into()),
+            Value::Array(array) => Self::non_number(format!("{:?}", array).into()),
+            Value::Object(object) => Self::non_number(format!("{:?}", object).into()),
+        }
+    }
+
     fn number(value: String) -> Self {
         Self {
             value,
@@ -699,4 +650,79 @@ impl DataValue {
             is_number: false,
         }
     }
+
+    fn empty() -> Self {
+        Self {
+            value: Default::default(),
+            is_number: false,
+        }
+    }
+}
+
+struct TableColumn {
+    name: String,
+    values: Vec<DataValue>,
+}
+
+impl TableColumn {
+    fn build_table(
+        entries: &LadderEntriesModel,
+        formatter: &mut NumberFormatter,
+    ) -> (usize, Vec<Self>) {
+        let mut ranks = Vec::new();
+        let mut players = Vec::new();
+        let mut dates = Vec::new();
+        let mut columns: FxHashMap<&str, Vec<DataValue>> = FxHashMap::default();
+
+        for (i, entry) in entries.results.iter().enumerate() {
+            ranks.push(DataValue::number(entry.rank.to_string()));
+            players.push(DataValue::non_number(entry.player.clone()));
+            let date_time = DateTime::parse_from_str(&entry.date, "%+")
+                .map(|d| format!("{}", d.format("%v %T")))
+                .unwrap_or_else(|_| entry.date.clone());
+            dates.push(DataValue::non_number(date_time));
+
+            for (name, value) in entry.data.iter() {
+                columns
+                    .entry(&name)
+                    .or_default()
+                    .push(DataValue::from_json_value(value, formatter));
+            }
+
+            columns
+                .values_mut()
+                .filter(|c| c.len() != i + 1)
+                .for_each(|c| c.push(DataValue::empty()));
+        }
+
+        let mut columns: Vec<Self> = [("Rank", ranks), ("Player", players), ("Date", dates)]
+            .into_iter()
+            .chain(columns.into_iter())
+            .map(|(n, c)| Self {
+                name: n.replace('_', " "),
+                values: c,
+            })
+            .collect();
+
+        let mut new_index = 0;
+        for cherry_pick in REDUCED_COLUMNS.iter() {
+            if let Some(index) = columns
+                .iter()
+                .position(|c| str_equal_ignore_case(&c.name, cherry_pick))
+            {
+                let column = columns.remove(index);
+                columns.insert(new_index, column);
+                new_index += 1;
+            }
+        }
+
+        (new_index, columns)
+    }
+}
+
+fn str_equal_ignore_case(str1: &str, str2: &str) -> bool {
+    str1.chars()
+        .map(|c| c.to_lowercase())
+        .flatten()
+        .eq(str2.chars().map(|c| c.to_lowercase()).flatten())
 }
