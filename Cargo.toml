@@ -9,11 +9,11 @@ license = "MIT OR Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-eframe = { git = "https://github.com/AnotherNathan/egui.git", branch = "windows_skip_taskbar", default-features = false, features = [
+eframe = { version = "0.27.2", default-features = false, features = [
     "default_fonts",
     "glow",
 ] }
-egui_plot = { git = "https://github.com/AnotherNathan/egui.git", branch = "windows_skip_taskbar" }
+egui_plot = { version = "0.27.2" }
 chrono = { version = "0.4.23", default-features = false, features = ["std"] }
 lazy_static = "1.4.0"
 regex = "1.7.0"

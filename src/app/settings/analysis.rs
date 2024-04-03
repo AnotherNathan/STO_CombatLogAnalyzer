@@ -109,7 +109,7 @@ impl AnalysisTab {
         Window::new("Selected Combat Occurred Names")
             .collapsible(false)
             .open(&mut self.list_selected_combat_occurred_names)
-            .scroll2([true; 2])
+            .scroll2(true)
             .constrain(true)
             .show(ui.ctx(), |ui| {
                 const SPACE: f32 = 40.0;

@@ -53,7 +53,7 @@ impl VisualsTab {
             .display_precision(4)
             .desired_text_edit_width(40.0)
             .show(ui);
-        if response.drag_released() || response.lost_focus() {
+        if response.drag_stopped() || response.lost_focus() {
             Self::set_ui_scale(
                 ui.ctx(),
                 ui.ctx().native_pixels_per_point(),
@@ -108,7 +108,7 @@ impl VisualsTab {
             bg_fill: Rgba::from_rgb(0.2, 0.2, 0.7).into(),
             ..Default::default()
         };
-        theme.popup_shadow = Shadow::big_light();
+        theme.popup_shadow = Shadow::NONE;
 
         theme.widgets.inactive.bg_fill = Rgba::from_rgb(0.2, 0.2, 0.2).into();
         theme.widgets.hovered.bg_fill = Rgba::from_rgb(0.25, 0.25, 0.25).into();
@@ -119,7 +119,7 @@ impl VisualsTab {
 
         theme.window_fill = background;
         theme.window_stroke.color = Rgba::from_rgb(0.9, 0.9, 0.9).into();
-        theme.window_shadow = Shadow::big_light();
+        theme.window_shadow = Shadow::NONE;
         theme
     }
 
