@@ -3,7 +3,7 @@ use std::{fs::File, io::Write, path::PathBuf, thread::JoinHandle, time::Duration
 use chrono::DateTime;
 use eframe::{egui::*, Frame};
 use flate2::write::GzDecoder;
-use itertools::Either;
+use itertools::{Either, Itertools};
 use reqwest::{blocking::ClientBuilder, Url};
 use rustc_hash::FxHashMap;
 use serde::Deserialize;
@@ -134,15 +134,16 @@ impl Records {
 }
 
 struct LoadedLadders {
-    ladders: Vec<Ladder>,
+    ladders: Ladders,
+    selected_type: usize,
     selected_ladder: usize,
     entries: Entries,
 }
 
 impl LoadedLadders {
     fn new(ladders: LaddersModel, ctx: &Context, url: Url) -> Self {
-        let ladders: Vec<Ladder> = ladders.results.into_iter().map(|l| l.into()).collect();
-        let ladder = ladders.first().unwrap();
+        let ladders = Ladders::from(ladders);
+        let ladder = ladders.ladders.first().unwrap().first().unwrap();
         Self {
             entries: Entries::begin_load_ladder_entries(
                 ctx.clone(),
@@ -152,17 +153,18 @@ impl LoadedLadders {
                 String::new(),
                 false,
             ),
+            selected_type: 0,
             selected_ladder: 0,
             ladders,
         }
     }
 
     fn show(&mut self, ui: &mut Ui, frame: &Frame, url: Url) {
-        if self.show_ladders_combo_box(ui) {
+        if self.show_ladders_combo_boxes(ui) {
             self.entries = Entries::begin_load_ladder_entries(
                 ui.ctx().clone(),
                 url.clone(),
-                self.ladders[self.selected_ladder].clone(),
+                self.ladders.ladders[self.selected_type][self.selected_ladder].clone(),
                 1,
                 String::new(),
                 false,
@@ -170,22 +172,52 @@ impl LoadedLadders {
         }
         ui.separator();
 
-        self.entries
-            .show(ui, frame, url, &self.ladders[self.selected_ladder]);
+        self.entries.show(
+            ui,
+            frame,
+            url,
+            &self.ladders.ladders[self.selected_type][self.selected_ladder],
+        );
     }
 
-    fn show_ladders_combo_box(&mut self, ui: &mut Ui) -> bool {
-        ComboBox::new("ladders", "Record Tables")
-            .selected_text(&self.ladders[self.selected_ladder].name)
-            .width(400.0)
-            .show_ui(ui, |ui| {
-                self.ladders.iter().enumerate().any(|(index, ladder)| {
-                    ui.selectable_value(&mut self.selected_ladder, index, &ladder.name)
-                        .changed()
+    fn show_ladders_combo_boxes(&mut self, ui: &mut Ui) -> bool {
+        ui.horizontal(|ui| {
+            let type_changed = ComboBox::new("ladder_types", "Record Table Types")
+                .selected_text(&self.ladders.types[self.selected_type])
+                .width(200.0)
+                .show_ui(ui, |ui| {
+                    self.ladders
+                        .types
+                        .iter()
+                        .enumerate()
+                        .any(|(index, ladder_type)| {
+                            ui.selectable_value(&mut self.selected_type, index, &*ladder_type)
+                                .changed()
+                        })
                 })
-            })
-            .inner
-            .unwrap_or(false)
+                .inner
+                .unwrap_or(false);
+
+            ui.add_space(20.0);
+
+            let table_changed = ComboBox::new("ladders", "Record Tables")
+                .selected_text(&self.ladders.ladders[self.selected_type][self.selected_ladder].name)
+                .width(400.0)
+                .show_ui(ui, |ui| {
+                    self.ladders.ladders[self.selected_type]
+                        .iter()
+                        .enumerate()
+                        .any(|(index, ladder)| {
+                            ui.selectable_value(&mut self.selected_ladder, index, &ladder.name)
+                                .changed()
+                        })
+                })
+                .inner
+                .unwrap_or(false);
+
+            type_changed || table_changed
+        })
+        .inner
     }
 }
 
@@ -572,6 +604,13 @@ struct LadderModel {
     difficulty: String,
     metric: String,
     is_solo: bool,
+    // TODO remove default once it is actually available on the server
+    #[serde(default = "default_variant")]
+    variant: String,
+}
+
+fn default_variant() -> String {
+    "Default".into()
 }
 
 #[derive(Deserialize, Debug)]
@@ -589,6 +628,36 @@ struct LadderEntryModel {
     data: serde_json::Map<String, serde_json::Value>,
 }
 
+struct Ladders {
+    types: Vec<String>,
+    ladders: Vec<Vec<Ladder>>,
+}
+
+impl From<LaddersModel> for Ladders {
+    fn from(value: LaddersModel) -> Self {
+        let types: Vec<_> = value
+            .results
+            .iter()
+            .map(|l| &l.variant)
+            .unique()
+            .map(|v| v.clone())
+            .collect();
+        Self {
+            ladders: types
+                .iter()
+                .map(|t| {
+                    value
+                        .results
+                        .iter()
+                        .filter_map(|l| (l.variant == *t).then(|| l.into()))
+                        .collect()
+                })
+                .collect(),
+            types,
+        }
+    }
+}
+
 #[derive(Clone)]
 struct Ladder {
     id: i32,
@@ -596,8 +665,8 @@ struct Ladder {
     name: String,
 }
 
-impl From<LadderModel> for Ladder {
-    fn from(value: LadderModel) -> Self {
+impl<'a> From<&'a LadderModel> for Ladder {
+    fn from(value: &'a LadderModel) -> Self {
         Self {
             name: if value.is_solo {
                 format!(
@@ -608,7 +677,7 @@ impl From<LadderModel> for Ladder {
                 format!("{} ({}) - {}", value.name, value.difficulty, value.metric)
             },
             id: value.id,
-            metric: value.metric,
+            metric: value.metric.clone(),
         }
     }
 }
