@@ -181,7 +181,7 @@ impl Upload {
     }
 
     fn do_upload(
-        mut url: Url,
+        url: Url,
         combat_data: Vec<u8>,
         combat_name: String,
     ) -> Result<Vec<UploadResponse>, RequestError> {
@@ -190,7 +190,7 @@ impl Upload {
         encoder.write_all(combat_data.as_slice()).unwrap();
         encoder.finish().unwrap();
         let client = ClientBuilder::new().build().unwrap();
-        url.set_path("/combatlog/upload/");
+        let url = url.join("/combatlog/upload/").unwrap();
         let form = Form::new().part("file", Part::bytes(data).file_name(combat_name));
         let response = client.post(url).multipart(form).send()?;
         if !response.status().is_success() {

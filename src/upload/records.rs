@@ -118,9 +118,9 @@ impl Records {
         state
     }
 
-    fn do_load_ladders(mut url: Url) -> Result<LaddersModel, RequestError> {
+    fn do_load_ladders(url: Url) -> Result<LaddersModel, RequestError> {
         let client = ClientBuilder::new().build().unwrap();
-        url.set_path("/ladder/");
+        let url = url.join("/ladder/").unwrap();
         let response = client
             .get(url)
             .query(&[("page_size", &i32::MAX.to_string())])
@@ -351,13 +351,13 @@ impl Entries {
     }
 
     fn do_load_ladder_entries(
-        mut url: Url,
+        url: Url,
         ladder: Ladder,
         page: i32,
         search_player: &str,
     ) -> Result<LadderEntriesModel, RequestError> {
         let client = ClientBuilder::new().build().unwrap();
-        url.set_path("/ladder-entries/");
+        let url = url.join("/ladder-entries/").unwrap();
         let ladder_id = ladder.id.to_string();
         let page_size = PAGE_SIZE.to_string();
         let ordering = format!("-data__{}", ladder.metric);
@@ -574,9 +574,11 @@ impl DownloadLogState {
         }
     }
 
-    fn do_download_log(mut url: Url, path: PathBuf, log_id: i32) -> Result<(), RequestError> {
+    fn do_download_log(url: Url, path: PathBuf, log_id: i32) -> Result<(), RequestError> {
         let client = ClientBuilder::new().build().unwrap();
-        url.set_path(&format!("/combatlog/{}/download/", log_id));
+        let url = url
+            .join(&format!("/combatlog/{}/download/", log_id))
+            .unwrap();
         let mut response = client.get(url).send()?;
         if !response.status().is_success() {
             return Err(RequestError::from(response));
