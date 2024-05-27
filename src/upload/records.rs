@@ -17,7 +17,7 @@ use crate::{
     helpers::number_formatting::NumberFormatter,
 };
 
-use super::common::{spawn_request, RequestError};
+use super::common::*;
 
 const PAGE_SIZE: i32 = 50;
 static REDUCED_COLUMNS: &[&str] = &[
@@ -602,17 +602,14 @@ struct LaddersModel {
 #[derive(Deserialize, Debug, Clone)]
 struct LadderModel {
     id: i32,
+    #[serde(deserialize_with = "null_to_default")]
     name: String,
-    difficulty: String,
+    difficulty: Option<String>,
+    #[serde(deserialize_with = "null_to_default")]
     metric: String,
     is_solo: bool,
-    // TODO remove default once it is actually available on the server
-    #[serde(default = "default_variant")]
+    #[serde(deserialize_with = "null_to_default")]
     variant: String,
-}
-
-fn default_variant() -> String {
-    "Default".into()
 }
 
 #[derive(Deserialize, Debug)]
@@ -623,7 +620,9 @@ struct LadderEntriesModel {
 
 #[derive(Deserialize, Debug)]
 struct LadderEntryModel {
+    #[serde(deserialize_with = "null_to_default")]
     date: String,
+    #[serde(deserialize_with = "null_to_default")]
     player: String,
     rank: i32,
     combatlog: i32,
@@ -671,12 +670,17 @@ impl<'a> From<&'a LadderModel> for Ladder {
     fn from(value: &'a LadderModel) -> Self {
         Self {
             name: if value.is_solo {
-                format!(
-                    "[Solo] {} ({}) - {}",
-                    value.name, value.difficulty, value.metric
-                )
+                if let Some(difficulty) = &value.difficulty {
+                    format!("[Solo] {} ({}) - {}", value.name, difficulty, value.metric)
+                } else {
+                    format!("[Solo] {} - {}", value.name, value.metric)
+                }
             } else {
-                format!("{} ({}) - {}", value.name, value.difficulty, value.metric)
+                if let Some(difficulty) = &value.difficulty {
+                    format!("{} ({}) - {}", value.name, difficulty, value.metric)
+                } else {
+                    format!("{} - {}", value.name, value.metric)
+                }
             },
             id: value.id,
             metric: value.metric.clone(),

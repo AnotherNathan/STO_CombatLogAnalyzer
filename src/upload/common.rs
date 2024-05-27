@@ -4,7 +4,7 @@ use std::{
 };
 
 use reqwest::{blocking::Response, Error, StatusCode};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 
 #[derive(Debug)]
 pub struct RequestError {
@@ -124,4 +124,13 @@ where
         .stack_size(512 * 1024)
         .spawn(f)
         .unwrap()
+}
+
+pub fn null_to_default<'de, D, T>(de: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Default + Deserialize<'de>,
+{
+    let key = Option::<T>::deserialize(de)?;
+    Ok(key.unwrap_or_default())
 }
