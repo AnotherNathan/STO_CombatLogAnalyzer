@@ -59,7 +59,7 @@ struct AutoRefreshContext {
 
 enum AutoRefreshState {
     Idle,
-    RefreshScheduled(Guard),
+    RefreshScheduled(#[allow(dead_code)] Guard),
 }
 
 enum Instruction {
