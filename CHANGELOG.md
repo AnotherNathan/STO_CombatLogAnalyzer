@@ -1,5 +1,15 @@
 # Change Log
 
+## v1.3.0
+### Major Changes
+- the ability to upload runs to the OSCR-Server and display them
+- the overlay can now be used independent of the auto refresh setting
+- the auto refresh setting can now be set down to 0.1s via the settings slider (this was possible previously but only by editing the value directly)
+
+### Fixes
+- fixed that Overlay would not update if the main window was minimized
+- fixed damage resistance summary copy not being labeled correctly
+
 ## v1.2.1
 ### Fixes
 - fixed Overlay size being incorrect when the monitor scale is any value other than 100% (windows setting)
