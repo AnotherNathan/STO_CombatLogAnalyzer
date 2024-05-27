@@ -4,6 +4,8 @@
 ### Major Changes
 - the ability to upload runs to the OSCR-Server and display them
 - the overlay can now be used independent of the auto refresh setting
+
+### Other Changes
 - the auto refresh setting can now be set down to 0.1s via the settings slider (this was possible previously but only by editing the value directly)
 
 ### Fixes
