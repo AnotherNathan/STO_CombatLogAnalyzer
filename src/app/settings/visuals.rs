@@ -1,6 +1,6 @@
 use eframe::{
     egui::{style::Selection, ComboBox, Context, Ui, Visuals},
-    epaint::{Color32, Rgba, Shadow},
+    epaint::{Rgba, Shadow},
 };
 
 use crate::{app::overlay::Overlay, custom_widgets::slider_text_edit::SliderTextEdit};
@@ -74,12 +74,11 @@ impl VisualsTab {
     }
 
     fn set_theme(ctx: &Context, theme: Theme) {
-        let mut visuals = match theme {
+        let visuals = match theme {
             Theme::Dark => Visuals::dark(),
             Theme::LightDark => Self::light_dark(),
             Theme::Light => Visuals::light(),
         };
-        visuals.panel_fill = Self::make_transparent(visuals.panel_fill);
         ctx.set_visuals(visuals);
         ctx.style_mut(|s| {
             s.interaction.selectable_labels = false;
@@ -121,9 +120,5 @@ impl VisualsTab {
         theme.window_stroke.color = Rgba::from_rgb(0.9, 0.9, 0.9).into();
         theme.window_shadow = Shadow::NONE;
         theme
-    }
-
-    fn make_transparent(color: Color32) -> Color32 {
-        Color32::from_rgba_premultiplied(color.r(), color.g(), color.b(), 50)
     }
 }

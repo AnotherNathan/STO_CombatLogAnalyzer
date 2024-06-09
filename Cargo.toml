@@ -20,7 +20,7 @@ regex = "1"
 bitflags = "2"
 log = { version = "0.4", features = ["serde"] }
 rustc-hash = "1.1"
-rfd = { version = "0.14", default-features = false }
+rfd = { version = "0.14", default-features = false, features = ["xdg-portal"] }
 serde_json = "1"
 serde = { version = "1", features = ["serde_derive"] }
 smallvec = { version = "1", features = ["const_new", "const_generics"] }

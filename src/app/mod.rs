@@ -162,10 +162,6 @@ impl eframe::App for App {
             });
         });
     }
-
-    fn clear_color(&self, _visuals: &eframe::egui::Visuals) -> [f32; 4] {
-        [0.0, 0.0, 0.0, 0.0]
-    }
 }
 
 impl App {
