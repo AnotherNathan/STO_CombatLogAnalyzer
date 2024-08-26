@@ -685,6 +685,21 @@
           "enabled": true
         },
         "additional_info_rules": []
+      },
+      {
+        "name_rule": {
+          "name": "Guillotine",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Msn_Space_Tfo_Guillotine_Stitching_Probe",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       }
     ]
   },
