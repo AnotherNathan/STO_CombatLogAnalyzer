@@ -167,7 +167,20 @@
           ],
           "enabled": true
         },
-        "additional_info_rules": []
+        "additional_info_rules": [
+          {
+            "name": "Elite",
+            "rules": [
+              {
+                "aspect": "SourceOrTargetUniqueName",
+                "expression": "Elite",
+                "method": "EndsWith",
+                "enabled": true
+              }
+            ],
+            "enabled": true
+          }
+        ]
       },
       {
         "name_rule": {
