@@ -1,5 +1,9 @@
 # Change Log
 
+## unreleased
+### Major Changes
+- added "total crit damage", "total non-crit damage", "average crit hit" and "average non-crit hit" damage metrics
+
 ## v1.3.0
 ### Major Changes
 - the ability to upload runs to the OSCR-Server and display them

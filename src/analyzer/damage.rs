@@ -30,12 +30,16 @@ pub struct DamageMetrics {
     pub misses: u64,
     pub accuracy_percentage: Option<f64>,
     pub total_damage: ShieldHullValues,
+    pub total_crit_damage: f64,
+    pub total_non_crit_hull_damage: f64,
     pub total_shield_drain: f64,
     pub total_damage_prevented_to_hull_by_shields: f64,
     pub total_base_damage: f64,
     pub base_dps: f64,
     pub dps: ShieldHullValues,
     pub average_hit: ShieldHullOptionalValues,
+    pub average_crit_hit: Option<f64>,
+    pub average_non_crit_hull_hit: Option<f64>,
     pub critical_percentage: Option<f64>,
     pub flanking: Option<f64>,
     pub damage_resistance_percentage: Option<f64>,
@@ -48,6 +52,8 @@ pub struct DamageMetricsDelta {
     pub hits: ShieldHullCounts,
     pub misses: u64,
     pub total_damage: ShieldHullValues,
+    pub total_crit_damage: f64,
+    pub total_non_crit_hull_damage: f64,
     pub total_shield_drain: f64,
     pub total_damage_prevented_to_hull_by_shields: f64,
     pub total_base_damage: f64,
@@ -135,6 +141,11 @@ impl DamageMetrics {
                 SpecificHit::Hull { base_damage } => {
                     delta.total_damage.hull += hit.damage;
                     delta.total_base_damage += base_damage;
+                    if hit.flags.contains(ValueFlags::CRITICAL) {
+                        delta.total_crit_damage += hit.damage;
+                    } else {
+                        delta.total_non_crit_hull_damage += hit.damage;
+                    }
                 }
                 SpecificHit::ShieldDrain => {
                     delta.total_damage.shield += hit.damage;
@@ -169,6 +180,8 @@ impl DamageMetrics {
         self.total_damage_prevented_to_hull_by_shields +=
             delta.total_damage_prevented_to_hull_by_shields;
         self.total_shield_drain += delta.total_shield_drain;
+        self.total_crit_damage += delta.total_crit_damage;
+        self.total_non_crit_hull_damage += delta.total_non_crit_hull_damage;
         self.crits += delta.crits;
         self.flanks += delta.flanks;
         self.misses += delta.misses;
@@ -197,6 +210,10 @@ impl DamageMetrics {
             self.hits.hull,
             self.hits.all,
         );
+
+        self.average_crit_hit = average(self.total_crit_damage, self.crits);
+        self.average_non_crit_hull_hit =
+            average(self.total_non_crit_hull_damage, self.hits.hull - self.crits);
     }
 }
 

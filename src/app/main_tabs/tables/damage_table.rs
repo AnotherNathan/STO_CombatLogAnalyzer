@@ -105,6 +105,36 @@ static COLUMNS: &[ColumnDescriptor<DamageTablePartData>] = &[
             t.base_damage.show(r);
         },
     ),
+    col!(
+        "Total Crit Damage",
+        "Note that this only applies to hull hits, since shield hits do not crit",
+        |t| t.sort_by_option_f64_desc(|p| p.total_crit_damage.value),
+        |t, r| {
+            t.total_crit_damage.show(r);
+        },
+    ),
+     col!(
+        "Total Non-Crit Hull Damage",
+        |t| t.sort_by_option_f64_desc(|p| p.total_non_crit_hull_damage.value),
+        |t, r| {
+            t.total_non_crit_hull_damage.show(r);
+        },
+    ),
+    col!(
+        "Average Crit Hit",
+        "Note that this only applies to hull hits, since shield hits do not crit",
+        |t| t.sort_by_option_f64_desc(|p| p.average_crit_hit.value),
+        |t, r| {
+            t.average_crit_hit.show(r);
+        },
+    ),
+    col!(
+        "Average Non-Crit Hull Hit",
+        |t| t.sort_by_option_f64_desc(|p| p.average_non_crit_hull_hit.value),
+        |t, r| {
+            t.average_non_crit_hull_hit.show(r);
+        },
+    ),
 ];
 
 pub struct DamageTablePartData {
@@ -125,6 +155,10 @@ pub struct DamageTablePartData {
     accuracy_percentage: TextValue,
     kills: Kills,
     damage_types: DamageTypes,
+    total_crit_damage: TextValue,
+    total_non_crit_hull_damage: TextValue,
+    average_crit_hit: TextValue,
+    average_non_crit_hull_hit: TextValue,
     pub source_hits: Vec<Hit>,
 }
 
@@ -189,6 +223,18 @@ impl DamageTablePartData {
             ),
             misses: TextCount::new(source.misses),
             accuracy_percentage: TextValue::option(source.accuracy_percentage, 3, number_formatter),
+            total_crit_damage: TextValue::new(source.total_crit_damage, 2, number_formatter),
+            total_non_crit_hull_damage: TextValue::new(
+                source.total_non_crit_hull_damage,
+                2,
+                number_formatter,
+            ),
+            average_crit_hit: TextValue::option(source.average_crit_hit, 2, number_formatter),
+            average_non_crit_hull_hit: TextValue::option(
+                source.average_non_crit_hull_hit,
+                2,
+                number_formatter,
+            ),
             source_hits: source.hits.get(&combat.hits_manger).to_vec(),
         }
     }

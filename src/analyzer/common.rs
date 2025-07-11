@@ -190,6 +190,14 @@ pub fn percentage_f64(amount: f64, total: f64) -> Option<f64> {
     }
 }
 
+pub fn average(total_value: f64, count: u64) -> Option<f64> {
+    if count == 0 {
+        None
+    } else {
+        Some(total_value / count as f64)
+    }
+}
+
 pub fn percentage_u64(amount: u64, total_count: u64) -> Option<f64> {
     if total_count == 0 {
         return None;
