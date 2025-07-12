@@ -728,6 +728,27 @@
           "enabled": true
         },
         "additional_info_rules": []
+      },
+      {
+        "name_rule": {
+          "name": "Devil's Heart",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Devils_Heart_Tfo_Miniboss",
+              "method": "EndsWith",
+              "enabled": true
+            },
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Devils_Heart",
+              "method": "EndsWith",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       }
     ]
   },
