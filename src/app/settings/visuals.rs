@@ -1,5 +1,5 @@
 use eframe::{
-    egui::{style::Selection, ComboBox, Context, Ui, Visuals},
+    egui::{style::Selection, ComboBox, Context, Style, Ui, Visuals},
     epaint::{Rgba, Shadow},
 };
 
@@ -14,7 +14,7 @@ impl VisualsTab {
     pub fn show(&mut self, modified_settings: &mut Settings, ui: &mut Ui) {
         let visuals = &mut modified_settings.visuals;
         ui.label("Theme");
-        ComboBox::from_id_source("theme combo box")
+        ComboBox::from_id_salt("theme combo box")
             .selected_text(visuals.theme.display())
             .show_ui(ui, |ui| {
                 if ui
@@ -79,11 +79,12 @@ impl VisualsTab {
             Theme::LightDark => Self::light_dark(),
             Theme::Light => Visuals::light(),
         };
-        ctx.set_visuals(visuals);
-        ctx.style_mut(|s| {
-            s.interaction.selectable_labels = false;
-            s.interaction.tooltip_delay = 0.0;
-        });
+        let mut style = Style::clone(&ctx.style());
+        style.visuals = visuals;
+        style.interaction.selectable_labels = false;
+        style.interaction.tooltip_delay = 0.0;
+        ctx.set_style_of(eframe::egui::Theme::Dark, style.clone());
+        ctx.set_style_of(eframe::egui::Theme::Light, style);
         Overlay::request_repaint(ctx);
     }
 

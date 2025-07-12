@@ -38,9 +38,9 @@ pub struct App {
 
 impl App {
     pub fn new(cc: &eframe::CreationContext) -> Self {
-        let mut style = Style::clone(&cc.egui_ctx.style());
-        style.override_font_id = Some(FontId::monospace(12.0));
-        cc.egui_ctx.set_style(Arc::new(style));
+        // let mut style = Style::clone(&cc.egui_ctx.style());
+        // style.override_font_id = Some(FontId::monospace(12.0));
+        // cc.egui_ctx.set_style(Arc::new(style));
         cc.egui_ctx
             .memory_mut(|m| m.options.repaint_on_widget_change = false);
         let state = AppState::new(&cc.egui_ctx);

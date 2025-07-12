@@ -43,7 +43,7 @@ impl DamageDiagrams {
     pub fn empty() -> Self {
         Self {
             dps_graph: ValuePerSecondGraph::empty(),
-            damage_chart: ValuesChart::empty(),
+            damage_chart: ValuesChart::empty("Damage"),
             damage_resistance_chart: DamageResistanceChart::empty(),
         }
     }
@@ -57,7 +57,6 @@ impl DamageDiagrams {
         let data = groups.map(|g| {
             PreparedDamageDataSet::new(
                 g.name().get(&combat.name_manager),
-                g.dps.all,
                 g.total_damage.all,
                 g.hits.get(&combat.hits_manger).iter(),
             )
@@ -74,7 +73,7 @@ impl DamageDiagrams {
         let data = data.collect_vec();
         Self {
             dps_graph: DpsGraph::from_data(data.iter().cloned(), dps_filter),
-            damage_chart: DamageChart::from_data(data.iter().cloned(), damage_time_slice),
+            damage_chart: DamageChart::from_data("Damage", data.iter().cloned(), damage_time_slice),
             damage_resistance_chart: DamageResistanceChart::from_data(
                 data.into_iter(),
                 damage_time_slice,
@@ -113,7 +112,7 @@ impl HealDiagrams {
     pub fn empty() -> Self {
         Self {
             hps_graph: HpsGraph::empty(),
-            heal_chart: HealChart::empty(),
+            heal_chart: HealChart::empty("Heal"),
         }
     }
 
@@ -126,7 +125,6 @@ impl HealDiagrams {
         let data = groups.map(|g| {
             PreparedHealDataSet::new(
                 g.name().get(&combat.name_manager),
-                g.hps.all,
                 g.total_heal.all,
                 g.ticks.get(&combat.heal_ticks_manger).iter(),
             )
@@ -143,7 +141,7 @@ impl HealDiagrams {
         let data = data.collect_vec();
         Self {
             hps_graph: HpsGraph::from_data(data.iter().cloned(), hps_filter),
-            heal_chart: HealChart::from_data(data.iter().cloned(), heal_time_slice),
+            heal_chart: HealChart::from_data("Heal", data.iter().cloned(), heal_time_slice),
         }
     }
 

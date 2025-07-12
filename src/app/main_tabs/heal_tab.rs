@@ -109,12 +109,7 @@ impl HealTab {
     ) -> HealDiagrams {
         HealDiagrams::from_data(
             part.sub_parts.iter().map(|p| {
-                PreparedHealDataSet::new(
-                    &p.name,
-                    part.hps(),
-                    part.total_heal(),
-                    p.source_ticks.iter(),
-                )
+                PreparedHealDataSet::new(&p.name, part.total_heal(), p.source_ticks.iter())
             }),
             hps_filter,
             heal_time_slice,
@@ -134,12 +129,7 @@ impl HealTab {
     }
 
     fn make_single_data_set(part: &HealTablePart) -> PreparedHealDataSet {
-        PreparedHealDataSet::new(
-            &part.name,
-            part.hps(),
-            part.total_heal(),
-            part.source_ticks.iter(),
-        )
+        PreparedHealDataSet::new(&part.name, part.total_heal(), part.source_ticks.iter())
     }
 
     fn update_diagrams(&mut self) {

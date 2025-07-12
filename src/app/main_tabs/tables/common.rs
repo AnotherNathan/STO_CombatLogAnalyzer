@@ -1,6 +1,10 @@
 use eframe::egui::*;
 
-use crate::{analyzer::*, app::main_tabs::common::ROW_HEIGHT, custom_widgets::table::*};
+use crate::{
+    analyzer::*,
+    app::main_tabs::common::{details_tooltip, ROW_HEIGHT},
+    custom_widgets::table::*,
+};
 
 pub struct Kills {
     total: String,
@@ -30,7 +34,7 @@ impl Kills {
         });
 
         if self.total_count > 0 {
-            response.on_hover_ui(|ui| {
+            details_tooltip(response, |ui| {
                 Table::new(ui).body(ROW_HEIGHT, |b| {
                     for (name, count) in self.kills.iter() {
                         b.row(|r| {

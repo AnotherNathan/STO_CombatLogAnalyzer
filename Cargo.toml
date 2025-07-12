@@ -2,18 +2,18 @@
 
 [package]
 name = "STO_CombatLogAnalyzer"
-version = "1.4.0-alpha1"
+version = "1.4.0-alpha2"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-eframe = { version = "0.27", default-features = false, features = [
+eframe = { version = "0.32", default-features = false, features = [
     "default_fonts",
     "glow",
 ] }
-egui_plot = { version = "0.27" }
+egui_plot = { version = "0.33" }
 chrono = { version = "0.4", default-features = false, features = ["std"] }
 lazy_static = "1"
 regex = "1"

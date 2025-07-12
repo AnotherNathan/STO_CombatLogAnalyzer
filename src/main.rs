@@ -37,7 +37,7 @@ fn main() {
     let res = eframe::run_native(
         &format!("STO_CombatLogAnalyzer V{}", env!("CARGO_PKG_VERSION")),
         native_options,
-        Box::new(|cc| Box::new(app::App::new(cc))),
+        Box::new(|cc| Ok(Box::new(app::App::new(cc)))),
     );
 
     if let Err(err) = res {

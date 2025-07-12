@@ -1,6 +1,6 @@
 use std::ops::RangeInclusive;
 
-use eframe::egui::*;
+use eframe::{egui::*, emath::GuiRounding};
 
 #[must_use = "You should call .show()"]
 pub struct Splitter {
@@ -11,12 +11,12 @@ pub struct Splitter {
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum SplitterOrientation {
     Horizontal,
     Vertical,
 }
 
+#[allow(dead_code)]
 pub struct SplitterResponse<R> {
     pub top_left_response: Response,
     pub bottom_right_response: Response,
@@ -57,16 +57,16 @@ impl Splitter {
     #[inline]
     #[allow(dead_code)]
     pub fn initial_ratio(mut self, initial_ratio: f32) -> Self {
-        egui_assert!((0.0..=1.0).contains(&initial_ratio));
+        debug_assert!((0.0..=1.0).contains(&initial_ratio));
         self.initial_ratio = initial_ratio;
         self
     }
 
     #[inline]
     pub fn ratio_bounds(mut self, ratio_bounds: RangeInclusive<f32>) -> Self {
-        egui_assert!((0.0..=1.0).contains(ratio_bounds.start()));
-        egui_assert!((0.0..=1.0).contains(ratio_bounds.end()));
-        egui_assert!(ratio_bounds.start() <= ratio_bounds.end());
+        debug_assert!((0.0..=1.0).contains(ratio_bounds.start()));
+        debug_assert!((0.0..=1.0).contains(ratio_bounds.end()));
+        debug_assert!(ratio_bounds.start() <= ratio_bounds.end());
         self.ratio_bounds = ratio_bounds;
         self
     }
@@ -165,8 +165,8 @@ impl Splitter {
 
         ui.ctx().data_mut(|d| d.insert_temp(id, ratio));
 
-        let line_pos_1 = ui.painter().round_pos_to_pixels(line_pos_1);
-        let line_pos_2 = ui.painter().round_pos_to_pixels(line_pos_2);
+        let line_pos_1 = line_pos_1.round_to_pixels(ui.pixels_per_point());
+        let line_pos_2 = line_pos_2.round_to_pixels(ui.pixels_per_point());
 
         let cursor_icon = match orientation {
             SplitterOrientation::Horizontal => CursorIcon::ResizeVertical,
@@ -186,15 +186,18 @@ impl Splitter {
         ui.painter()
             .line_segment([line_pos_1, line_pos_2], visuals.bg_stroke);
 
-        let top_left_id = id.with("top_left");
-        let bottom_right_id = id.with("bottom_right");
-        let mut top_left_ui =
-            ui.child_ui_with_id_source(top_left_rect, Layout::top_down(Align::Min), top_left_id);
+        let mut top_left_ui = ui.new_child(
+            UiBuilder::new()
+                .max_rect(top_left_rect)
+                .layout(Layout::top_down(Align::Min))
+                .id_salt("top_left"),
+        );
 
-        let mut bottom_right_ui = ui.child_ui_with_id_source(
-            bottom_right_rect,
-            Layout::top_down(Align::Min),
-            bottom_right_id,
+        let mut bottom_right_ui = ui.new_child(
+            UiBuilder::new()
+                .max_rect(bottom_right_rect)
+                .layout(Layout::top_down(Align::Min))
+                .id_salt("bottom_right"),
         );
 
         let inner = add_contents(&mut top_left_ui, &mut bottom_right_ui);
@@ -203,9 +206,13 @@ impl Splitter {
 
         SplitterResponse {
             splitter_response,
-            top_left_response: ui.interact(top_left_rect, top_left_id, Sense::hover()),
+            top_left_response: ui.interact(top_left_rect, top_left_ui.id(), Sense::hover()),
 
-            bottom_right_response: ui.interact(bottom_right_rect, bottom_right_id, Sense::hover()),
+            bottom_right_response: ui.interact(
+                bottom_right_rect,
+                bottom_right_ui.id(),
+                Sense::hover(),
+            ),
             inner,
             rect,
         }

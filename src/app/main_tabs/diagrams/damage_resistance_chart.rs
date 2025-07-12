@@ -58,9 +58,17 @@ impl DamageResistanceChart {
         }
 
         let mut plot = Plot::new("damage resistance chart")
-            .auto_bounds(true.into())
+            .auto_bounds(true)
             .y_axis_formatter(Self::format_axis)
             .x_axis_formatter(Self::format_axis)
+            .label_formatter(|_, p| {
+                let mut formatter = NumberFormatter::new();
+                format!(
+                    "Resistance: {}%\nTime: {}",
+                    formatter.format(p.y, 2),
+                    formatter.format(p.x, 2)
+                )
+            })
             .legend(Legend::default());
 
         if self.newly_created {
@@ -79,7 +87,7 @@ impl DamageResistanceChart {
         });
     }
 
-    fn format_axis(mark: GridMark, _: usize, _: &RangeInclusive<f64>) -> String {
+    fn format_axis(mark: GridMark, _: &RangeInclusive<f64>) -> String {
         let mut formatter = NumberFormatter::new();
         formatter.format(mark.value, 0)
     }
@@ -130,13 +138,15 @@ impl DamageResistanceBars {
     }
 
     fn chart(&self) -> BarChart {
-        BarChart::new(self.bars.clone())
+        BarChart::new(&self.data.name, self.bars.clone())
             .element_formatter(Box::new(Self::format_element_percentage))
-            .name(&self.data.name)
     }
 
     pub fn format_element_percentage(bar: &Bar, _: &BarChart) -> String {
         let mut formatter = NumberFormatter::new();
+        if bar.name.is_empty() {
+            return format!("{}%", formatter.format(bar.value, 2));
+        }
         format!("{}\n{}%", bar.name, formatter.format(bar.value, 2))
     }
 }

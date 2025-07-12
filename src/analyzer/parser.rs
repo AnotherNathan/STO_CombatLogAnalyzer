@@ -22,7 +22,7 @@ pub struct Record<'a> {
     pub value_type: &'a str,
     pub value_flags: ValueFlags,
     pub value: RecordValue,
-    pub raw: &'a str,
+    pub _raw: &'a str,
     pub log_pos: Option<Range<u64>>,
 }
 
@@ -31,15 +31,15 @@ pub enum Entity<'a> {
     None,
     Player {
         full_name: &'a str, // -> name@handle
-        id: (u64, u64),
+        _id: (u64, u64),
     },
     NonPlayer {
         name: &'a str,
-        id: u64,
+        _id: u64,
         unique_name: &'a str,
     },
     NonPlayerCharacter {
-        id: u64,
+        _id: u64,
         name: &'a str,
     },
 }
@@ -142,7 +142,7 @@ impl Parser {
             value_type,
             value_flags,
             value,
-            raw: line,
+            _raw: line,
             log_pos,
         };
         Some(record)
@@ -207,18 +207,18 @@ impl<'a> Entity<'a> {
 
                 Some(Self::Player {
                     full_name: unique_name,
-                    id: (id, player_id),
+                    _id: (id, player_id),
                 })
             }
             "C" => {
                 let unique_name = captures.name("unique_name")?.as_str();
                 Some(Self::NonPlayer {
                     name,
-                    id,
+                    _id: id,
                     unique_name,
                 })
             }
-            "S" => Some(Self::NonPlayerCharacter { id, name }),
+            "S" => Some(Self::NonPlayerCharacter { _id: id, name }),
             _ => None,
         }
     }

@@ -1,6 +1,8 @@
 use eframe::egui::Ui;
 use egui_plot::*;
 
+use crate::helpers::number_formatting::NumberFormatter;
+
 use super::common::*;
 
 pub struct SummaryChart {
@@ -33,17 +35,20 @@ impl SummaryChart {
 
     pub fn show(&mut self, ui: &mut Ui) {
         Plot::new(&self.identifier)
-            .auto_bounds(true.into())
-            .y_axis_formatter(|_, _, _| String::new())
+            .auto_bounds(true)
+            .y_axis_formatter(|_, _| String::new())
             .x_axis_formatter(format_axis)
-            .y_axis_width(0)
+            .label_formatter(|_, p| {
+                let mut formatter = NumberFormatter::new();
+                format!("DPS: {}", formatter.format(p.x, 2))
+            })
+            .y_axis_min_width(0.0)
             .legend(Legend::default())
             .include_y(0.0)
             .show(ui, |p| {
                 for player in self.players.iter() {
-                    let chart = BarChart::new(vec![player.clone()])
+                    let chart = BarChart::new(&player.name, vec![player.clone()])
                         .element_formatter(Box::new(format_element))
-                        .name(&player.name)
                         .horizontal();
                     p.bar_chart(chart);
                 }

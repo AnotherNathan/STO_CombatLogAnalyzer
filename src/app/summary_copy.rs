@@ -28,7 +28,7 @@ impl SummaryCopy {
             .add_enabled(combat.is_some(), Button::new("Copy Combat Summary"))
             .clicked()
         {
-            ui.output_mut(|o| o.copied_text = self.build_summary(combat.unwrap()));
+            ui.ctx().copy_text(self.build_summary(combat.unwrap()));
         }
 
         ui.add_enabled(combat.is_some(), |ui: &mut Ui| {

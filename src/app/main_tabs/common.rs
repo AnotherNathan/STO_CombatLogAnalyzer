@@ -165,7 +165,7 @@ fn show_value_text(row: &mut TableRow, value_text: &str) -> Response {
 }
 
 pub fn show_shield_hull_values_tool_tip(response: Response, shield_value: &str, hull_value: &str) {
-    response.on_hover_ui(|ui| {
+    details_tooltip(response, |ui| {
         Table::new(ui).body(ROW_HEIGHT, |t| {
             t.row(|r| {
                 r.cell(|ui| {
@@ -213,6 +213,13 @@ pub fn show_time_filter_setting(filter: &mut f64, ui: &mut Ui) -> bool {
         changed
     })
     .inner
+}
+
+pub fn details_tooltip(response: Response, content: impl FnOnce(&mut Ui)) {
+    Tooltip::for_enabled(&response)
+        .layout(Layout::top_down_justified(Align::Min).with_main_justify(true))
+        .gap(0.0)
+        .show(content);
 }
 
 impl Default for TextDuration {

@@ -207,7 +207,7 @@ impl<T> MetricsTablePart<T> {
                     let symbol = if self.open { "⏷" } else { "⏵" };
                     let can_open = self.sub_parts.len() > 0;
                     if ui
-                        .add_visible(can_open, SelectableLabel::new(false, symbol))
+                        .add_visible(can_open, Button::selectable(false, symbol))
                         .clicked()
                     {
                         self.open = !self.open;
@@ -235,8 +235,8 @@ impl<T> MetricsTablePart<T> {
                 .selectable_label(false, "copy name to clipboard")
                 .clicked()
             {
-                ui.output_mut(|o| o.copied_text = self.name.clone());
-                ui.close_menu();
+                ui.ctx().copy_text(self.name.clone());
+                ui.close_kind(UiKind::Menu);
             }
 
             if ui
@@ -245,7 +245,7 @@ impl<T> MetricsTablePart<T> {
                 && !selection.is_selected(self.id)
             {
                 selection.select_or_unselect_single(self, on_selected);
-                ui.close_menu();
+                ui.close_kind(UiKind::Menu);
             }
         });
 

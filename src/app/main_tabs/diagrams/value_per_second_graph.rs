@@ -70,7 +70,7 @@ impl<T: PreparedValue> ValuePerSecondGraph<T> {
         }
 
         let mut plot = Plot::new("dps graph")
-            .auto_bounds(true.into())
+            .auto_bounds(true)
             .y_axis_formatter(format_axis)
             .x_axis_formatter(format_axis)
             .label_formatter(Self::format_label)
@@ -101,6 +101,9 @@ impl<T: PreparedValue> ValuePerSecondGraph<T> {
         let mut formatter = NumberFormatter::new();
         let x = formatter.format(point.x, 2);
         let y = formatter.format(point.y, 2);
+        if name.is_empty() {
+            return format!("DPS: {}\nTime: {}", y, x);
+        }
         format!("{}\nDPS: {}\nTime: {}", name, y, x)
     }
 
@@ -223,8 +226,6 @@ impl<T: PreparedValue> GraphLine<T> {
     }
 
     fn to_line(&self) -> Line {
-        Line::new(self.points.clone())
-            .name(&self.data.name)
-            .width(2.0)
+        Line::new(&self.data.name, self.points.clone()).width(2.0)
     }
 }

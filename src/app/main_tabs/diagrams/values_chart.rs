@@ -2,9 +2,12 @@ use eframe::egui::*;
 use egui_plot::*;
 use itertools::Itertools;
 
+use crate::helpers::number_formatting::NumberFormatter;
+
 use super::common::*;
 
 pub struct ValuesChart<T: PreparedValue> {
+    value_name: &'static str,
     newly_created: bool,
     bars: Vec<Bars<T>>,
     updated_time_slice: Option<f64>,
@@ -19,17 +22,23 @@ struct Bars<T: PreparedValue> {
 }
 
 impl<T: PreparedValue> ValuesChart<T> {
-    pub fn empty() -> Self {
+    pub fn empty(value_name: &'static str) -> Self {
         Self {
+            value_name,
             newly_created: true,
             bars: Vec::new(),
             updated_time_slice: None,
         }
     }
 
-    pub fn from_data(bars: impl Iterator<Item = PreparedDataSet<T>>, time_slice: f64) -> Self {
+    pub fn from_data(
+        value_name: &'static str,
+        bars: impl Iterator<Item = PreparedDataSet<T>>,
+        time_slice: f64,
+    ) -> Self {
         let bars: Vec<_> = bars.map(|d| Bars::new(d)).collect();
         let mut _self = Self {
+            value_name,
             newly_created: true,
             bars,
             updated_time_slice: Some(time_slice),
@@ -59,10 +68,19 @@ impl<T: PreparedValue> ValuesChart<T> {
             self.bars.iter_mut().for_each(|b| b.update(time_slice));
         }
 
-        let mut plot = Plot::new("damage chart")
-            .auto_bounds(true.into())
+        let mut plot = Plot::new("value chart")
+            .auto_bounds(true)
             .y_axis_formatter(format_axis)
             .x_axis_formatter(format_axis)
+            .label_formatter(|_, p| {
+                let mut formatter = NumberFormatter::new();
+                format!(
+                    "{}: {}\nTime: {}",
+                    self.value_name,
+                    formatter.format(p.y, 2),
+                    formatter.format(p.x, 2)
+                )
+            })
             .legend(Legend::default());
 
         if self.newly_created {
@@ -115,8 +133,7 @@ impl<T: PreparedValue> Bars<T> {
     }
 
     fn chart(&self) -> BarChart {
-        BarChart::new(self.bars.clone())
+        BarChart::new(&self.data.name, self.bars.clone())
             .element_formatter(Box::new(format_element))
-            .name(&self.data.name)
     }
 }

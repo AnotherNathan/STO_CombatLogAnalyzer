@@ -1,6 +1,6 @@
 use std::f32::INFINITY;
 
-use eframe::egui::*;
+use eframe::{egui::*, emath::GuiRounding};
 
 pub struct Table<'a> {
     ui: &'a mut Ui,
@@ -139,7 +139,7 @@ impl<'a> Table<'a> {
             cell_spacing,
         } = self;
         let scroll_output = ScrollArea::vertical()
-            .id_source(id.with("__table_scroll"))
+            .id_salt(id.with("__table_scroll"))
             .min_scrolled_height(min_scroll_height)
             .max_height(max_scroll_height)
             .show(ui, |ui| {
@@ -314,7 +314,9 @@ impl<'a> TableRow<'a> {
             .ui
             .interact(interact_rect, self.ui.next_auto_id(), sense);
         draw_visuals(self.ui, false, checked, &response);
-        let mut ui = self.ui.child_ui(rect, layout);
+        let mut ui = self
+            .ui
+            .new_child(UiBuilder::new().max_rect(rect).layout(layout));
 
         add_column(&mut ui);
 
@@ -349,12 +351,8 @@ impl ColumnState {
         let mut left_offset = 0.0;
         for column in columns.iter().take(columns.len() - 1) {
             left_offset += column.last_size + 2.0 * cell_spacing;
-            let start = ui
-                .painter()
-                .round_pos_to_pixels(left_top + vec2(left_offset, 0.0));
-            let end = ui
-                .painter()
-                .round_pos_to_pixels(start + vec2(0.0, rect.height()));
+            let start = (left_top + vec2(left_offset, 0.0)).round_to_pixels(ui.pixels_per_point());
+            let end = (start + vec2(0.0, rect.height())).round_to_pixels(ui.pixels_per_point());
             ui.painter()
                 .line_segment([start, end], ui.visuals().noninteractive().bg_stroke);
         }
@@ -429,6 +427,7 @@ fn draw_visuals(ui: &mut Ui, is_stripe: bool, checked: Option<bool>, response: &
             ui.style()
                 .interact_selectable(&response, checked.unwrap())
                 .bg_stroke,
+            StrokeKind::Inside,
         );
     }
 }

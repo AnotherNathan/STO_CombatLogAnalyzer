@@ -11,7 +11,6 @@ use crate::{
 #[derive(Clone)]
 pub struct PreparedDataSet<T: PreparedValue> {
     pub name: String,
-    pub all_per_second: f64,
     pub total_value: f64,
     pub values: Arc<[PreparedPoint<T>]>,
     pub start_time_s: f64,
@@ -54,7 +53,6 @@ pub trait PreparedValue: Clone + 'static {
 impl<T: PreparedValue> PreparedDataSet<T> {
     pub fn base_new(
         name: &str,
-        all_per_second: f64,
         total_value: f64,
         values: impl Iterator<Item = impl Into<PreparedPoint<T>>>,
     ) -> Self {
@@ -76,7 +74,6 @@ impl<T: PreparedValue> PreparedDataSet<T> {
 
         Self {
             name: name.to_string(),
-            all_per_second,
             total_value,
             values: Arc::from(values),
             start_time_s,
@@ -86,15 +83,9 @@ impl<T: PreparedValue> PreparedDataSet<T> {
 }
 
 impl PreparedDamageDataSet {
-    pub fn new<'a>(
-        name: &str,
-        dps: f64,
-        total_damage: f64,
-        hits: impl Iterator<Item = &'a Hit>,
-    ) -> Self {
+    pub fn new<'a>(name: &str, total_damage: f64, hits: impl Iterator<Item = &'a Hit>) -> Self {
         Self::base_new(
             name,
-            dps,
             total_damage,
             hits.filter(|h| !h.flags.contains(ValueFlags::IMMUNE)),
         )
@@ -102,13 +93,8 @@ impl PreparedDamageDataSet {
 }
 
 impl PreparedHealDataSet {
-    pub fn new<'a>(
-        name: &str,
-        hps: f64,
-        total_heal: f64,
-        ticks: impl Iterator<Item = &'a HealTick>,
-    ) -> Self {
-        Self::base_new(name, hps, total_heal, ticks)
+    pub fn new<'a>(name: &str, total_heal: f64, ticks: impl Iterator<Item = &'a HealTick>) -> Self {
+        Self::base_new(name, total_heal, ticks)
     }
 }
 
@@ -190,7 +176,7 @@ pub fn millis_to_seconds(millis: u32) -> f64 {
     millis as f64 * (1.0 / 1e3)
 }
 
-pub fn format_axis(mark: GridMark, _: usize, _: &RangeInclusive<f64>) -> String {
+pub fn format_axis(mark: GridMark, _: &RangeInclusive<f64>) -> String {
     if mark.value < 0.0 {
         return String::new();
     }
@@ -200,6 +186,9 @@ pub fn format_axis(mark: GridMark, _: usize, _: &RangeInclusive<f64>) -> String 
 
 pub fn format_element(bar: &Bar, _: &BarChart) -> String {
     let mut formatter = NumberFormatter::new();
+    if bar.name.is_empty() {
+        return format!("{}", formatter.format(bar.value, 2));
+    }
     format!("{}\n{}", bar.name, formatter.format(bar.value, 2))
 }
 

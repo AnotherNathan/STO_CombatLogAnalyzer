@@ -1,7 +1,7 @@
 use std::hash::Hash;
 use std::ops::RangeInclusive;
 
-use eframe::egui::{Context, Id, Response, Slider, TextEdit, Ui, Widget};
+use eframe::egui::{Context, Id, Response, Slider, SliderClamping, TextEdit, Ui, Widget};
 
 pub struct SliderTextEdit<'a> {
     value: &'a mut f64,
@@ -81,8 +81,8 @@ impl<'a> SliderTextEdit<'a> {
         ui.horizontal(|ui| {
             let mut state = State::load(ui.ctx(), id, value, display_precision);
             let mut slider = Slider::new(value, range).show_value(false);
-            if let Some(clamp_to_range) = clamp_to_range {
-                slider = slider.clamp_to_range(clamp_to_range);
+            if clamp_to_range == Some(true) {
+                slider = slider.clamping(SliderClamping::Always);
             }
 
             if let Some(step) = step {

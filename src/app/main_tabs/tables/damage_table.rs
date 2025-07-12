@@ -241,10 +241,6 @@ impl DamageTablePartData {
 }
 
 impl DamageTablePart {
-    pub fn dps(&self) -> f64 {
-        self.dps.all.value.unwrap()
-    }
-
     pub fn total_damage(&self) -> f64 {
         self.total_damage.all.value.unwrap()
     }
@@ -299,7 +295,7 @@ impl DamageTypes {
                 ui.label(damage_type);
             }
             DamageTypes::Mixed(damage_types) => {
-                ui.label("<mixed>").on_hover_ui(|ui| {
+                details_tooltip(ui.label("<mixed>"), |ui| {
                     Table::new(ui).body(ROW_HEIGHT, |b| {
                         for damage_type in damage_types.iter() {
                             b.row(|r| {

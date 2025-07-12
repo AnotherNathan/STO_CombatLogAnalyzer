@@ -109,7 +109,7 @@ impl AnalysisTab {
         Window::new("Selected Combat Occurred Names")
             .collapsible(false)
             .open(&mut self.list_selected_combat_occurred_names)
-            .scroll2(true)
+            .scroll(true)
             .constrain(true)
             .show(ui.ctx(), |ui| {
                 const SPACE: f32 = 40.0;
@@ -193,7 +193,7 @@ impl AnalysisTab {
                             });
                             r.cell(|ui| {
                                 if ui.button("🗐").on_hover_text("Copy").clicked() {
-                                    ui.output_mut(|o| o.copied_text = name.to_string());
+                                    ui.ctx().copy_text(name.to_string());
                                 }
                             });
                         });
@@ -450,7 +450,7 @@ impl<'a> RulesTable<'a> {
                             });
 
                             r.cell(|ui| {
-                                ComboBox::from_id_source(id + 9387465)
+                                ComboBox::from_id_salt(id + 9387465)
                                     .selected_text(rule.aspect.display())
                                     .width(150.0)
                                     .show_ui(ui, |ui| {
@@ -461,7 +461,7 @@ impl<'a> RulesTable<'a> {
                             });
 
                             r.cell(|ui| {
-                                ComboBox::from_id_source(id + 394857)
+                                ComboBox::from_id_salt(id + 394857)
                                     .selected_text(rule.method.display())
                                     .width(150.0)
                                     .show_ui(ui, |ui| {

@@ -65,7 +65,7 @@ impl<T: Clone> Values<T> {
     }
 
     #[inline]
-    pub fn get<'a>(&'a self, manager: &'a ValuesManager<T>) -> &[T] {
+    pub fn get<'a>(&'a self, manager: &'a ValuesManager<T>) -> &'a [T] {
         manager.get(self)
     }
 

@@ -4,7 +4,6 @@ use crate::helpers::number_formatting::NumberFormatter;
 
 pub struct StatusIndicator {
     pub status: Status,
-    pub is_busy: bool,
 }
 
 pub enum Status {
@@ -23,7 +22,6 @@ impl StatusIndicator {
     pub fn new() -> Self {
         Self {
             status: Status::NothingLoaded,
-            is_busy: false,
         }
     }
 

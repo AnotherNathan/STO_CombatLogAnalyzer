@@ -109,12 +109,7 @@ impl DamageTab {
     ) -> DamageDiagrams {
         DamageDiagrams::from_data(
             part.sub_parts.iter().map(|p| {
-                PreparedDamageDataSet::new(
-                    &p.name,
-                    part.dps(),
-                    part.total_damage(),
-                    p.source_hits.iter(),
-                )
+                PreparedDamageDataSet::new(&p.name, part.total_damage(), p.source_hits.iter())
             }),
             dps_filter,
             damage_time_slice,
@@ -134,12 +129,7 @@ impl DamageTab {
     }
 
     fn make_single_data_set(part: &DamageTablePart) -> PreparedDamageDataSet {
-        PreparedDamageDataSet::new(
-            &part.name,
-            part.dps(),
-            part.total_damage(),
-            part.source_hits.iter(),
-        )
+        PreparedDamageDataSet::new(&part.name, part.total_damage(), part.source_hits.iter())
     }
 
     fn update_diagrams(&mut self) {

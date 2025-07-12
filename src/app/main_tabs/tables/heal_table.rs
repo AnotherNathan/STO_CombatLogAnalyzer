@@ -78,10 +78,6 @@ impl HealTable {
 }
 
 impl HealTablePart {
-    pub fn hps(&self) -> f64 {
-        self.hps.all.value.unwrap()
-    }
-
     pub fn total_heal(&self) -> f64 {
         self.total_heal.all.value.unwrap()
     }
