@@ -54,7 +54,11 @@ impl PopupButton {
             .show(ui.ctx(), add_contents)
             .unwrap();
 
-        if !button_response.clicked() && inner.response.clicked_elsewhere() {
+        if !button_response.clicked()
+            && inner.response.clicked_elsewhere()
+            && let Some(cursor_pos) = ui.input(|i| i.pointer.latest_pos())
+            && !inner.response.rect.contains(cursor_pos)
+        {
             // TODO find a way not to close when something inside was clicked (e.g. a combo box)
             state.open = false;
         }
