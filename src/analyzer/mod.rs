@@ -583,7 +583,7 @@ impl Player {
         let duration = time
             .as_ref()
             .map(|t| t.end.signed_duration_since(t.start))
-            .unwrap_or(Duration::max_value());
+            .unwrap_or(Duration::MAX);
         let duration = duration.to_std().unwrap().as_secs_f64();
         duration
     }
