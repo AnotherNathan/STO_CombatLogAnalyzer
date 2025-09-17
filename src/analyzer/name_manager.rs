@@ -90,7 +90,7 @@ impl NameManager {
     }
 
     #[inline]
-    pub fn info(&self, handle: NameHandle) -> NameInfoRef {
+    pub fn info(&self, handle: NameHandle) -> NameInfoRef<'_> {
         if handle == NameHandle::UNKNOWN {
             return NameInfoRef {
                 name: "<unknown>",

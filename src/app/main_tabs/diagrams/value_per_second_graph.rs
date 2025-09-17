@@ -225,7 +225,7 @@ impl<T: PreparedValue> GraphLine<T> {
             )
     }
 
-    fn to_line(&self) -> Line {
+    fn to_line(&self) -> Line<'_> {
         Line::new(&self.data.name, self.points.clone()).width(2.0)
     }
 }

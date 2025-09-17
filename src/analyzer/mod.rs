@@ -108,7 +108,7 @@ impl Analyzer {
     fn process_next_record(
         &mut self,
         first_modified_combat: &mut Option<usize>,
-    ) -> Result<(), RecordError> {
+    ) -> Result<(), RecordError<'_>> {
         let record = self.parser.parse_next()?;
 
         match self.combats.last_mut() {
@@ -626,7 +626,7 @@ impl CombatName {
         }
     }
 
-    fn format(&self) -> Cow<String> {
+    fn format(&self) -> Cow<'_, String> {
         if self.additional_infos.len() == 0 {
             return Cow::Borrowed(&self.name);
         }

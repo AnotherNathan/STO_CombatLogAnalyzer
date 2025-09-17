@@ -80,7 +80,7 @@ impl Parser {
         self.file.stream_position().ok()
     }
 
-    pub fn parse_next(&mut self) -> Result<Record, RecordError> {
+    pub fn parse_next(&mut self) -> Result<Record<'_>, RecordError<'_>> {
         self.buffer.clear();
         let start_pos = self.pos();
         let count = self.file.read_line(&mut self.buffer)?;
