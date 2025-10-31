@@ -51,12 +51,6 @@ pub enum MatchMethod {
     Contains,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub struct CustomGroupingRule {
-    pub group_name: String,
-    pub match_rule: MatchRule,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RulesGroup {
     pub name: String,
