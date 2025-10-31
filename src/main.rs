@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::backtrace::Backtrace;
+use std::{backtrace::Backtrace, io::Cursor};
 
 use app::logging;
 use eframe::{
@@ -47,9 +47,9 @@ fn main() {
 
 fn icon_data() -> IconData {
     const ICON: &[u8] = include_bytes!("../icon/icon.png");
-    let decoder = png::Decoder::new(ICON);
+    let decoder = png::Decoder::new(Cursor::new(ICON));
     let mut reader = decoder.read_info().unwrap();
-    let mut data = vec![0; reader.output_buffer_size()];
+    let mut data = vec![0; reader.output_buffer_size().unwrap()];
     let info = reader.next_frame(&mut data).unwrap();
     assert_eq!(info.color_type, png::ColorType::Rgba);
     IconData {
