@@ -1,10 +1,10 @@
 use std::{fs::File, io::Write, path::PathBuf, thread::JoinHandle, time::Duration};
 
 use chrono::DateTime;
-use eframe::{egui::*, Frame};
+use eframe::{Frame, egui::*};
 use flate2::write::GzDecoder;
 use itertools::{Either, Itertools};
-use reqwest::{blocking::ClientBuilder, Url};
+use reqwest::{Url, blocking::ClientBuilder};
 use rustc_hash::FxHashMap;
 use serde::Deserialize;
 use serde_json::Value;
@@ -59,7 +59,7 @@ impl Records {
             .constrain(true)
             .open(&mut open)
             .default_size([1280.0, 720.0])
-            .max_size(ui.ctx().screen_rect().size() - vec2(120.0, 120.0))
+            .max_size(ui.ctx().content_rect().size() - vec2(120.0, 120.0))
             .show(ui.ctx(), |ui| match self {
                 Self::Collapsed => (),
                 Self::Loading(join_handle) => {
