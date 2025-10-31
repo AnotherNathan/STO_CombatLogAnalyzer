@@ -3,6 +3,11 @@
 ## unreleased
 ### Major Changes
 - added "total crit damage", "total non-crit damage", "average crit hit" and "average non-crit hit" damage metrics
+- added new diagrams:
+  - Hits per Second
+  - Hits count
+  - Heals per Second
+  - Heals count
 
 ## v1.3.0
 ### Major Changes

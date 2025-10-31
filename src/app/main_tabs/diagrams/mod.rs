@@ -4,6 +4,7 @@ mod summary_chart;
 mod value_per_second_graph;
 mod values_chart;
 
+pub use crate::app::main_tabs::diagrams::common::DiagramType;
 pub use common::PreparedDamageDataSet;
 pub use common::PreparedHealDataSet;
 use eframe::egui::Ui;
@@ -19,39 +20,32 @@ pub struct DamageDiagrams {
     dps_graph: DpsGraph,
     damage_chart: DamageChart,
     damage_resistance_chart: DamageResistanceChart,
+    hits_per_second_graph: HitsPerSecondGraph,
+    hits_count_chart: HitsChart,
 }
 
 pub struct HealDiagrams {
     hps_graph: HpsGraph,
     heal_chart: HealChart,
-}
-
-#[derive(Clone, Copy, PartialEq)]
-pub enum ActiveDamageDiagram {
-    Damage,
-    Dps,
-    DamageResistance,
-}
-
-#[derive(Clone, Copy, PartialEq)]
-pub enum ActiveHealDiagram {
-    Heal,
-    Hps,
+    ticks_per_second: HealTicksPerSeondGraph,
+    ticks_count_chart: HealTicksCountChart,
 }
 
 impl DamageDiagrams {
     pub fn empty() -> Self {
         Self {
-            dps_graph: ValuePerSecondGraph::empty(),
-            damage_chart: ValuesChart::empty("Damage"),
+            dps_graph: ValuePerSecondGraph::empty(DiagramType::Dps),
+            damage_chart: ValuesChart::empty(DiagramType::Damage),
             damage_resistance_chart: DamageResistanceChart::empty(),
+            hits_per_second_graph: HitsPerSecondGraph::empty(DiagramType::HitsPerSecond),
+            hits_count_chart: HitsChart::empty(DiagramType::HitsCount),
         }
     }
 
     pub fn from_damage_groups<'a>(
         groups: impl Iterator<Item = &'a DamageGroup>,
         combat: &Combat,
-        dps_filter: f64,
+        filter: f64,
         damage_time_slice: f64,
     ) -> Self {
         let data = groups.map(|g| {
@@ -62,48 +56,72 @@ impl DamageDiagrams {
             )
         });
 
-        Self::from_data(data, dps_filter, damage_time_slice)
+        Self::from_data(data, filter, damage_time_slice)
     }
 
     pub fn from_data(
         data: impl Iterator<Item = PreparedDamageDataSet>,
-        dps_filter: f64,
+        filter: f64,
         damage_time_slice: f64,
     ) -> Self {
         let data = data.collect_vec();
         Self {
-            dps_graph: DpsGraph::from_data(data.iter().cloned(), dps_filter),
-            damage_chart: DamageChart::from_data("Damage", data.iter().cloned(), damage_time_slice),
+            dps_graph: DpsGraph::from_data(DiagramType::Dps, data.iter().cloned(), filter),
+            damage_chart: DamageChart::from_data(
+                DiagramType::Damage,
+                data.iter().cloned(),
+                damage_time_slice,
+            ),
             damage_resistance_chart: DamageResistanceChart::from_data(
+                data.iter().cloned(),
+                damage_time_slice,
+            ),
+            hits_per_second_graph: HitsPerSecondGraph::from_data(
+                DiagramType::HitsPerSecond,
+                data.iter().cloned(),
+                filter,
+            ),
+            hits_count_chart: HitsChart::from_data(
+                DiagramType::HitsCount,
                 data.into_iter(),
                 damage_time_slice,
             ),
         }
     }
 
-    pub fn add_data(&mut self, data: PreparedDamageDataSet, dps_filter: f64, time_slice: f64) {
-        self.dps_graph.add_line(data.clone(), dps_filter);
+    pub fn add_data(&mut self, data: PreparedDamageDataSet, filter: f64, time_slice: f64) {
+        self.dps_graph.add_line(data.clone(), filter);
         self.damage_chart.add_bars(data.clone(), time_slice);
-        self.damage_resistance_chart.add_bars(data, time_slice);
+        self.damage_resistance_chart
+            .add_bars(data.clone(), time_slice);
+        self.hits_per_second_graph.add_line(data.clone(), filter);
+        self.hits_count_chart.add_bars(data, time_slice);
     }
 
     pub fn remove_data(&mut self, data: &str) {
         self.dps_graph.remove_line(data);
         self.damage_chart.remove_bars(data);
         self.damage_resistance_chart.remove_bars(data);
+        self.hits_per_second_graph.remove_line(data);
+        self.hits_count_chart.remove_bars(data);
     }
 
-    pub fn update(&mut self, dps_filter: f64, time_slice: f64) {
-        self.dps_graph.update(dps_filter);
+    pub fn update(&mut self, filter: f64, time_slice: f64) {
+        self.dps_graph.update(filter);
         self.damage_chart.update(time_slice);
         self.damage_resistance_chart.update(time_slice);
+        self.hits_per_second_graph.update(filter);
+        self.hits_count_chart.update(time_slice);
     }
 
-    pub fn show(&mut self, ui: &mut Ui, active_diagram: ActiveDamageDiagram) {
+    pub fn show(&mut self, ui: &mut Ui, active_diagram: DiagramType) {
         match active_diagram {
-            ActiveDamageDiagram::Damage => self.damage_chart.show(ui),
-            ActiveDamageDiagram::Dps => self.dps_graph.show(ui),
-            ActiveDamageDiagram::DamageResistance => self.damage_resistance_chart.show(ui),
+            DiagramType::Damage => self.damage_chart.show(ui),
+            DiagramType::Dps => self.dps_graph.show(ui),
+            DiagramType::DamageResistance => self.damage_resistance_chart.show(ui),
+            DiagramType::HitsCount => self.hits_count_chart.show(ui),
+            DiagramType::HitsPerSecond => self.hits_per_second_graph.show(ui),
+            _ => unreachable!(),
         }
     }
 }
@@ -111,15 +129,17 @@ impl DamageDiagrams {
 impl HealDiagrams {
     pub fn empty() -> Self {
         Self {
-            hps_graph: HpsGraph::empty(),
-            heal_chart: HealChart::empty("Heal"),
+            hps_graph: HpsGraph::empty(DiagramType::Hps),
+            heal_chart: HealChart::empty(DiagramType::Heal),
+            ticks_per_second: HealTicksPerSeondGraph::empty(DiagramType::HealTicksPerSecond),
+            ticks_count_chart: HealTicksCountChart::empty(DiagramType::HealTicksCount),
         }
     }
 
     pub fn from_heal_groups<'a>(
         groups: impl Iterator<Item = &'a HealGroup>,
         combat: &Combat,
-        dps_filter: f64,
+        filter: f64,
         damage_time_slice: f64,
     ) -> Self {
         let data = groups.map(|g| {
@@ -130,59 +150,63 @@ impl HealDiagrams {
             )
         });
 
-        Self::from_data(data, dps_filter, damage_time_slice)
+        Self::from_data(data, filter, damage_time_slice)
     }
 
     pub fn from_data(
         data: impl Iterator<Item = PreparedHealDataSet>,
-        hps_filter: f64,
+        filter: f64,
         heal_time_slice: f64,
     ) -> Self {
         let data = data.collect_vec();
         Self {
-            hps_graph: HpsGraph::from_data(data.iter().cloned(), hps_filter),
-            heal_chart: HealChart::from_data("Heal", data.iter().cloned(), heal_time_slice),
+            hps_graph: HpsGraph::from_data(DiagramType::Hps, data.iter().cloned(), filter),
+            heal_chart: HealChart::from_data(
+                DiagramType::Heal,
+                data.iter().cloned(),
+                heal_time_slice,
+            ),
+            ticks_per_second: HealTicksPerSeondGraph::from_data(
+                DiagramType::HealTicksPerSecond,
+                data.iter().cloned(),
+                filter,
+            ),
+            ticks_count_chart: HealTicksCountChart::from_data(
+                DiagramType::HealTicksCount,
+                data.iter().cloned(),
+                heal_time_slice,
+            ),
         }
     }
 
-    pub fn add_data(&mut self, data: PreparedHealDataSet, hps_filter: f64, time_slice: f64) {
-        self.hps_graph.add_line(data.clone(), hps_filter);
+    pub fn add_data(&mut self, data: PreparedHealDataSet, filter: f64, time_slice: f64) {
+        self.hps_graph.add_line(data.clone(), filter);
         self.heal_chart.add_bars(data.clone(), time_slice);
+        self.ticks_per_second.add_line(data.clone(), filter);
+        self.ticks_count_chart.add_bars(data.clone(), time_slice);
     }
 
     pub fn remove_data(&mut self, data: &str) {
         self.hps_graph.remove_line(data);
         self.heal_chart.remove_bars(data);
+        self.ticks_per_second.remove_line(data);
+        self.ticks_count_chart.remove_bars(data);
     }
 
-    pub fn update(&mut self, hps_filter: f64, time_slice: f64) {
-        self.hps_graph.update(hps_filter);
+    pub fn update(&mut self, filter: f64, time_slice: f64) {
+        self.hps_graph.update(filter);
         self.heal_chart.update(time_slice);
+        self.ticks_per_second.update(filter);
+        self.ticks_count_chart.update(time_slice);
     }
 
-    pub fn show(&mut self, ui: &mut Ui, active_diagram: ActiveHealDiagram) {
+    pub fn show(&mut self, ui: &mut Ui, active_diagram: DiagramType) {
         match active_diagram {
-            ActiveHealDiagram::Heal => self.heal_chart.show(ui),
-            ActiveHealDiagram::Hps => self.hps_graph.show(ui),
-        }
-    }
-}
-
-impl ActiveDamageDiagram {
-    pub const fn display(&self) -> &'static str {
-        match self {
-            ActiveDamageDiagram::Damage => "Damage",
-            ActiveDamageDiagram::Dps => "DPS",
-            ActiveDamageDiagram::DamageResistance => "Damage Resistance",
-        }
-    }
-}
-
-impl ActiveHealDiagram {
-    pub const fn display(&self) -> &'static str {
-        match self {
-            ActiveHealDiagram::Heal => "Heal",
-            ActiveHealDiagram::Hps => "HPS",
+            DiagramType::Heal => self.heal_chart.show(ui),
+            DiagramType::Hps => self.hps_graph.show(ui),
+            DiagramType::HealTicksPerSecond => self.ticks_per_second.show(ui),
+            DiagramType::HealTicksCount => self.ticks_count_chart.show(ui),
+            _ => unreachable!(),
         }
     }
 }

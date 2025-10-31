@@ -38,16 +38,61 @@ pub struct PreparedHitValue {
     pub shield_damage: f64,
     pub base_damage: f64,
     pub drain_damage: f64,
+    pub hits_count: u64,
 }
 
 #[derive(Clone, Copy)]
 pub struct PreparedHealValue {
     pub heal: f64,
+    pub heals_count: u64,
 }
 
 pub trait PreparedValue: Clone + 'static {
-    fn value(&self) -> f64;
+    fn value(&self, diagram_type: DiagramType) -> f64;
     fn merge(&mut self, other: &Self);
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DiagramType {
+    Dps,
+    Damage,
+    HitsPerSecond,
+    HitsCount,
+    Heal,
+    Hps,
+    HealTicksPerSecond,
+    HealTicksCount,
+    DamageResistance,
+}
+
+impl DiagramType {
+    pub const fn name(&self) -> &'static str {
+        match self {
+            DiagramType::Dps => "DPS",
+            DiagramType::Damage => "Damage",
+            DiagramType::HitsPerSecond => "Hits per Second",
+            DiagramType::HitsCount => "Hits count",
+            DiagramType::Heal => "Heal",
+            DiagramType::Hps => "HPS",
+            DiagramType::HealTicksPerSecond => "Heal Ticks per Second",
+            DiagramType::HealTicksCount => "Heal Ticks count",
+            DiagramType::DamageResistance => "Damage Resistance",
+        }
+    }
+
+    pub const fn value_name(&self) -> &'static str {
+        match self {
+            DiagramType::Dps => "DPS",
+            DiagramType::Damage => "Damage",
+            DiagramType::HitsPerSecond => "Hits per Second",
+            DiagramType::HitsCount => "Hits count",
+            DiagramType::Heal => "Heal",
+            DiagramType::Hps => "HPS",
+            DiagramType::HealTicksPerSecond => "Ticks per Second",
+            DiagramType::HealTicksCount => "Ticks count",
+            DiagramType::DamageResistance => "%",
+        }
+    }
 }
 
 impl<T: PreparedValue> PreparedDataSet<T> {
@@ -108,6 +153,7 @@ impl<'a> From<&'a Hit> for PreparedHit {
                     hull_damage: 0.0,
                     base_damage: 0.0,
                     drain_damage: 0.0,
+                    hits_count: 1,
                 },
                 time_millis: hit.time_millis,
             },
@@ -118,6 +164,7 @@ impl<'a> From<&'a Hit> for PreparedHit {
                     hull_damage: 0.0,
                     base_damage: 0.0,
                     drain_damage: hit.damage,
+                    hits_count: 1,
                 },
                 time_millis: hit.time_millis,
             },
@@ -128,6 +175,7 @@ impl<'a> From<&'a Hit> for PreparedHit {
                     hull_damage: hit.damage,
                     base_damage,
                     drain_damage: 0.0,
+                    hits_count: 1,
                 },
                 time_millis: hit.time_millis,
             },
@@ -136,35 +184,52 @@ impl<'a> From<&'a Hit> for PreparedHit {
 }
 
 impl PreparedValue for PreparedHitValue {
-    fn value(&self) -> f64 {
-        self.damage
-    }
-
     fn merge(&mut self, other: &Self) {
         self.damage += other.damage;
         self.shield_damage += other.shield_damage;
         self.hull_damage += other.hull_damage;
         self.base_damage += other.base_damage;
         self.drain_damage += other.drain_damage;
+        self.hits_count += other.hits_count;
+    }
+
+    fn value(&self, diagram_type: DiagramType) -> f64 {
+        match diagram_type {
+            DiagramType::Dps => self.damage,
+            DiagramType::Damage => self.damage,
+            DiagramType::HitsPerSecond => self.hits_count as _,
+            DiagramType::HitsCount => self.hits_count as _,
+            _ => unreachable!(),
+        }
     }
 }
 
 impl<'a> From<&'a HealTick> for PreparedHealTick {
     fn from(tick: &'a HealTick) -> Self {
         Self {
-            value: PreparedHealValue { heal: tick.amount },
+            value: PreparedHealValue {
+                heal: tick.amount,
+                heals_count: 1,
+            },
             time_millis: tick.time_millis,
         }
     }
 }
 
 impl PreparedValue for PreparedHealValue {
-    fn value(&self) -> f64 {
-        self.heal
-    }
-
     fn merge(&mut self, other: &Self) {
         self.heal += other.heal;
+        self.heals_count += other.heals_count;
+    }
+
+    fn value(&self, diagram_type: DiagramType) -> f64 {
+        match diagram_type {
+            DiagramType::Heal => self.heal,
+            DiagramType::Hps => self.heal,
+            DiagramType::HealTicksPerSecond => self.heals_count as _,
+            DiagramType::HealTicksCount => self.heals_count as _,
+            _ => unreachable!(),
+        }
     }
 }
 

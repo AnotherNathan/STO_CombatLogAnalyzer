@@ -9,9 +9,9 @@ pub struct DamageTab {
     dmg_main_diagrams: DamageDiagrams,
     dmg_selection_diagrams: Option<DamageDiagrams>,
     damage_group: for<'a> fn(&'a Player) -> &'a DamageGroup,
-    dps_filter: f64,
+    filter: f64,
     diagram_time_slice: f64,
-    active_diagram: ActiveDamageDiagram,
+    active_diagram: DiagramType,
 }
 
 impl DamageTab {
@@ -20,10 +20,10 @@ impl DamageTab {
             table: DamageTable::empty(),
             dmg_main_diagrams: DamageDiagrams::empty(),
             damage_group: damage_group,
-            dps_filter: 0.4,
+            filter: 0.4,
             diagram_time_slice: 1.0,
             dmg_selection_diagrams: None,
-            active_diagram: ActiveDamageDiagram::Damage,
+            active_diagram: DiagramType::Dps,
         }
     }
 
@@ -32,7 +32,7 @@ impl DamageTab {
         self.dmg_main_diagrams = DamageDiagrams::from_damage_groups(
             combat.players.values().map(self.damage_group),
             combat,
-            self.dps_filter,
+            self.filter,
             self.diagram_time_slice,
         );
         self.dmg_selection_diagrams = None;
@@ -47,7 +47,7 @@ impl DamageTab {
                     Self::process_diagram_change(
                         &mut self.dmg_selection_diagrams,
                         p,
-                        self.dps_filter,
+                        self.filter,
                         self.diagram_time_slice,
                     );
                 });
@@ -59,7 +59,7 @@ impl DamageTab {
     fn process_diagram_change(
         diagram: &mut Option<DamageDiagrams>,
         selection: TableSelectionEvent<DamageTablePartData>,
-        dps_filter: f64,
+        filter: f64,
         damage_time_slice: f64,
     ) {
         match selection {
@@ -67,29 +67,25 @@ impl DamageTab {
             TableSelectionEvent::Group(part) => {
                 *diagram = Some(Self::make_sub_parts_diagram_selection(
                     part,
-                    dps_filter,
+                    filter,
                     damage_time_slice,
                 ))
             }
             TableSelectionEvent::Single(part) => {
                 *diagram = Some(Self::make_single_diagram_selection(
                     part,
-                    dps_filter,
+                    filter,
                     damage_time_slice,
                 ))
             }
             TableSelectionEvent::AddSingle(part) => match diagram.as_mut() {
                 Some(diagram) => {
-                    diagram.add_data(
-                        Self::make_single_data_set(part),
-                        dps_filter,
-                        damage_time_slice,
-                    );
+                    diagram.add_data(Self::make_single_data_set(part), filter, damage_time_slice);
                 }
                 None => {
                     *diagram = Some(Self::make_single_diagram_selection(
                         part,
-                        dps_filter,
+                        filter,
                         damage_time_slice,
                     ))
                 }
@@ -104,26 +100,26 @@ impl DamageTab {
 
     fn make_sub_parts_diagram_selection(
         part: &DamageTablePart,
-        dps_filter: f64,
+        filter: f64,
         damage_time_slice: f64,
     ) -> DamageDiagrams {
         DamageDiagrams::from_data(
             part.sub_parts.iter().map(|p| {
                 PreparedDamageDataSet::new(&p.name, part.total_damage(), p.source_hits.iter())
             }),
-            dps_filter,
+            filter,
             damage_time_slice,
         )
     }
 
     fn make_single_diagram_selection(
         part: &DamageTablePart,
-        dps_filter: f64,
+        filter: f64,
         damage_time_slice: f64,
     ) -> DamageDiagrams {
         return DamageDiagrams::from_data(
             [Self::make_single_data_set(part)].into_iter(),
-            dps_filter,
+            filter,
             damage_time_slice,
         );
     }
@@ -134,9 +130,9 @@ impl DamageTab {
 
     fn update_diagrams(&mut self) {
         self.dmg_main_diagrams
-            .update(self.dps_filter, self.diagram_time_slice);
+            .update(self.filter, self.diagram_time_slice);
         if let Some(selection_plot) = &mut self.dmg_selection_diagrams {
-            selection_plot.update(self.dps_filter, self.diagram_time_slice);
+            selection_plot.update(self.filter, self.diagram_time_slice);
         }
     }
 
@@ -144,26 +140,39 @@ impl DamageTab {
         ui.horizontal(|ui| {
             ui.selectable_value(
                 &mut self.active_diagram,
-                ActiveDamageDiagram::Damage,
-                ActiveDamageDiagram::Damage.display(),
+                DiagramType::Dps,
+                DiagramType::Dps.name(),
             );
             ui.selectable_value(
                 &mut self.active_diagram,
-                ActiveDamageDiagram::Dps,
-                ActiveDamageDiagram::Dps.display(),
+                DiagramType::Damage,
+                DiagramType::Damage.name(),
             );
             ui.selectable_value(
                 &mut self.active_diagram,
-                ActiveDamageDiagram::DamageResistance,
-                ActiveDamageDiagram::DamageResistance.display(),
+                DiagramType::DamageResistance,
+                DiagramType::DamageResistance.name(),
+            );
+            ui.selectable_value(
+                &mut self.active_diagram,
+                DiagramType::HitsPerSecond,
+                DiagramType::HitsPerSecond.name(),
+            );
+            ui.selectable_value(
+                &mut self.active_diagram,
+                DiagramType::HitsCount,
+                DiagramType::HitsCount.name(),
             );
         });
 
         let updated_required = match self.active_diagram {
-            ActiveDamageDiagram::Damage | ActiveDamageDiagram::DamageResistance => {
+            DiagramType::Damage | DiagramType::DamageResistance | DiagramType::HitsCount => {
                 show_time_slice_setting(&mut self.diagram_time_slice, ui)
             }
-            ActiveDamageDiagram::Dps => show_time_filter_setting(&mut self.dps_filter, ui),
+            DiagramType::Dps | DiagramType::HitsPerSecond => {
+                show_time_filter_setting(&mut self.filter, ui)
+            }
+            _ => unreachable!(),
         };
 
         if updated_required {

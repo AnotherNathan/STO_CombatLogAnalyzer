@@ -9,9 +9,9 @@ pub struct HealTab {
     main_diagrams: HealDiagrams,
     selection_diagrams: Option<HealDiagrams>,
     heal_group: fn(&Player) -> &HealGroup,
-    hps_filter: f64,
+    filter: f64,
     diagram_time_slice: f64,
-    active_diagram: ActiveHealDiagram,
+    active_diagram: DiagramType,
 }
 
 impl HealTab {
@@ -21,9 +21,9 @@ impl HealTab {
             heal_group,
             main_diagrams: HealDiagrams::empty(),
             selection_diagrams: None,
-            hps_filter: 0.4,
+            filter: 0.4,
             diagram_time_slice: 1.0,
-            active_diagram: ActiveHealDiagram::Heal,
+            active_diagram: DiagramType::Hps,
         }
     }
 
@@ -32,7 +32,7 @@ impl HealTab {
         self.main_diagrams = HealDiagrams::from_heal_groups(
             combat.players.values().map(self.heal_group),
             combat,
-            self.hps_filter,
+            self.filter,
             self.diagram_time_slice,
         );
         self.selection_diagrams = None;
@@ -47,7 +47,7 @@ impl HealTab {
                     Self::process_diagram_change(
                         &mut self.selection_diagrams,
                         p,
-                        self.hps_filter,
+                        self.filter,
                         self.diagram_time_slice,
                     );
                 });
@@ -59,7 +59,7 @@ impl HealTab {
     fn process_diagram_change(
         diagram: &mut Option<HealDiagrams>,
         selection: TableSelectionEvent<HealTablePartData>,
-        hps_filter: f64,
+        filter: f64,
         heal_time_slice: f64,
     ) {
         match selection {
@@ -67,29 +67,25 @@ impl HealTab {
             TableSelectionEvent::Group(part) => {
                 *diagram = Some(Self::make_sub_parts_diagram_selection(
                     part,
-                    hps_filter,
+                    filter,
                     heal_time_slice,
                 ))
             }
             TableSelectionEvent::Single(part) => {
                 *diagram = Some(Self::make_single_diagram_selection(
                     part,
-                    hps_filter,
+                    filter,
                     heal_time_slice,
                 ))
             }
             TableSelectionEvent::AddSingle(part) => match diagram.as_mut() {
                 Some(diagram) => {
-                    diagram.add_data(
-                        Self::make_single_data_set(part),
-                        hps_filter,
-                        heal_time_slice,
-                    );
+                    diagram.add_data(Self::make_single_data_set(part), filter, heal_time_slice);
                 }
                 None => {
                     *diagram = Some(Self::make_single_diagram_selection(
                         part,
-                        hps_filter,
+                        filter,
                         heal_time_slice,
                     ))
                 }
@@ -104,26 +100,26 @@ impl HealTab {
 
     fn make_sub_parts_diagram_selection(
         part: &HealTablePart,
-        hps_filter: f64,
+        filter: f64,
         heal_time_slice: f64,
     ) -> HealDiagrams {
         HealDiagrams::from_data(
             part.sub_parts.iter().map(|p| {
                 PreparedHealDataSet::new(&p.name, part.total_heal(), p.source_ticks.iter())
             }),
-            hps_filter,
+            filter,
             heal_time_slice,
         )
     }
 
     fn make_single_diagram_selection(
         part: &HealTablePart,
-        hps_filter: f64,
+        filter: f64,
         heal_time_slice: f64,
     ) -> HealDiagrams {
         return HealDiagrams::from_data(
             [Self::make_single_data_set(part)].into_iter(),
-            hps_filter,
+            filter,
             heal_time_slice,
         );
     }
@@ -134,9 +130,9 @@ impl HealTab {
 
     fn update_diagrams(&mut self) {
         self.main_diagrams
-            .update(self.hps_filter, self.diagram_time_slice);
+            .update(self.filter, self.diagram_time_slice);
         if let Some(selection_plot) = &mut self.selection_diagrams {
-            selection_plot.update(self.hps_filter, self.diagram_time_slice);
+            selection_plot.update(self.filter, self.diagram_time_slice);
         }
     }
 
@@ -144,19 +140,34 @@ impl HealTab {
         ui.horizontal(|ui| {
             ui.selectable_value(
                 &mut self.active_diagram,
-                ActiveHealDiagram::Heal,
-                ActiveHealDiagram::Heal.display(),
+                DiagramType::Hps,
+                DiagramType::Hps.name(),
             );
             ui.selectable_value(
                 &mut self.active_diagram,
-                ActiveHealDiagram::Hps,
-                ActiveHealDiagram::Hps.display(),
+                DiagramType::Heal,
+                DiagramType::Heal.name(),
+            );
+            ui.selectable_value(
+                &mut self.active_diagram,
+                DiagramType::HealTicksPerSecond,
+                DiagramType::HealTicksPerSecond.name(),
+            );
+            ui.selectable_value(
+                &mut self.active_diagram,
+                DiagramType::HealTicksCount,
+                DiagramType::HealTicksCount.name(),
             );
         });
 
         let update_required = match self.active_diagram {
-            ActiveHealDiagram::Heal => show_time_slice_setting(&mut self.diagram_time_slice, ui),
-            ActiveHealDiagram::Hps => show_time_filter_setting(&mut self.hps_filter, ui),
+            DiagramType::Heal | DiagramType::HealTicksCount => {
+                show_time_slice_setting(&mut self.diagram_time_slice, ui)
+            }
+            DiagramType::Hps | DiagramType::HealTicksPerSecond => {
+                show_time_filter_setting(&mut self.filter, ui)
+            }
+            _ => unreachable!(),
         };
 
         if update_required {

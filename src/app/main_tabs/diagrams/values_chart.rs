@@ -7,14 +7,16 @@ use crate::helpers::number_formatting::NumberFormatter;
 use super::common::*;
 
 pub struct ValuesChart<T: PreparedValue> {
-    value_name: &'static str,
+    diagram_type: DiagramType,
     newly_created: bool,
     bars: Vec<Bars<T>>,
     updated_time_slice: Option<f64>,
 }
 
 pub type DamageChart = ValuesChart<PreparedHitValue>;
+pub type HitsChart = ValuesChart<PreparedHitValue>;
 pub type HealChart = ValuesChart<PreparedHealValue>;
+pub type HealTicksCountChart = ValuesChart<PreparedHealValue>;
 
 struct Bars<T: PreparedValue> {
     data: PreparedDataSet<T>,
@@ -22,9 +24,9 @@ struct Bars<T: PreparedValue> {
 }
 
 impl<T: PreparedValue> ValuesChart<T> {
-    pub fn empty(value_name: &'static str) -> Self {
+    pub fn empty(diagram_type: DiagramType) -> Self {
         Self {
-            value_name,
+            diagram_type,
             newly_created: true,
             bars: Vec::new(),
             updated_time_slice: None,
@@ -32,13 +34,13 @@ impl<T: PreparedValue> ValuesChart<T> {
     }
 
     pub fn from_data(
-        value_name: &'static str,
+        diagram_type: DiagramType,
         bars: impl Iterator<Item = PreparedDataSet<T>>,
         time_slice: f64,
     ) -> Self {
         let bars: Vec<_> = bars.map(|d| Bars::new(d)).collect();
         let mut _self = Self {
-            value_name,
+            diagram_type,
             newly_created: true,
             bars,
             updated_time_slice: Some(time_slice),
@@ -65,10 +67,12 @@ impl<T: PreparedValue> ValuesChart<T> {
 
     pub fn show(&mut self, ui: &mut Ui) {
         if let Some(time_slice) = self.updated_time_slice.take() {
-            self.bars.iter_mut().for_each(|b| b.update(time_slice));
+            self.bars
+                .iter_mut()
+                .for_each(|b| b.update(time_slice, self.diagram_type));
         }
 
-        let mut plot = Plot::new("value chart")
+        let mut plot = Plot::new(["value chart", self.diagram_type.name()])
             .auto_bounds(true)
             .y_axis_formatter(format_axis)
             .x_axis_formatter(format_axis)
@@ -76,7 +80,7 @@ impl<T: PreparedValue> ValuesChart<T> {
                 let mut formatter = NumberFormatter::new();
                 format!(
                     "{}: {}\nTime: {}",
-                    self.value_name,
+                    self.diagram_type.value_name(),
                     formatter.format(p.y, 2),
                     formatter.format(p.x, 2)
                 )
@@ -117,10 +121,10 @@ impl<T: PreparedValue> Bars<T> {
         }
     }
 
-    fn update(&mut self, time_slice: f64) {
+    fn update(&mut self, time_slice: f64, diagram_type: DiagramType) {
         let bars = time_slices(&self.data, time_slice)
             .filter_map(|(m, s)| {
-                let value = s.iter().map(|p| p.value()).sum();
+                let value = s.iter().map(|p| p.value(diagram_type)).sum();
                 if value == 0.0 {
                     return None;
                 }

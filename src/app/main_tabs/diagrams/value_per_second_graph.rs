@@ -15,10 +15,13 @@ pub struct ValuePerSecondGraph<T: PreparedValue> {
     largest_point: f64,
     newly_created: bool,
     updated_filter: Option<f64>,
+    diagram_type: DiagramType,
 }
 
 pub type DpsGraph = ValuePerSecondGraph<PreparedHitValue>;
+pub type HitsPerSecondGraph = ValuePerSecondGraph<PreparedHitValue>;
 pub type HpsGraph = ValuePerSecondGraph<PreparedHealValue>;
+pub type HealTicksPerSeondGraph = ValuePerSecondGraph<PreparedHealValue>;
 
 pub struct GraphLine<T: PreparedValue> {
     points: Vec<[f64; 2]>,
@@ -26,21 +29,26 @@ pub struct GraphLine<T: PreparedValue> {
 }
 
 impl<T: PreparedValue> ValuePerSecondGraph<T> {
-    pub fn empty() -> Self {
+    pub fn empty(diagram_type: DiagramType) -> Self {
         Self {
             lines: Vec::new(),
             largest_point: 100_000.0,
             newly_created: true,
             updated_filter: None,
+            diagram_type,
         }
     }
 
-    pub fn from_data<'a>(lines: impl Iterator<Item = PreparedDataSet<T>>, filter: f64) -> Self {
+    pub fn from_data<'a>(
+        diagram_type: DiagramType,
+        lines: impl Iterator<Item = PreparedDataSet<T>>,
+        filter: f64,
+    ) -> Self {
         let lines: Vec<_> = lines.map(|l| GraphLine::new(l)).collect();
         let mut _self = Self {
             lines,
             updated_filter: Some(filter),
-            ..Self::empty()
+            ..Self::empty(diagram_type)
         };
         _self.compute_largest_point();
 
@@ -65,15 +73,17 @@ impl<T: PreparedValue> ValuePerSecondGraph<T> {
 
     pub fn show(&mut self, ui: &mut Ui) {
         if let Some(filter) = self.updated_filter.take() {
-            self.lines.iter_mut().for_each(|l| l.update(filter));
+            self.lines
+                .iter_mut()
+                .for_each(|l| l.update(filter, self.diagram_type));
             self.compute_largest_point();
         }
 
-        let mut plot = Plot::new("dps graph")
+        let mut plot = Plot::new(("per second graph", self.diagram_type.name()))
             .auto_bounds(true)
             .y_axis_formatter(format_axis)
             .x_axis_formatter(format_axis)
-            .label_formatter(Self::format_label)
+            .label_formatter(|n, p| Self::format_label(n, p, self.diagram_type.value_name()))
             .include_y(self.largest_point)
             .legend(Legend::default());
 
@@ -93,7 +103,7 @@ impl<T: PreparedValue> ValuePerSecondGraph<T> {
         });
     }
 
-    pub fn format_label(name: &str, point: &PlotPoint) -> String {
+    pub fn format_label(name: &str, point: &PlotPoint, value_name: &str) -> String {
         if point.x < 0.0 || point.y < 0.0 {
             return String::new();
         }
@@ -102,9 +112,9 @@ impl<T: PreparedValue> ValuePerSecondGraph<T> {
         let x = formatter.format(point.x, 2);
         let y = formatter.format(point.y, 2);
         if name.is_empty() {
-            return format!("DPS: {}\nTime: {}", y, x);
+            return format!("{}: {}\nTime: {}", value_name, y, x);
         }
-        format!("{}\nDPS: {}\nTime: {}", name, y, x)
+        format!("{}\n{}: {}\nTime: {}", name, value_name, y, x)
     }
 
     fn compute_largest_point(&mut self) {
@@ -126,7 +136,7 @@ impl<T: PreparedValue> GraphLine<T> {
         }
     }
 
-    fn update(&mut self, filter: f64) {
+    fn update(&mut self, filter: f64, diagram_type: DiagramType) {
         let duration = self.data.duration_s.max(1.0);
         let points_count = (duration * SAMPLE_RATE).round().max(1.0) as _;
         let mut points = Vec::with_capacity(points_count);
@@ -135,7 +145,7 @@ impl<T: PreparedValue> GraphLine<T> {
             let time = self.data.start_time_s + duration * start_offset;
             let point = [
                 time,
-                Self::get_sample_gauss_filtered(&self.data.values, time, filter),
+                Self::get_sample_gauss_filtered(&self.data.values, time, filter, diagram_type),
             ];
             points.push(point);
         }
@@ -161,6 +171,7 @@ impl<T: PreparedValue> GraphLine<T> {
         index: usize,
         time_seconds: f64,
         sigma_seconds: f64,
+        diagram_type: DiagramType,
     ) -> Option<f64> {
         let hit = points.get(index)?;
         let t = millis_to_seconds(hit.time_millis);
@@ -172,7 +183,7 @@ impl<T: PreparedValue> GraphLine<T> {
             return None;
         }
 
-        Some(weight * hit.value())
+        Some(weight * hit.value(diagram_type))
     }
 
     fn get_sample_gauss_filtered_half(
@@ -180,12 +191,19 @@ impl<T: PreparedValue> GraphLine<T> {
         time_seconds: f64,
         sigma_seconds: f64,
         entry_index: usize,
+        diagram_type: DiagramType,
         mut index_change: impl FnMut(usize) -> Option<usize>,
     ) -> f64 {
         let mut value = 0.0;
         let mut index = entry_index;
         loop {
-            value += match Self::get_gauss_value(points, index, time_seconds, sigma_seconds) {
+            value += match Self::get_gauss_value(
+                points,
+                index,
+                time_seconds,
+                sigma_seconds,
+                diagram_type,
+            ) {
                 Some(v) => v,
                 None => break,
             };
@@ -202,6 +220,7 @@ impl<T: PreparedValue> GraphLine<T> {
         points: &[PreparedPoint<T>],
         time_seconds: f64,
         sigma_seconds: f64,
+        diagram_type: DiagramType,
     ) -> f64 {
         let time_millis = seconds_to_millis(time_seconds);
 
@@ -210,17 +229,30 @@ impl<T: PreparedValue> GraphLine<T> {
         entry_index
             .checked_sub(1)
             .map(|i| {
-                Self::get_sample_gauss_filtered_half(points, time_seconds, sigma_seconds, i, |i| {
-                    i.checked_sub(1)
-                })
+                Self::get_sample_gauss_filtered_half(
+                    points,
+                    time_seconds,
+                    sigma_seconds,
+                    i,
+                    diagram_type,
+                    |i| i.checked_sub(1),
+                )
             })
             .unwrap_or(0.0)
-            + Self::get_gauss_value(points, entry_index, time_seconds, sigma_seconds).unwrap_or(0.0)
+            + Self::get_gauss_value(
+                points,
+                entry_index,
+                time_seconds,
+                sigma_seconds,
+                diagram_type,
+            )
+            .unwrap_or(0.0)
             + Self::get_sample_gauss_filtered_half(
                 points,
                 time_seconds,
                 sigma_seconds,
                 entry_index + 1,
+                diagram_type,
                 |i| Some(i + 1),
             )
     }
