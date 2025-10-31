@@ -142,27 +142,32 @@ impl DamageTab {
                 &mut self.active_diagram,
                 DiagramType::Dps,
                 DiagramType::Dps.name(),
-            );
+            )
+            .on_hover_text(DiagramType::Dps.tooltip());
             ui.selectable_value(
                 &mut self.active_diagram,
                 DiagramType::Damage,
                 DiagramType::Damage.name(),
-            );
+            )
+            .on_hover_text(DiagramType::Damage.tooltip());
             ui.selectable_value(
                 &mut self.active_diagram,
                 DiagramType::DamageResistance,
                 DiagramType::DamageResistance.name(),
-            );
+            )
+            .on_hover_text(DiagramType::DamageResistance.tooltip());
             ui.selectable_value(
                 &mut self.active_diagram,
                 DiagramType::HitsPerSecond,
                 DiagramType::HitsPerSecond.name(),
-            );
+            )
+            .on_hover_text(DiagramType::HitsPerSecond.tooltip());
             ui.selectable_value(
                 &mut self.active_diagram,
                 DiagramType::HitsCount,
                 DiagramType::HitsCount.name(),
-            );
+            )
+            .on_hover_text(DiagramType::HitsCount.tooltip());
         });
 
         let updated_required = match self.active_diagram {

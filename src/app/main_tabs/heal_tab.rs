@@ -142,22 +142,26 @@ impl HealTab {
                 &mut self.active_diagram,
                 DiagramType::Hps,
                 DiagramType::Hps.name(),
-            );
+            )
+            .on_hover_text(DiagramType::Hps.tooltip());
             ui.selectable_value(
                 &mut self.active_diagram,
                 DiagramType::Heal,
                 DiagramType::Heal.name(),
-            );
+            )
+            .on_hover_text(DiagramType::Heal.tooltip());
             ui.selectable_value(
                 &mut self.active_diagram,
                 DiagramType::HealTicksPerSecond,
                 DiagramType::HealTicksPerSecond.name(),
-            );
+            )
+            .on_hover_text(DiagramType::HealTicksPerSecond.tooltip());
             ui.selectable_value(
                 &mut self.active_diagram,
                 DiagramType::HealTicksCount,
                 DiagramType::HealTicksCount.name(),
-            );
+            )
+            .on_hover_text(DiagramType::HealTicksCount.tooltip());
         });
 
         let update_required = match self.active_diagram {

@@ -93,6 +93,32 @@ impl DiagramType {
             DiagramType::DamageResistance => "%",
         }
     }
+
+    pub const fn tooltip(&self) -> &'static str {
+        match self {
+            DiagramType::Dps => {
+                "Shows Damage Per Second (DPS) with an applied gauss filter (meaning the lines gets smoothed out)."
+            }
+            DiagramType::Damage => "Shows Damage amount for a given time slice.",
+            DiagramType::HitsPerSecond => {
+                "Shows Hits per Second with an applied gauss filter (meaning the lines gets smoothed out).\nNote that every damage number that shows up, counts as one hit.\nThis means for an attack, that hits the shields of an enemy, 2 Hits will be counted. One for the shield Hit and one for the hull Hit."
+            }
+            DiagramType::HitsCount => {
+                "Shows outgoing Hits count for a given time slice.\nNote that every damage number that shows up, counts as one hit.\nThis means for an attack, that hits the shields of an enemy, 2 Hits will be counted. One for the shield Hit and one for the hull Hit."
+            }
+            DiagramType::Heal => "Shows Heal amount for a given time slice.",
+            DiagramType::Hps => {
+                "Shows Heal amount Per Second (HPS) with an applied gauss filter (meaning the lines gets smoothed out)."
+            }
+            DiagramType::HealTicksPerSecond => {
+                "Shows Heal Ticks per Second with an applied gauss filter (meaning the lines gets smoothed out)."
+            }
+            DiagramType::HealTicksCount => "Shows Heal Ticks count for a given time slice.",
+            DiagramType::DamageResistance => {
+                "Shows how much damage resistance was present for given time slice."
+            }
+        }
+    }
 }
 
 impl<T: PreparedValue> PreparedDataSet<T> {
