@@ -764,6 +764,27 @@
           "enabled": true
         },
         "additional_info_rules": []
+      },
+      {
+        "name_rule": {
+          "name": "Belly of the Beast",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Ground_Chimeran_S35_Tfo_Boss",
+              "method": "Equals",
+              "enabled": true
+            },
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Ground_S35_Tfo_Invisible_Trap_Fx",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       }
     ]
   },
