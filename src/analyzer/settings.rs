@@ -168,9 +168,9 @@ impl MatchRule {
             MatchAspect::IndirectUniqueSourceName => self
                 .method
                 .check_match_or_false(&self.expression, record.indirect_source.unique_name()),
-            MatchAspect::DamageOrHealName => {
-                self.method.check_match(&self.expression, record.value_name)
-            }
+            MatchAspect::DamageOrHealName => self
+                .method
+                .check_match(&self.expression, &record.value_name),
         }
     }
 

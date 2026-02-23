@@ -9,6 +9,9 @@
   - Heals per Second
   - Heals count
 
+### Fixes
+- fixed "Pull Together, Fall Apart" not showing up (and any other powers, that show up the same way in the log)
+
 ## v1.3.0
 ### Major Changes
 - the ability to upload runs to the OSCR-Server and display them

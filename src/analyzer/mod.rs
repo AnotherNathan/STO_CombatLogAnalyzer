@@ -359,8 +359,9 @@ impl Combat {
                 .set_if(NameFlags::PLAYER, record.indirect_source.is_player()),
         );
         self.name_manager
-            .insert(record.value_name, NameFlags::VALUE);
-        self.name_manager.insert(record.value_type, NameFlags::NONE);
+            .insert(&record.value_name, NameFlags::VALUE);
+        self.name_manager
+            .insert(&record.value_type, NameFlags::NONE);
     }
 
     fn update_combat_names(&mut self, settings: &AnalysisSettings) {
@@ -443,7 +444,7 @@ impl Player {
                     &path,
                     damage,
                     record.value_flags,
-                    name_manager.handle(record.value_type),
+                    name_manager.handle(&record.value_type),
                     combat_start_offset_millis,
                     name_manager,
                 );
@@ -479,7 +480,7 @@ impl Player {
                     &path,
                     damage,
                     record.value_flags,
-                    name_manager.handle(record.value_type),
+                    name_manager.handle(&record.value_type),
                     combat_start_offset_millis,
                     name_manager,
                 );
@@ -502,7 +503,7 @@ impl Player {
         match (&record.indirect_source, &record.target) {
             (Entity::None, _) | (_, Entity::None) => {
                 path.push(GroupPathSegment::Value(
-                    name_manager.handle(record.value_name),
+                    name_manager.handle(&record.value_name),
                 ));
             }
 
@@ -521,11 +522,11 @@ impl Player {
                 {
                     path.extend_from_slice(&[
                         GroupPathSegment::Value(name_manager.handle(name)),
-                        GroupPathSegment::Group(name_manager.handle(record.value_name)),
+                        GroupPathSegment::Group(name_manager.handle(&record.value_name)),
                     ]);
                 } else {
                     path.extend_from_slice(&[
-                        GroupPathSegment::Value(name_manager.handle(record.value_name)),
+                        GroupPathSegment::Value(name_manager.handle(&record.value_name)),
                         GroupPathSegment::Group(name_manager.handle(name)),
                     ]);
                 }

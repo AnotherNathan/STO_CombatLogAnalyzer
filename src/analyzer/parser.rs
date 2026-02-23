@@ -1,13 +1,14 @@
 use std::{
     fmt::Write,
     fs::File,
-    io::{BufRead, BufReader, Seek},
+    io::{BufReader, Seek},
     ops::Range,
     path::Path,
 };
 
 use chrono::NaiveDateTime;
 use lazy_static::lazy_static;
+use log::error;
 use regex::Regex;
 
 use super::*;
@@ -18,8 +19,8 @@ pub struct Record<'a> {
     pub source: Entity<'a>,
     pub target: Entity<'a>,
     pub indirect_source: Entity<'a>, // e.g. a pet
-    pub value_name: &'a str,
-    pub value_type: &'a str,
+    pub value_name: Cow<'a, str>,
+    pub value_type: Cow<'a, str>,
     pub value_flags: ValueFlags,
     pub value: RecordValue,
     pub _raw: &'a str,
@@ -30,17 +31,17 @@ pub struct Record<'a> {
 pub enum Entity<'a> {
     None,
     Player {
-        full_name: &'a str, // -> name@handle
+        full_name: Cow<'a, str>, // -> name@handle
         _id: (u64, u64),
     },
     NonPlayer {
-        name: &'a str,
+        name: Cow<'a, str>,
         _id: u64,
-        unique_name: &'a str,
+        unique_name: Cow<'a, str>,
     },
     NonPlayerCharacter {
         _id: u64,
-        name: &'a str,
+        name: Cow<'a, str>,
     },
 }
 
@@ -51,8 +52,7 @@ pub enum RecordValue {
 }
 
 pub struct Parser {
-    file: BufReader<File>,
-    buffer: String,
+    line_parser: LineParser,
     scratch_pad: String,
 }
 
@@ -69,32 +69,39 @@ impl Parser {
             .open(file_name)
             .ok()?;
 
+        let file = BufReader::with_capacity(1 << 20, file); // 1MB
+
         Some(Self {
-            file: BufReader::with_capacity(1 << 20, file), // 1MB
-            buffer: String::new(),
+            line_parser: LineParser {
+                char_parser: CharParser {
+                    file,
+                    buffer: Default::default(),
+                    buffer_len: Default::default(),
+                },
+                escaped: Default::default(),
+                line: Default::default(),
+                line_start_in_file: Default::default(),
+                line_end_in_file: Default::default(),
+                line_finished: Default::default(),
+            },
             scratch_pad: String::new(),
         })
     }
 
-    pub fn pos(&mut self) -> Option<u64> {
-        self.file.stream_position().ok()
-    }
-
     pub fn parse_next(&mut self) -> Result<Record<'_>, RecordError<'_>> {
-        self.buffer.clear();
-        let start_pos = self.pos();
-        let count = self.file.read_line(&mut self.buffer)?;
-        let end_pos = self.pos();
-        if count == 0 {
+        if !self.line_parser.advance_line() {
             return Err(RecordError::EndReached);
         }
 
-        let log_pos = match (start_pos, end_pos) {
+        let log_pos = match (
+            self.line_parser.line_start_in_file,
+            self.line_parser.line_end_in_file,
+        ) {
             (Some(s), Some(e)) => Some(s..e),
             _ => None,
         };
-        Self::parse_from_line(&self.buffer, &mut self.scratch_pad, log_pos)
-            .ok_or_else(|| RecordError::InvalidRecord(&self.buffer))
+        Self::parse_from_line(&self.line_parser.line, &mut self.scratch_pad, log_pos)
+            .ok_or_else(|| RecordError::InvalidRecord(&self.line_parser.line))
     }
 
     fn parse_from_line<'a>(
@@ -102,36 +109,37 @@ impl Parser {
         scratch_pad: &mut String,
         log_pos: Option<Range<u64>>,
     ) -> Option<Record<'a>> {
-        let mut parts = line.split(',');
+        let (time, line) = line.split_once("::")?;
 
-        let time_and_source_name = parts.next()?.trim();
-        let (time, source_name) =
-            Self::parse_time_and_source_name(time_and_source_name, scratch_pad)?;
+        let time = Self::parse_time(time, scratch_pad)?;
 
-        let source_id_and_unique_name = parts.next()?.trim();
+        let mut fields = parse_csv_line(line);
+        let source_name = fields.next()?;
+        let source_id_and_unique_name = fields.next()?;
         let source = Entity::parse(source_name, source_id_and_unique_name)?;
 
-        let indirect_source_name = parts.next()?.trim();
-        let indirect_source_id_and_unique_name = parts.next()?.trim();
+        let indirect_source_name = fields.next()?;
+        let indirect_source_id_and_unique_name = fields.next()?;
         let indirect_source =
             Entity::parse(indirect_source_name, indirect_source_id_and_unique_name)?;
 
-        let target_name = parts.next()?.trim();
-        let target_id_and_unique_name = parts.next()?.trim();
+        let target_name = fields.next()?;
+        let target_id_and_unique_name = fields.next()?;
         let target = Entity::parse(target_name, target_id_and_unique_name)?;
 
-        let value_name = parts.next()?.trim();
+        let value_name = fields.next()?;
 
         // don't know what these are (e.g. Pn.Rfd0cd)
-        parts.next()?;
+        fields.next()?;
 
-        let value_type = parts.next()?.trim();
-        let value_flags = parts.next()?.trim();
+        let value_type = fields.next()?;
+        let value_flags = fields.next()?;
+        let value_flags = value_flags.trim();
         let value_flags = ValueFlags::parse(value_flags);
-        let value1 = parts.next()?.trim();
-        let value2 = parts.next()?.trim();
+        let value1 = fields.next()?;
+        let value2 = fields.next()?;
 
-        let value = RecordValue::new(value_type, value1, value2, value_flags)?;
+        let value = RecordValue::new(value_type.trim(), value1.trim(), value2.trim(), value_flags)?;
 
         let record = Record {
             time,
@@ -148,19 +156,12 @@ impl Parser {
         Some(record)
     }
 
-    fn parse_time_and_source_name<'b>(
-        time_and_source_name: &'b str,
-        scratch_pad: &mut String,
-    ) -> Option<(NaiveDateTime, &'b str)> {
-        let mut time_and_source_name = time_and_source_name.split("::");
-        let time = time_and_source_name.next()?;
-
+    fn parse_time<'b>(time: &'b str, scratch_pad: &mut String) -> Option<NaiveDateTime> {
         scratch_pad.clear();
         write!(scratch_pad, "{}00", time).ok()?;
         let time = NaiveDateTime::parse_from_str(&scratch_pad, "%y:%m:%d:%H:%M:%S%.3f").ok()?;
-        let name = time_and_source_name.next()?;
 
-        Some((time, name))
+        Some(time)
     }
 }
 
@@ -189,33 +190,40 @@ lazy_static! {
     .unwrap();
 }
 impl<'a> Entity<'a> {
-    fn parse(name: &'a str, id_and_unique_name: &'a str) -> Option<Self> {
+    fn parse(name: Cow<'a, str>, id_and_unique_name: Cow<'a, str>) -> Option<Self> {
         if name.is_empty() && (id_and_unique_name.is_empty() || id_and_unique_name == "*") {
             return Some(Self::None);
         }
 
-        let captures = ID_AND_UNIQUE_NAME_REGEX.captures(id_and_unique_name)?;
+        let captures = ID_AND_UNIQUE_NAME_REGEX.captures(&id_and_unique_name)?;
         let entity_type = captures.name("type")?.as_str();
         let id = captures.name("id")?.as_str();
         let id = str::parse::<u64>(id).ok()?;
+
+        fn map_cow_substr(cow: Cow<str>, range: Range<usize>) -> Cow<str> {
+            match cow {
+                Cow::Borrowed(s) => Cow::Borrowed(&s[range]),
+                Cow::Owned(s) => Cow::Owned(s[range].to_string()),
+            }
+        }
 
         match entity_type {
             "P" => {
                 let player_id = captures.name("player_id")?.as_str();
                 let player_id = str::parse::<u64>(player_id).ok()?;
-                let unique_name = captures.name("unique_name")?.as_str();
+                let unique_name = captures.name("unique_name")?.range();
 
                 Some(Self::Player {
-                    full_name: unique_name,
+                    full_name: map_cow_substr(id_and_unique_name, unique_name),
                     _id: (id, player_id),
                 })
             }
             "C" => {
-                let unique_name = captures.name("unique_name")?.as_str();
+                let unique_name = captures.name("unique_name")?.range();
                 Some(Self::NonPlayer {
                     name,
                     _id: id,
-                    unique_name,
+                    unique_name: map_cow_substr(id_and_unique_name, unique_name),
                 })
             }
             "S" => Some(Self::NonPlayerCharacter { _id: id, name }),
@@ -317,6 +325,135 @@ impl<'a> From<std::io::Error> for RecordError<'a> {
     }
 }
 
+struct LineParser {
+    char_parser: CharParser,
+    escaped: bool,
+    line: String,
+    line_start_in_file: Option<u64>,
+    line_end_in_file: Option<u64>,
+    line_finished: bool,
+}
+
+impl LineParser {
+    fn advance_line(&mut self) -> bool {
+        if self.line_finished {
+            self.line.clear();
+            self.line_finished = false;
+            self.line_start_in_file = self.char_parser.pos();
+        }
+        loop {
+            let Some(c) = self.char_parser.next() else {
+                return false;
+            };
+            if c == '\n' && !self.escaped {
+                self.line_end_in_file = self.char_parser.pos();
+                self.line_finished = true;
+                return true;
+            }
+
+            self.line.push(c);
+
+            if c == '"' {
+                self.escaped = !self.escaped;
+            }
+        }
+    }
+}
+
+fn parse_csv_line<'a>(line: &'a str) -> impl Iterator<Item = Cow<'a, str>> {
+    let mut chars = line.char_indices();
+    std::iter::from_fn(move || {
+        let (start_index, first_c) = chars.next()?;
+        if first_c == ',' {
+            return Some(Cow::Borrowed(""));
+        }
+        let is_escaped = first_c == '"';
+        if is_escaped {
+            let start_index = start_index + 1;
+            let mut field = Cow::Borrowed("");
+            loop {
+                let Some((index, c)) = chars.next() else {
+                    return Some(Cow::Borrowed(&line[start_index..]));
+                };
+
+                if c == '"' {
+                    let Some((_, c)) = chars.next() else {
+                        return Some(Cow::Borrowed(&line[start_index..]));
+                    };
+
+                    match c {
+                        ',' => return Some(field),     // field end
+                        '"' => field.to_mut().push(c), // escaped quote
+                        _ => {
+                            error!("record CSV syntax error: {}", line);
+                            return None;
+                        }
+                    }
+                    if c != '"' {
+                        return Some(field);
+                    }
+
+                    field.to_mut().push(c);
+                } else {
+                    match &mut field {
+                        Cow::Borrowed(field) => *field = &line[start_index..=index],
+                        Cow::Owned(field) => field.push(c),
+                    }
+                }
+            }
+        } else {
+            loop {
+                let Some((index, c)) = chars.next() else {
+                    return Some(Cow::Borrowed(&line[start_index..]));
+                };
+
+                if c == ',' {
+                    return Some(Cow::Borrowed(&line[start_index..index]));
+                }
+            }
+        }
+    })
+}
+
+struct CharParser {
+    file: BufReader<File>,
+    buffer: u32,
+    buffer_len: u32,
+}
+
+impl CharParser {
+    fn next(&mut self) -> Option<char> {
+        loop {
+            let mut byte = 0u8;
+            let count = self.file.read(std::slice::from_mut(&mut byte)).ok()?;
+            if count == 0 {
+                return None;
+            }
+            self.buffer |= (byte as u32) << self.buffer_len;
+            self.buffer_len += 1;
+            if let Some(c) = char::from_u32(self.buffer) {
+                self.reset_for_next_char();
+                return Some(c);
+            }
+
+            if self.buffer_len == 4 {
+                error!("Failed to successfully parse char: {}", self.buffer);
+                self.reset_for_next_char();
+                return None;
+            }
+        }
+    }
+
+    fn reset_for_next_char(&mut self) {
+        self.buffer = 0;
+        self.buffer_len = 0;
+    }
+
+    fn pos(&mut self) -> Option<u64> {
+        self.file.stream_position().ok()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -326,10 +463,8 @@ mod tests {
     #[ignore = "manual test"]
     #[test]
     fn read_log() {
-        let mut parser = Parser::new(&PathBuf::from(
-            r"D:\Games\Star Trek Online_en\Star Trek Online\Live\logs\GameClient\saved_combats\Combat 2023-02-10 20-36-00 - 20-37-05.log",
-        ))
-        .unwrap();
+        let mut parser =
+            Parser::new(&PathBuf::from(r"/home/nathan/Downloads/combatlog.log")).unwrap();
 
         let mut record_data = Vec::new();
         loop {
