@@ -1,6 +1,6 @@
 # Change Log
 
-## unreleased
+## unreleased (v1.4.0)
 ### Major Changes
 - added "total crit damage", "total non-crit damage", "average crit hit" and "average non-crit hit" damage metrics
 - added new diagrams:
@@ -8,6 +8,14 @@
   - Hits count
   - Heals per Second
   - Heals count
+  
+### Other Changes
+- added TFO detection rules to default settings
+  - Belly of the Beast
+  - Kobayashi Maru
+  - Devil's Heart
+  - Royal Flush
+  - Guillotine
 
 ### Fixes
 - fixed "Pull Together, Fall Apart" not showing up (and any other powers, that show up the same way in the log)
