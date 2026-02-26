@@ -11,6 +11,10 @@ accepted = [
     "OFL-1.1",
     "LicenseRef-UFL-1.0",
     "Unicode-DFS-2016",
+    "CDLA-Permissive-2.0",
+    "OpenSSL",
+    "Ubuntu-font-1.0",
+    "Unicode-3.0",
 ]
 
 ignore-build-dependencies = true
