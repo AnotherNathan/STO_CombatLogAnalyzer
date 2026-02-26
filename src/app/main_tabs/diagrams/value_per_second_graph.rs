@@ -104,10 +104,6 @@ impl<T: PreparedValue> ValuePerSecondGraph<T> {
     }
 
     pub fn format_label(name: &str, point: &PlotPoint, value_name: &str) -> String {
-        if point.x < 0.0 || point.y < 0.0 {
-            return String::new();
-        }
-
         let mut formatter = NumberFormatter::new();
         let x = formatter.format(point.x, 2);
         let y = formatter.format(point.y, 2);
