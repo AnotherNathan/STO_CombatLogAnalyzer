@@ -11,17 +11,15 @@ pub fn initialize() {
         return;
     }
 
-    let mut loggers: Vec<Box<dyn SharedLogger>> = vec![SimpleLogger::new(
-        settings.debug.log_level_filter,
-        Config::default(),
-    )];
+    let mut loggers: Vec<Box<dyn SharedLogger>> =
+        vec![SimpleLogger::new(log::LevelFilter::Info, Config::default())];
 
     if let Some(file) = file_path()
         .map(|p| OpenOptions::new().create(true).append(true).open(&p).ok())
         .flatten()
     {
         loggers.push(WriteLogger::new(
-            log::LevelFilter::Info,
+            settings.debug.log_level_filter,
             Config::default(),
             file,
         ));

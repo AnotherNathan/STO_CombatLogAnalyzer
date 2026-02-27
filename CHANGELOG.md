@@ -19,6 +19,7 @@
 
 ### Fixes
 - fixed "Pull Together, Fall Apart" not showing up (and any other powers, that show up the same way in the log)
+- fixed CLAs debug log level not being respected
 
 ## v1.3.0
 ### Major Changes
