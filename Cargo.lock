@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "STO_CombatLogAnalyzer"
-version = "1.4.0-beta1"
+version = "1.4.0"
 dependencies = [
  "bitflags 2.11.0",
  "chrono",

@@ -1,6 +1,6 @@
 # Change Log
 
-## unreleased (v1.4.0)
+## v1.4.0
 ### Major Changes
 - added "total crit damage", "total non-crit damage", "average crit hit" and "average non-crit hit" damage metrics
 - added new diagrams:
@@ -19,6 +19,7 @@
 
 ### Fixes
 - fixed "Pull Together, Fall Apart" not showing up (and any other powers, that show up the same way in the log)
+- fixed a rare bug where a log entry was dropped (only observed on Linux)
 - fixed CLAs debug log level not being respected
 
 ## v1.3.0
