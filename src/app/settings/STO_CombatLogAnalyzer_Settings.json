@@ -785,6 +785,21 @@
           "enabled": true
         },
         "additional_info_rules": []
+      },
+      {
+        "name_rule": {
+          "name": "Viscous Cycle",
+          "rules": [
+            {
+              "aspect": "SourceOrTargetUniqueName",
+              "expression": "Space_Undine_Planet_Killer_Shipyard_Event",
+              "method": "Equals",
+              "enabled": true
+            }
+          ],
+          "enabled": true
+        },
+        "additional_info_rules": []
       }
     ]
   },
