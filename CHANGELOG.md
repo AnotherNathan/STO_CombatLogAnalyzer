@@ -1,5 +1,9 @@
 # Change Log
 
+# unreleased
+### Fixes
+- fixed auto refresh stopping to work when changing the logs path
+
 ## v1.4.0
 ### Major Changes
 - added "total crit damage", "total non-crit damage", "average crit hit" and "average non-crit hit" damage metrics

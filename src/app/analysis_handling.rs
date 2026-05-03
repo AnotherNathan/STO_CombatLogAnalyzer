@@ -3,21 +3,21 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, AtomicU32, Ordering},
         Arc,
+        atomic::{AtomicBool, AtomicU32, Ordering},
     },
     time::SystemTime,
 };
 
 use chrono::Duration;
-use crossbeam_channel::{unbounded, Receiver, Sender};
+use crossbeam_channel::{Receiver, Sender, unbounded};
 use eframe::egui::{Context, ViewportId};
 use log::info;
-use notify::{recommended_watcher, RecommendedWatcher, Watcher};
+use notify::{RecommendedWatcher, Watcher, recommended_watcher};
 use timer::{Guard, Timer};
 
 use crate::{
-    analyzer::{settings::AnalysisSettings, Analyzer, Combat},
+    analyzer::{Analyzer, Combat, settings::AnalysisSettings},
     unwrap_or_return,
 };
 
@@ -256,7 +256,8 @@ impl AnalysisContext {
                     }
                 }
                 Instruction::SetSettings(settings) => {
-                    self.analyzer = Analyzer::new(Arc::into_inner(settings).unwrap())
+                    self.analyzer = Analyzer::new(Arc::into_inner(settings).unwrap());
+                    self.update_auto_refresh();
                 }
             }
 
