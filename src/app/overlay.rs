@@ -251,8 +251,8 @@ impl Overlay {
         drop(inner);
         let inner = self.0.clone();
         ui.ctx()
-            .show_viewport_deferred(Self::viewport_id(), builder, move |ctx, _| {
-                inner.lock().show_overlay(ctx);
+            .show_viewport_deferred(Self::viewport_id(), builder, move |ui, _| {
+                inner.lock().show_overlay(ui);
             });
     }
 
@@ -270,13 +270,16 @@ impl Overlay {
 }
 
 impl OverlayInner {
-    fn show_overlay(&mut self, ctx: &Context) {
-        self.check_update(ctx);
-        CentralPanel::default().show(ctx, |ui| {
-            if ctx.input_for(Overlay::viewport_id(), |i| i.viewport().close_requested()) {
+    fn show_overlay(&mut self, ui: &mut Ui) {
+        self.check_update(ui.ctx());
+        CentralPanel::default().show_inside(ui, |ui| {
+            if ui
+                .ctx()
+                .input_for(Overlay::viewport_id(), |i| i.viewport().close_requested())
+            {
                 self.toggle_show();
             }
-            self.position = ctx.input_for(Overlay::viewport_id(), |i| {
+            self.position = ui.ctx().input_for(Overlay::viewport_id(), |i| {
                 i.viewport().outer_rect.map(|r| r.left_top())
             });
             let required_size = Table::new(ui)
@@ -314,7 +317,7 @@ impl OverlayInner {
                 + ui.spacing().item_spacing;
             let required_size = required_size.ceil();
             if self.current_size != required_size {
-                ctx.send_viewport_cmd_to(
+                ui.ctx().send_viewport_cmd_to(
                     Overlay::viewport_id(),
                     ViewportCommand::InnerSize(required_size),
                 );

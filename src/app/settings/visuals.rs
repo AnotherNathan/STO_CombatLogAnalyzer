@@ -1,11 +1,11 @@
 use eframe::{
-    egui::{style::Selection, ComboBox, Context, Style, Ui, Visuals},
+    egui::{ComboBox, Context, Style, Ui, Visuals, style::Selection},
     epaint::{Rgba, Shadow},
 };
 
 use crate::{app::overlay::Overlay, custom_widgets::slider_text_edit::SliderTextEdit};
 
-use super::{app_settings::Theme, Settings};
+use super::{Settings, app_settings::Theme};
 
 #[derive(Default)]
 pub struct VisualsTab {}
@@ -79,7 +79,7 @@ impl VisualsTab {
             Theme::LightDark => Self::light_dark(),
             Theme::Light => Visuals::light(),
         };
-        let mut style = Style::clone(&ctx.style());
+        let mut style = Style::clone(&ctx.global_style());
         style.visuals = visuals;
         style.interaction.selectable_labels = false;
         style.interaction.tooltip_delay = 0.0;

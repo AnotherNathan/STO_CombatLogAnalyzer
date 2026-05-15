@@ -58,10 +58,9 @@ impl App {
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut eframe::egui::Ui, frame: &mut eframe::Frame) {
         self.handle_analysis_infos();
-
-        CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show_inside(ui, |ui| {
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
                     self.settings_window.show(
@@ -156,6 +155,10 @@ impl eframe::App for App {
                 self.main_tabs.show(&self.state.settings, ui);
             });
         });
+    }
+
+    fn clear_color(&self, _visuals: &eframe::egui::Visuals) -> [f32; 4] {
+        _visuals.window_fill().to_normalized_gamma_f32()
     }
 }
 

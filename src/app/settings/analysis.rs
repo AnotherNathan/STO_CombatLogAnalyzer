@@ -375,7 +375,7 @@ impl<'a, T: BorrowMut<RulesGroup> + Default> GroupRulesTable<'a, T> {
 
                         r.cell(|ui| {
                             TextEdit::singleline(&mut rule.borrow_mut().name)
-                                .min_size(vec2(600.0, 0.0))
+                                .clip_text(false)
                                 .show(ui);
                         });
 
@@ -480,7 +480,7 @@ impl<'a> RulesTable<'a> {
 
                             r.cell(|ui| {
                                 TextEdit::singleline(&mut rule.expression)
-                                    .min_size(vec2(400.0, 0.0))
+                                    .clip_text(false)
                                     .show(ui);
                             });
 
