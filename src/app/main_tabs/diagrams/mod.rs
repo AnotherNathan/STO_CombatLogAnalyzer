@@ -5,6 +5,7 @@ mod value_per_second_graph;
 mod values_chart;
 
 pub use crate::app::main_tabs::diagrams::common::DiagramType;
+use crate::app::settings::Settings;
 pub use common::PreparedDamageDataSet;
 pub use common::PreparedHealDataSet;
 use eframe::egui::Ui;
@@ -114,13 +115,13 @@ impl DamageDiagrams {
         self.hits_count_chart.update(time_slice);
     }
 
-    pub fn show(&mut self, ui: &mut Ui, active_diagram: DiagramType) {
+    pub fn show(&mut self, settings: &Settings, ui: &mut Ui, active_diagram: DiagramType) {
         match active_diagram {
-            DiagramType::Damage => self.damage_chart.show(ui),
-            DiagramType::Dps => self.dps_graph.show(ui),
-            DiagramType::DamageResistance => self.damage_resistance_chart.show(ui),
-            DiagramType::HitsCount => self.hits_count_chart.show(ui),
-            DiagramType::HitsPerSecond => self.hits_per_second_graph.show(ui),
+            DiagramType::Damage => self.damage_chart.show(settings, ui),
+            DiagramType::Dps => self.dps_graph.show(settings, ui),
+            DiagramType::DamageResistance => self.damage_resistance_chart.show(settings, ui),
+            DiagramType::HitsCount => self.hits_count_chart.show(settings, ui),
+            DiagramType::HitsPerSecond => self.hits_per_second_graph.show(settings, ui),
             _ => unreachable!(),
         }
     }
@@ -200,12 +201,12 @@ impl HealDiagrams {
         self.ticks_count_chart.update(time_slice);
     }
 
-    pub fn show(&mut self, ui: &mut Ui, active_diagram: DiagramType) {
+    pub fn show(&mut self, settings: &Settings, ui: &mut Ui, active_diagram: DiagramType) {
         match active_diagram {
-            DiagramType::Heal => self.heal_chart.show(ui),
-            DiagramType::Hps => self.hps_graph.show(ui),
-            DiagramType::HealTicksPerSecond => self.ticks_per_second.show(ui),
-            DiagramType::HealTicksCount => self.ticks_count_chart.show(ui),
+            DiagramType::Heal => self.heal_chart.show(settings, ui),
+            DiagramType::Hps => self.hps_graph.show(settings, ui),
+            DiagramType::HealTicksPerSecond => self.ticks_per_second.show(settings, ui),
+            DiagramType::HealTicksCount => self.ticks_count_chart.show(settings, ui),
             _ => unreachable!(),
         }
     }

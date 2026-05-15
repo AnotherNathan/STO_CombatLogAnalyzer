@@ -1,5 +1,8 @@
 use crate::{
-    analyzer::*, app::main_tabs::common::*, col, custom_widgets::table::*,
+    analyzer::*,
+    app::{main_tabs::common::*, settings::Settings},
+    col,
+    custom_widgets::table::*,
     helpers::number_formatting::NumberFormatter,
 };
 
@@ -56,36 +59,50 @@ static COLUMNS: &[ColumnDescriptor<DamageTablePartData>] = &[
             t.flanking.show(r);
         },
     ),
-    col!("Hits",
+    col!(
+        "Hits",
         "Every damage number that shows up, counts as one hit.\nThis means for an attack, that hits the shields of an enemy, 2 Hits will be counted. One for the shield Hit and one for the hull Hit.",
-        |t| t.sort_by_desc(|p| p.hits.all.count), |t, r| {
+        |t| t.sort_by_desc(|p| p.hits.all.count),
+        |t, r| {
             t.hits.show(r);
         },
     ),
-    col!("Hits / s",
+    col!(
+        "Hits / s",
         "Hits Per Second\nCalculated from the first damage of the player to the last damage in the log",
         |t| t.sort_by_option_f64_desc(|p| p.hits_per_second.all.value),
         |t, r| {
             t.hits_per_second.show(r);
         },
     ),
-    col!("Hits %", |t| t.sort_by_option_f64_desc(|p| p.hits_percentage.all.value), |t, r| {
+    col!(
+        "Hits %",
+        |t| t.sort_by_option_f64_desc(|p| p.hits_percentage.all.value),
+        |t, r| {
             t.hits_percentage.show(r);
         },
     ),
     col!("Misses", |t| t.sort_by_asc(|p| p.misses.count), |t, r| {
-            t.misses.show(r);
-        },
-    ),
-    col!("Accuracy %", |t| t.sort_by_option_f64_desc(|p| p.accuracy_percentage.value), |t, r| {
+        t.misses.show(r);
+    },),
+    col!(
+        "Accuracy %",
+        |t| t.sort_by_option_f64_desc(|p| p.accuracy_percentage.value),
+        |t, r| {
             t.accuracy_percentage.show(r);
         },
     ),
-    col!("Kills", |t| t.sort_by_asc(|p| p.kills.total_count), |t, r| {
+    col!(
+        "Kills",
+        |t| t.sort_by_asc(|p| p.kills.total_count),
+        |t, r| {
             t.kills.show(r);
         },
     ),
-    col!("Damage Types", |t| t.sort_by_desc(|p| p.damage_types.clone()), |t, r| {
+    col!(
+        "Damage Types",
+        |t| t.sort_by_desc(|p| p.damage_types.clone()),
+        |t, r| {
             t.damage_types.show(r);
         },
     ),
@@ -113,7 +130,7 @@ static COLUMNS: &[ColumnDescriptor<DamageTablePartData>] = &[
             t.total_crit_damage.show(r);
         },
     ),
-     col!(
+    col!(
         "Total Non-Crit Hull Damage",
         |t| t.sort_by_option_f64_desc(|p| p.total_non_crit_hull_damage.value),
         |t, r| {
@@ -182,57 +199,113 @@ impl DamageTable {
         Self::empty_base(COLUMNS)
     }
 
-    pub fn new(combat: &Combat, damage_group: impl FnMut(&Player) -> &DamageGroup) -> Self {
-        Self::new_base(COLUMNS, combat, damage_group, DamageTablePartData::new)
+    pub fn new(
+        settings: &Settings,
+        combat: &Combat,
+        damage_group: impl FnMut(&Player) -> &DamageGroup,
+    ) -> Self {
+        Self::new_base(
+            settings,
+            COLUMNS,
+            combat,
+            damage_group,
+            DamageTablePartData::new,
+        )
     }
 }
 
 impl DamageTablePartData {
-    fn new(source: &DamageGroup, combat: &Combat, number_formatter: &mut NumberFormatter) -> Self {
+    fn new(
+        settings: &Settings,
+        source: &DamageGroup,
+        combat: &Combat,
+        number_formatter: &mut NumberFormatter,
+    ) -> Self {
+        let more_decimals = settings.general.more_decimals;
         Self {
-            total_damage: ShieldAndHullTextValue::new(&source.total_damage, 2, number_formatter),
-            dps: ShieldAndHullTextValue::new(&source.dps, 2, number_formatter),
-            damage_percentage: ShieldAndHullTextValue::option(
-                &source.damage_percentage,
-                3,
+            total_damage: ShieldAndHullTextValue::new(
+                &source.total_damage,
+                if more_decimals { 2 } else { 0 },
                 number_formatter,
             ),
-            average_hit: ShieldAndHullTextValue::option(&source.average_hit, 2, number_formatter),
-            critical_percentage: TextValue::option(source.critical_percentage, 3, number_formatter),
-            flanking: TextValue::option(source.flanking, 3, number_formatter),
+            dps: ShieldAndHullTextValue::new(
+                &source.dps,
+                if more_decimals { 2 } else { 0 },
+                number_formatter,
+            ),
+            damage_percentage: ShieldAndHullTextValue::option(
+                &source.damage_percentage,
+                if more_decimals { 3 } else { 2 },
+                number_formatter,
+            ),
+            average_hit: ShieldAndHullTextValue::option(
+                &source.average_hit,
+                if more_decimals { 2 } else { 0 },
+                number_formatter,
+            ),
+            critical_percentage: TextValue::option(
+                source.critical_percentage,
+                if more_decimals { 3 } else { 2 },
+                number_formatter,
+            ),
+            flanking: TextValue::option(
+                source.flanking,
+                if more_decimals { 3 } else { 2 },
+                number_formatter,
+            ),
             max_one_hit: MaxOneHit::new(source, number_formatter, &combat.name_manager),
             damage_resistance_percentage: TextValue::option(
                 source.damage_resistance_percentage,
-                3,
+                if more_decimals { 3 } else { 2 },
                 number_formatter,
             ),
-            base_damage: TextValue::new(source.total_base_damage, 2, number_formatter),
-            base_dps: TextValue::new(source.base_dps, 2, number_formatter),
+            base_damage: TextValue::new(
+                source.total_base_damage,
+                if more_decimals { 2 } else { 0 },
+                number_formatter,
+            ),
+            base_dps: TextValue::new(
+                source.base_dps,
+                if more_decimals { 2 } else { 0 },
+                number_formatter,
+            ),
             kills: Kills::new(source, &combat.name_manager),
             damage_types: DamageTypes::new(source, &combat.name_manager),
             hits: ShieldAndHullTextCount::new(&source.damage_metrics.hits),
             hits_per_second: ShieldAndHullTextValue::new(
                 &source.hits_per_second,
-                3,
+                if more_decimals { 3 } else { 1 },
                 number_formatter,
             ),
             hits_percentage: ShieldAndHullTextValue::option(
                 &source.hits_percentage,
-                3,
+                if more_decimals { 3 } else { 2 },
                 number_formatter,
             ),
             misses: TextCount::new(source.misses),
-            accuracy_percentage: TextValue::option(source.accuracy_percentage, 3, number_formatter),
-            total_crit_damage: TextValue::new(source.total_crit_damage, 2, number_formatter),
-            total_non_crit_hull_damage: TextValue::new(
-                source.total_non_crit_hull_damage,
-                2,
+            accuracy_percentage: TextValue::option(
+                source.accuracy_percentage,
+                if more_decimals { 3 } else { 2 },
                 number_formatter,
             ),
-            average_crit_hit: TextValue::option(source.average_crit_hit, 2, number_formatter),
+            total_crit_damage: TextValue::new(
+                source.total_crit_damage,
+                if more_decimals { 2 } else { 0 },
+                number_formatter,
+            ),
+            total_non_crit_hull_damage: TextValue::new(
+                source.total_non_crit_hull_damage,
+                if more_decimals { 2 } else { 0 },
+                number_formatter,
+            ),
+            average_crit_hit: TextValue::option(
+                source.average_crit_hit,
+                if more_decimals { 2 } else { 0 },
+                number_formatter,
+            ),
             average_non_crit_hull_hit: TextValue::option(
                 source.average_non_crit_hull_hit,
-                2,
+                if more_decimals { 2 } else { 0 },
                 number_formatter,
             ),
             source_hits: source.hits.get(&combat.hits_manger).to_vec(),

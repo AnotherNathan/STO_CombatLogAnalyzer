@@ -6,9 +6,9 @@ use rustc_hash::FxHashSet;
 
 use crate::{
     analyzer::*,
-    app::main_tabs::common::*,
+    app::{main_tabs::common::*, settings::Settings},
     custom_widgets::table::*,
-    helpers::{number_formatting::NumberFormatter, F64TotalOrd},
+    helpers::{F64TotalOrd, number_formatting::NumberFormatter},
 };
 
 #[macro_export]
@@ -69,10 +69,11 @@ impl<T: 'static> MetricsTable<T> {
     }
 
     pub fn new_base<G: AnalysisGroup>(
+        settings: &Settings,
         columns: &'static [ColumnDescriptor<T>],
         combat: &Combat,
         mut group: impl FnMut(&Player) -> &G,
-        data_new: fn(&G, &Combat, &mut NumberFormatter) -> T,
+        data_new: fn(&Settings, &G, &Combat, &mut NumberFormatter) -> T,
     ) -> Self {
         let mut number_formatter = NumberFormatter::new();
         let mut id_source = 0;
@@ -83,6 +84,7 @@ impl<T: 'static> MetricsTable<T> {
                 .values()
                 .map(|p| {
                     MetricsTablePart::new(
+                        settings,
                         group(p),
                         combat,
                         &mut number_formatter,
@@ -168,22 +170,25 @@ impl<T: 'static> MetricsTable<T> {
 
 impl<T> MetricsTablePart<T> {
     fn new<G: AnalysisGroup>(
+        settings: &Settings,
         source: &G,
         combat: &Combat,
         number_formatter: &mut NumberFormatter,
         id_source: &mut u32,
-        data_new: fn(&G, &Combat, &mut NumberFormatter) -> T,
+        data_new: fn(&Settings, &G, &Combat, &mut NumberFormatter) -> T,
     ) -> Self {
         let id = *id_source;
         *id_source += 1;
         let sub_parts = source
             .sub_groups()
             .values()
-            .map(|s| MetricsTablePart::new(s, combat, number_formatter, id_source, data_new))
+            .map(|s| {
+                MetricsTablePart::new(settings, s, combat, number_formatter, id_source, data_new)
+            })
             .collect();
 
         Self {
-            data: data_new(source, combat, number_formatter),
+            data: data_new(settings, source, combat, number_formatter),
             name: source.name().get(&combat.name_manager).to_string(),
             id,
             sub_parts,

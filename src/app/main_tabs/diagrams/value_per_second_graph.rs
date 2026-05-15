@@ -4,7 +4,7 @@ use eframe::egui::*;
 use egui_plot::*;
 use itertools::Itertools;
 
-use crate::helpers::number_formatting::NumberFormatter;
+use crate::{app::settings::Settings, helpers::number_formatting::NumberFormatter};
 
 use super::common::*;
 
@@ -71,7 +71,7 @@ impl<T: PreparedValue> ValuePerSecondGraph<T> {
         self.updated_filter = Some(filter);
     }
 
-    pub fn show(&mut self, ui: &mut Ui) {
+    pub fn show(&mut self, settings: &Settings, ui: &mut Ui) {
         if let Some(filter) = self.updated_filter.take() {
             self.lines
                 .iter_mut()
@@ -83,7 +83,9 @@ impl<T: PreparedValue> ValuePerSecondGraph<T> {
             .auto_bounds(true)
             .y_axis_formatter(format_axis)
             .x_axis_formatter(format_axis)
-            .label_formatter(|n, p| Self::format_label(n, p, self.diagram_type.value_name()))
+            .label_formatter(|n, p| {
+                Self::format_label(n, p, self.diagram_type.value_name(), settings)
+            })
             .include_y(self.largest_point)
             .legend(Legend::default());
 
@@ -103,10 +105,15 @@ impl<T: PreparedValue> ValuePerSecondGraph<T> {
         });
     }
 
-    pub fn format_label(name: &str, point: &PlotPoint, value_name: &str) -> String {
+    pub fn format_label(
+        name: &str,
+        point: &PlotPoint,
+        value_name: &str,
+        settings: &Settings,
+    ) -> String {
         let mut formatter = NumberFormatter::new();
-        let x = formatter.format(point.x, 2);
-        let y = formatter.format(point.y, 2);
+        let y = formatter.format(point.y, if settings.general.more_decimals { 2 } else { 0 });
+        let x = formatter.format(point.x, 1);
         if name.is_empty() {
             return format!("{}: {}\nTime: {}", value_name, y, x);
         }

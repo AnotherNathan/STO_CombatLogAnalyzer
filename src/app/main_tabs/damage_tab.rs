@@ -1,6 +1,6 @@
 use eframe::egui::*;
 
-use crate::{analyzer::*, custom_widgets::splitter::Splitter};
+use crate::{analyzer::*, app::settings::Settings, custom_widgets::splitter::Splitter};
 
 use super::{common::*, diagrams::*, tables::*};
 
@@ -27,8 +27,8 @@ impl DamageTab {
         }
     }
 
-    pub fn update(&mut self, combat: &Combat) {
-        self.table = DamageTable::new(combat, self.damage_group);
+    pub fn update(&mut self, settings: &Settings, combat: &Combat) {
+        self.table = DamageTable::new(settings, combat, self.damage_group);
         self.dmg_main_diagrams = DamageDiagrams::from_damage_groups(
             combat.players.values().map(self.damage_group),
             combat,
@@ -38,7 +38,7 @@ impl DamageTab {
         self.dmg_selection_diagrams = None;
     }
 
-    pub fn show(&mut self, ui: &mut Ui) {
+    pub fn show(&mut self, settings: &Settings, ui: &mut Ui) {
         Splitter::horizontal()
             .initial_ratio(0.6)
             .ratio_bounds(0.1..=0.9)
@@ -52,7 +52,7 @@ impl DamageTab {
                     );
                 });
 
-                self.show_diagrams(bottom_ui);
+                self.show_diagrams(settings, bottom_ui);
             });
     }
 
@@ -136,7 +136,7 @@ impl DamageTab {
         }
     }
 
-    fn show_diagrams(&mut self, ui: &mut Ui) {
+    fn show_diagrams(&mut self, settings: &Settings, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.selectable_value(
                 &mut self.active_diagram,
@@ -185,9 +185,10 @@ impl DamageTab {
         }
 
         if let Some(selection_diagrams) = &mut self.dmg_selection_diagrams {
-            selection_diagrams.show(ui, self.active_diagram);
+            selection_diagrams.show(settings, ui, self.active_diagram);
         } else {
-            self.dmg_main_diagrams.show(ui, self.active_diagram);
+            self.dmg_main_diagrams
+                .show(settings, ui, self.active_diagram);
         }
     }
 }

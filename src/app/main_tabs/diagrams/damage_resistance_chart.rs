@@ -4,7 +4,7 @@ use eframe::egui::*;
 use egui_plot::*;
 use itertools::Itertools;
 
-use crate::{analyzer::*, helpers::number_formatting::NumberFormatter};
+use crate::{analyzer::*, app::settings::Settings, helpers::number_formatting::NumberFormatter};
 
 use super::common::*;
 
@@ -52,7 +52,7 @@ impl DamageResistanceChart {
         self.updated_time_slice = Some(time_slice);
     }
 
-    pub fn show(&mut self, ui: &mut Ui) {
+    pub fn show(&mut self, settings: &Settings, ui: &mut Ui) {
         if let Some(time_slice) = self.updated_time_slice.take() {
             self.bars.iter_mut().for_each(|b| b.update(time_slice));
         }
@@ -65,8 +65,8 @@ impl DamageResistanceChart {
                 let mut formatter = NumberFormatter::new();
                 format!(
                     "Resistance: {}%\nTime: {}",
-                    formatter.format(p.y, 2),
-                    formatter.format(p.x, 2)
+                    formatter.format(p.y, if settings.general.more_decimals { 2 } else { 1 }),
+                    formatter.format(p.x, 1)
                 )
             })
             .legend(Legend::default());
@@ -82,7 +82,7 @@ impl DamageResistanceChart {
 
         plot.show(ui, |p| {
             for bars in self.bars.iter() {
-                p.bar_chart(bars.chart());
+                p.bar_chart(bars.chart(settings));
             }
         });
     }
@@ -137,16 +137,23 @@ impl DamageResistanceBars {
         self.bars = bars;
     }
 
-    fn chart(&self) -> BarChart {
-        BarChart::new(&self.data.name, self.bars.clone())
-            .element_formatter(Box::new(Self::format_element_percentage))
-    }
-
-    pub fn format_element_percentage(bar: &Bar, _: &BarChart) -> String {
-        let mut formatter = NumberFormatter::new();
-        if bar.name.is_empty() {
-            return format!("{}%", formatter.format(bar.value, 2));
-        }
-        format!("{}\n{}%", bar.name, formatter.format(bar.value, 2))
+    fn chart(&self, settings: &Settings) -> BarChart {
+        let more_decimals = settings.general.more_decimals;
+        BarChart::new(&self.data.name, self.bars.clone()).element_formatter(Box::new(
+            move |bar, _| {
+                let mut formatter = NumberFormatter::new();
+                if bar.name.is_empty() {
+                    return format!(
+                        "{}%",
+                        formatter.format(bar.value, if more_decimals { 2 } else { 1 })
+                    );
+                }
+                format!(
+                    "{}\n{}%",
+                    bar.name,
+                    formatter.format(bar.value, if more_decimals { 2 } else { 1 })
+                )
+            },
+        ))
     }
 }

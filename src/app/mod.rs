@@ -9,8 +9,8 @@ use crate::{
 };
 
 use self::{
-    analysis_handling::AnalysisInfo, main_tabs::*, overlay::Overlay, settings::*, state::AppState,
-    status::*, summary_copy::SummaryCopy,
+    analysis_handling::AnalysisInfo, main_tabs::*, settings::*, state::AppState, status::*,
+    summary_copy::SummaryCopy,
 };
 
 mod analysis_handling;
@@ -30,7 +30,6 @@ pub struct App {
     status_indicator: StatusIndicator,
     main_tabs: MainTabs,
     summary_copy: SummaryCopy,
-    overlay: Overlay,
     upload: Upload,
     records: Records,
     state: AppState,
@@ -51,7 +50,6 @@ impl App {
             status_indicator: StatusIndicator::new(),
             main_tabs: MainTabs::empty(),
             summary_copy: Default::default(),
-            overlay: Overlay::new(&state.analysis_handler),
             upload: Default::default(),
             records: Default::default(),
             state,
@@ -152,10 +150,10 @@ impl eframe::App for App {
                     ui.separator();
                     self.summary_copy.show(self.selected_combat.as_deref(), ui);
                     ui.separator();
-                    self.overlay.show(ui);
+                    self.state.overlay.show(ui);
                 });
 
-                self.main_tabs.show(ui);
+                self.main_tabs.show(&self.state.settings, ui);
             });
         });
     }
@@ -167,7 +165,7 @@ impl App {
         for info in self.state.analysis_handler.check_for_info() {
             match info {
                 AnalysisInfo::Combat(combat) => {
-                    self.main_tabs.update(&combat);
+                    self.main_tabs.update(&self.state.settings, &combat);
                     self.selected_combat = Some(combat);
                 }
                 AnalysisInfo::Refreshed {
@@ -175,7 +173,7 @@ impl App {
                     combats,
                     file_size,
                 } => {
-                    self.main_tabs.update(&latest_combat);
+                    self.main_tabs.update(&self.state.settings, &latest_combat);
                     self.combats = combats;
                     self.selected_combat_index = Some(self.combats.len() - 1);
                     self.selected_combat = Some(latest_combat);

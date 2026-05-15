@@ -1,6 +1,9 @@
 # Change Log
 
 # unreleased
+### Major Changes
+- decreased the decimal count of most number to reduce used space (can be changed to be like before in the settings)
+
 ### Fixes
 - fixed auto refresh stopping to work when changing the logs path
 

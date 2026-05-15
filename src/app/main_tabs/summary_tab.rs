@@ -2,6 +2,7 @@ use eframe::egui::*;
 
 use crate::{
     analyzer::*,
+    app::settings::Settings,
     custom_widgets::{splitter::Splitter, table::*},
     helpers::{number_formatting::NumberFormatter, *},
 };
@@ -54,7 +55,7 @@ impl SummaryTab {
         }
     }
 
-    pub fn update(&mut self, combat: &Combat) {
+    pub fn update(&mut self, settings: &Settings, combat: &Combat) {
         self.identifier = combat.identifier();
         self.name = combat.name();
 
@@ -63,14 +64,20 @@ impl SummaryTab {
         self.active_duration = TextDuration::new(time_range_to_duration(&combat.active_time));
 
         let mut number_formatter = NumberFormatter::new();
-        self.total_damage_out =
-            ShieldAndHullTextValue::new(&combat.total_damage_out, 2, &mut number_formatter);
-        self.total_damage_in =
-            ShieldAndHullTextValue::new(&combat.total_damage_in, 2, &mut number_formatter);
+        self.total_damage_out = ShieldAndHullTextValue::new(
+            &combat.total_damage_out,
+            if settings.general.more_decimals { 2 } else { 0 },
+            &mut number_formatter,
+        );
+        self.total_damage_in = ShieldAndHullTextValue::new(
+            &combat.total_damage_in,
+            if settings.general.more_decimals { 2 } else { 0 },
+            &mut number_formatter,
+        );
         self.total_kills = TextCount::new(combat.total_kills as _);
         self.total_deaths = TextCount::new(combat.total_deaths as _);
 
-        self.summary_table = SummaryTable::new(combat);
+        self.summary_table = SummaryTable::new(settings, combat);
         self.summary_dps_chart = SummaryChart::from_data(
             "summary dps chart",
             combat.players.values().map(|p| {
@@ -100,7 +107,7 @@ impl SummaryTab {
         );
     }
 
-    pub fn show(&mut self, top_ui: &mut Ui) {
+    pub fn show(&mut self, settings: &Settings, top_ui: &mut Ui) {
         top_ui.heading(&self.name);
 
         Splitter::horizontal()
@@ -127,9 +134,9 @@ impl SummaryTab {
                 });
 
                 match self.chart_tab {
-                    ChartTab::Dps => self.summary_dps_chart.show(bottom_ui),
-                    ChartTab::DamageOut => self.summary_damage_out_chart.show(bottom_ui),
-                    ChartTab::DamageIn => self.summary_damage_in_chart.show(bottom_ui),
+                    ChartTab::Dps => self.summary_dps_chart.show(settings, bottom_ui),
+                    ChartTab::DamageOut => self.summary_damage_out_chart.show(settings, bottom_ui),
+                    ChartTab::DamageIn => self.summary_damage_in_chart.show(settings, bottom_ui),
                 }
             });
     }

@@ -1,12 +1,13 @@
 use std::ffi::OsStr;
 
 pub use app_settings::Settings;
-use eframe::{egui::*, Frame};
+use eframe::{Frame, egui::*};
 
 use crate::analyzer::Combat;
 
 use self::{
-    analysis::AnalysisTab, debug::DebugTab, file::FileTab, upload::UploadTab, visuals::VisualsTab,
+    analysis::AnalysisTab, debug::DebugTab, general::GeneralTab, upload::UploadTab,
+    visuals::VisualsTab,
 };
 
 use super::{analysis_handling::AnalysisHandler, state::AppState};
@@ -14,7 +15,7 @@ use super::{analysis_handling::AnalysisHandler, state::AppState};
 mod analysis;
 mod app_settings;
 mod debug;
-mod file;
+mod general;
 mod upload;
 mod visuals;
 
@@ -22,7 +23,7 @@ pub struct SettingsWindow {
     is_open: bool,
     modified_settings: Settings,
     selected_tab: SettingsTab,
-    file_tab: FileTab,
+    general_tab: GeneralTab,
     analysis_tab: AnalysisTab,
     visuals_tab: VisualsTab,
     upload_tab: UploadTab,
@@ -32,7 +33,7 @@ pub struct SettingsWindow {
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
 enum SettingsTab {
     #[default]
-    File,
+    General,
     Analysis,
     Visuals,
     Debug,
@@ -48,7 +49,7 @@ impl SettingsWindow {
             is_open: false,
             modified_settings: settings.clone(),
             selected_tab: Default::default(),
-            file_tab: Default::default(),
+            general_tab: Default::default(),
             analysis_tab: Default::default(),
             debug_tab: Default::default(),
             upload_tab: Default::default(),
@@ -78,7 +79,7 @@ impl SettingsWindow {
             .constrain(true)
             .show(ui.ctx(), |ui| {
                 ui.horizontal(|ui| {
-                    ui.selectable_value(&mut self.selected_tab, SettingsTab::File, "File");
+                    ui.selectable_value(&mut self.selected_tab, SettingsTab::General, "General");
                     ui.selectable_value(&mut self.selected_tab, SettingsTab::Analysis, "Analysis");
                     ui.selectable_value(&mut self.selected_tab, SettingsTab::Visuals, "Visuals");
                     ui.selectable_value(&mut self.selected_tab, SettingsTab::Upload, "Upload");
@@ -87,7 +88,7 @@ impl SettingsWindow {
 
                 ui.separator();
                 ScrollArea::both().show(ui, |ui| match self.selected_tab {
-                    SettingsTab::File => self.file_tab.show(
+                    SettingsTab::General => self.general_tab.show(
                         &state.analysis_handler,
                         &mut self.modified_settings,
                         ui,
@@ -117,7 +118,7 @@ impl SettingsWindow {
     }
 
     pub fn show_clear_log_dialog(&mut self, analysis_handler: &AnalysisHandler, ui: &mut Ui) {
-        self.file_tab.show_clear_log_dialog(analysis_handler, ui);
+        self.general_tab.show_clear_log_dialog(analysis_handler, ui);
     }
 
     fn handle_dropped_file(&mut self, ui: &mut Ui, state: &mut AppState) {
@@ -144,12 +145,15 @@ impl SettingsWindow {
     fn initialize(&mut self, state: &AppState) {
         self.is_open = true;
         self.modified_settings = state.settings.clone();
-        self.file_tab.initialize();
+        self.general_tab.initialize();
     }
 
     fn apply_setting_changes(&mut self, state: &mut AppState) {
         self.is_open = false;
-        if self.modified_settings.analysis != state.settings.analysis {
+        if self.modified_settings.analysis != state.settings.analysis
+            || self.modified_settings.general != state.settings.general
+        {
+            state.overlay.settings_changed(&self.modified_settings);
             state
                 .analysis_handler
                 .set_settings(self.modified_settings.analysis.clone());

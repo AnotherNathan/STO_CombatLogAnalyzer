@@ -1,7 +1,7 @@
 use eframe::egui::Ui;
 use egui_plot::*;
 
-use crate::helpers::number_formatting::NumberFormatter;
+use crate::{app::settings::Settings, helpers::number_formatting::NumberFormatter};
 
 use super::common::*;
 
@@ -33,14 +33,18 @@ impl SummaryChart {
         }
     }
 
-    pub fn show(&mut self, ui: &mut Ui) {
+    pub fn show(&mut self, settings: &Settings, ui: &mut Ui) {
+        let more_decimals = settings.general.more_decimals;
         Plot::new(&self.identifier)
             .auto_bounds(true)
             .y_axis_formatter(|_, _| String::new())
             .x_axis_formatter(format_axis)
             .label_formatter(|_, p| {
                 let mut formatter = NumberFormatter::new();
-                format!("DPS: {}", formatter.format(p.x, 2))
+                format!(
+                    "DPS: {}",
+                    formatter.format(p.x, if more_decimals { 2 } else { 0 })
+                )
             })
             .y_axis_min_width(0.0)
             .legend(Legend::default())
@@ -48,7 +52,9 @@ impl SummaryChart {
             .show(ui, |p| {
                 for player in self.players.iter() {
                     let chart = BarChart::new(&player.name, vec![player.clone()])
-                        .element_formatter(Box::new(format_element))
+                        .element_formatter(Box::new(move |b, c| {
+                            format_element(b, c, more_decimals)
+                        }))
                         .horizontal();
                     p.bar_chart(chart);
                 }

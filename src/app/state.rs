@@ -1,10 +1,13 @@
 use eframe::egui::Context;
 
+use crate::app::overlay::Overlay;
+
 use super::{analysis_handling::AnalysisHandler, settings::Settings};
 
 pub struct AppState {
     pub settings: Settings,
     pub analysis_handler: AnalysisHandler,
+    pub overlay: Overlay,
 }
 
 impl AppState {
@@ -18,6 +21,7 @@ impl AppState {
         );
 
         Self {
+            overlay: Overlay::new(&analysis_handler, &settings),
             settings,
             analysis_handler,
         }

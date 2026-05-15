@@ -2,7 +2,7 @@ use eframe::egui::*;
 use egui_plot::*;
 use itertools::Itertools;
 
-use crate::helpers::number_formatting::NumberFormatter;
+use crate::{app::settings::Settings, helpers::number_formatting::NumberFormatter};
 
 use super::common::*;
 
@@ -65,7 +65,7 @@ impl<T: PreparedValue> ValuesChart<T> {
         self.updated_time_slice = Some(time_slice);
     }
 
-    pub fn show(&mut self, ui: &mut Ui) {
+    pub fn show(&mut self, settings: &Settings, ui: &mut Ui) {
         if let Some(time_slice) = self.updated_time_slice.take() {
             self.bars
                 .iter_mut()
@@ -81,8 +81,8 @@ impl<T: PreparedValue> ValuesChart<T> {
                 format!(
                     "{}: {}\nTime: {}",
                     self.diagram_type.value_name(),
-                    formatter.format(p.y, 2),
-                    formatter.format(p.x, 2)
+                    formatter.format(p.y, if settings.general.more_decimals { 2 } else { 0 }),
+                    formatter.format(p.x, 1)
                 )
             })
             .legend(Legend::default());
@@ -98,7 +98,7 @@ impl<T: PreparedValue> ValuesChart<T> {
 
         plot.show(ui, |p| {
             for bars in self.bars.iter() {
-                p.bar_chart(bars.chart());
+                p.bar_chart(bars.chart(settings));
             }
         });
     }
@@ -136,8 +136,9 @@ impl<T: PreparedValue> Bars<T> {
         self.bars = bars;
     }
 
-    fn chart(&self) -> BarChart {
+    fn chart(&self, settings: &Settings) -> BarChart {
+        let more_decimals = settings.general.more_decimals;
         BarChart::new(&self.data.name, self.bars.clone())
-            .element_formatter(Box::new(format_element))
+            .element_formatter(Box::new(move |b, c| format_element(b, c, more_decimals)))
     }
 }

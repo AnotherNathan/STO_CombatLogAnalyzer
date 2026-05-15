@@ -4,6 +4,7 @@ use eframe::{egui::*, epaint::mutex::Mutex};
 
 use crate::{
     analyzer::{Combat, Player},
+    app::settings::Settings,
     custom_widgets::{popup_button::PopupButton, table::Table},
     helpers::number_formatting::NumberFormatter,
 };
@@ -21,6 +22,7 @@ struct OverlayInner {
     columns: Vec<ColumnDescriptor>,
     analysis_handler: AnalysisHandler,
     state: State,
+    settings: Settings,
 }
 
 #[derive(Default)]
@@ -58,7 +60,7 @@ fn val(value: f64, value_string: String) -> ColumnValue {
 struct ColumnDescriptor {
     name: &'static str,
     enabled: bool,
-    select: fn(&Player, &mut NumberFormatter) -> ColumnValue,
+    select: fn(&Settings, &Player, &mut NumberFormatter) -> ColumnValue,
 }
 
 macro_rules! col {
@@ -79,94 +81,106 @@ macro_rules! col {
 }
 
 static COLUMNS: &[ColumnDescriptor] = &[
-    col!("DPS", true, |p, f| {
+    col!("DPS", true, |s, p, f| {
         val(
             p.damage_out.damage_metrics.dps.all,
-            f.format(p.damage_out.damage_metrics.dps.all, 2),
+            f.format(
+                p.damage_out.damage_metrics.dps.all,
+                if s.general.more_decimals { 2 } else { 0 },
+            ),
         )
     }),
-    col!("Dmg Out", |p, f| {
+    col!("Dmg Out", |s, p, f| {
         val(
             p.damage_out.damage_metrics.total_damage.all,
-            f.format(p.damage_out.damage_metrics.total_damage.all, 2),
+            f.format(
+                p.damage_out.damage_metrics.total_damage.all,
+                if s.general.more_decimals { 2 } else { 0 },
+            ),
         )
     }),
-    col!("Dmg Out %", |p, f| {
+    col!("Dmg Out %", |s, p, f| {
         val(
             p.damage_out.damage_percentage.all.unwrap_or(0.0),
             p.damage_out
                 .damage_percentage
                 .all
-                .map(|p| f.format(p, 3))
+                .map(|p| f.format(p, if s.general.more_decimals { 3 } else { 1 }))
                 .unwrap_or(String::new()),
         )
     }),
-    col!("Max One-Hit", |p, f| {
+    col!("Max One-Hit", |s, p, f| {
         val(
             p.damage_out.max_one_hit.damage,
-            f.format(p.damage_out.max_one_hit.damage, 2),
+            f.format(
+                p.damage_out.max_one_hit.damage,
+                if s.general.more_decimals { 2 } else { 0 },
+            ),
         )
     }),
-    col!("Dmg In", |p, f| {
+    col!("Dmg In", |s, p, f| {
         val(
             p.damage_in.damage_metrics.total_damage.all,
-            f.format(p.damage_in.damage_metrics.total_damage.all, 2),
+            f.format(
+                p.damage_in.damage_metrics.total_damage.all,
+                if s.general.more_decimals { 2 } else { 0 },
+            ),
         )
     }),
-    col!("Dmg In %", |p, f| {
+    col!("Dmg In %", |s, p, f| {
         val(
             p.damage_in.damage_percentage.all.unwrap_or(0.0),
             p.damage_in
                 .damage_percentage
                 .all
-                .map(|p| f.format(p, 3))
+                .map(|p| f.format(p, if s.general.more_decimals { 3 } else { 1 }))
                 .unwrap_or(String::new()),
         )
     }),
-    col!("Hits Out", |p, _| {
+    col!("Hits Out", |_, p, _| {
         val(
             p.damage_out.damage_metrics.hits.all as _,
             p.damage_out.damage_metrics.hits.all.to_string(),
         )
     }),
-    col!("Hits Out %", |p, f| {
+    col!("Hits Out %", |s, p, f| {
         val(
             p.damage_out.hits_percentage.all.unwrap_or(0.0),
             p.damage_out
                 .hits_percentage
                 .all
-                .map(|p| f.format(p, 3))
+                .map(|p| f.format(p, if s.general.more_decimals { 3 } else { 1 }))
                 .unwrap_or(String::new()),
         )
     }),
-    col!("Hits In", |p, _| {
+    col!("Hits In", |_, p, _| {
         val(
             p.damage_out.damage_metrics.hits.all as _,
             p.damage_out.damage_metrics.hits.all.to_string(),
         )
     }),
-    col!("Hits In %", |p, f| {
+    col!("Hits In %", |s, p, f| {
         val(
             p.damage_in.hits_percentage.all.unwrap_or(0.0),
             p.damage_in
                 .hits_percentage
                 .all
-                .map(|p| f.format(p, 3))
+                .map(|p| f.format(p, if s.general.more_decimals { 3 } else { 1 }))
                 .unwrap_or(String::new()),
         )
     }),
-    col!("Kills", |p, _| {
+    col!("Kills", |_, p, _| {
         let count: u32 = p.damage_out.kills.values().copied().sum();
         val(count as _, count.to_string())
     }),
-    col!("Deaths", |p, _| {
+    col!("Deaths", |_, p, _| {
         let count: u32 = p.damage_in.kills.values().copied().sum();
         val(count as _, count.to_string())
     }),
 ];
 
 impl Overlay {
-    pub fn new(root_handler: &AnalysisHandler) -> Self {
+    pub fn new(root_handler: &AnalysisHandler, settings: &Settings) -> Self {
         Self(Arc::new(Mutex::new(OverlayInner {
             move_around: true,
             columns: COLUMNS.iter().cloned().collect(),
@@ -176,6 +190,7 @@ impl Overlay {
             show: false,
             analysis_handler: root_handler.get_handler(true, Self::viewport_id()),
             state: State::Empty,
+            settings: settings.clone(),
         })))
     }
 
@@ -248,6 +263,10 @@ impl Overlay {
     pub fn request_repaint(ctx: &Context) {
         ctx.request_repaint_of(Self::viewport_id());
     }
+
+    pub fn settings_changed(&self, settings: &Settings) {
+        self.0.lock().settings = settings.clone();
+    }
 }
 
 impl OverlayInner {
@@ -281,7 +300,7 @@ impl OverlayInner {
                             });
 
                             for column in player.columns.iter() {
-                                r.cell(|ui| {
+                                r.cell_with_layout(Layout::right_to_left(Align::Center), |ui| {
                                     ui.label(column.value_string.as_str());
                                 });
                             }
@@ -359,9 +378,11 @@ impl OverlayInner {
                 columns: Vec::new(),
             };
             for column in display_data.columns.iter() {
-                display_player
-                    .columns
-                    .push((column.select)(player, &mut formatter));
+                display_player.columns.push((column.select)(
+                    &self.settings,
+                    player,
+                    &mut formatter,
+                ));
             }
             display_data.players.push(display_player);
         }

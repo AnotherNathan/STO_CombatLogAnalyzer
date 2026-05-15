@@ -1,5 +1,5 @@
-use eframe::egui::*;
 use eframe::Frame;
+use eframe::egui::*;
 use rfd::FileDialog;
 
 use crate::{
@@ -9,7 +9,7 @@ use crate::{
 use super::Settings;
 
 #[derive(Default)]
-pub struct FileTab {
+pub struct GeneralTab {
     clear_log_dialog: ClearLogDialog,
 }
 
@@ -18,7 +18,7 @@ pub struct ClearLogDialog {
     is_open: bool,
 }
 
-impl FileTab {
+impl GeneralTab {
     pub fn show(
         &mut self,
         analysis_handler: &AnalysisHandler,
@@ -78,6 +78,16 @@ impl FileTab {
         .desired_text_edit_width(40.0)
         .clamp_min(0.1)
         .show(ui);
+
+        ui.separator();
+
+        ui.checkbox(
+            &mut modified_settings.general.more_decimals,
+            "Show more decimals",
+        )
+        .on_hover_text(
+            "Shows more numbers after the decimal point in the tables of the different tabs and the overlay",
+        );
     }
 
     pub fn show_clear_log_dialog(&mut self, analysis_handler: &AnalysisHandler, ui: &mut Ui) {

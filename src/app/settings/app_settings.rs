@@ -7,11 +7,18 @@ use crate::analyzer::settings::AnalysisSettings;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Settings {
     pub analysis: AnalysisSettings,
+    #[serde(default)]
+    pub general: General,
     pub auto_refresh: AutoRefresh,
     pub visuals: Visuals,
     pub debug: DebugSettings,
     #[serde(default)]
     pub upload: UploadSettings,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
+pub struct General {
+    pub more_decimals: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

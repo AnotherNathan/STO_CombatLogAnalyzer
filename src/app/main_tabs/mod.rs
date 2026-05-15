@@ -1,6 +1,6 @@
 use eframe::egui::*;
 
-use crate::analyzer::Combat;
+use crate::{analyzer::Combat, app::settings::Settings};
 
 use self::{damage_tab::DamageTab, heal_tab::HealTab, summary_tab::SummaryTab};
 
@@ -45,16 +45,16 @@ impl MainTabs {
         }
     }
 
-    pub fn update(&mut self, combat: &Combat) {
+    pub fn update(&mut self, settings: &Settings, combat: &Combat) {
         self.identifier = combat.identifier();
-        self.summary_tab.update(combat);
-        self.damage_out_tab.update(combat);
-        self.damage_in_tab.update(combat);
-        self.heal_out_tab.update(combat);
-        self.heal_in_tab.update(combat);
+        self.summary_tab.update(settings, combat);
+        self.damage_out_tab.update(settings, combat);
+        self.damage_in_tab.update(settings, combat);
+        self.heal_out_tab.update(settings, combat);
+        self.heal_in_tab.update(settings, combat);
     }
 
-    pub fn show(&mut self, ui: &mut Ui) {
+    pub fn show(&mut self, settings: &Settings, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.selectable_value(&mut self.active_tab, MainTab::Summary, "Summary");
 
@@ -66,11 +66,11 @@ impl MainTabs {
         });
 
         match self.active_tab {
-            MainTab::Summary => self.summary_tab.show(ui),
-            MainTab::DamageOut => self.damage_out_tab.show(ui),
-            MainTab::DamageIn => self.damage_in_tab.show(ui),
-            MainTab::HealOut => self.heal_out_tab.show(ui),
-            MainTab::HealIn => self.heal_in_tab.show(ui),
+            MainTab::Summary => self.summary_tab.show(settings, ui),
+            MainTab::DamageOut => self.damage_out_tab.show(settings, ui),
+            MainTab::DamageIn => self.damage_in_tab.show(settings, ui),
+            MainTab::HealOut => self.heal_out_tab.show(settings, ui),
+            MainTab::HealIn => self.heal_in_tab.show(settings, ui),
         }
     }
 }

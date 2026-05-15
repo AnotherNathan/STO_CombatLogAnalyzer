@@ -5,7 +5,7 @@ use eframe::egui::*;
 
 use crate::{
     analyzer::{Player as AnalyzedPlayer, *},
-    app::main_tabs::common::*,
+    app::{main_tabs::common::*, settings::Settings},
     custom_widgets::table::*,
     helpers::{number_formatting::NumberFormatter, *},
 };
@@ -128,7 +128,7 @@ impl SummaryTable {
         }
     }
 
-    pub fn new(combat: &Combat) -> Self {
+    pub fn new(settings: &Settings, combat: &Combat) -> Self {
         let combat_duration = time_range_to_duration_or_zero(&combat.combat_time);
         let mut number_formatter = NumberFormatter::new();
         let mut table = Self {
@@ -137,6 +137,7 @@ impl SummaryTable {
                 .values()
                 .map(|p| {
                     Player::new(
+                        settings,
                         combat_duration,
                         p,
                         &combat.name_manager,
@@ -200,6 +201,7 @@ impl SummaryTable {
 
 impl Player {
     fn new(
+        settings: &Settings,
         combat_duration: Duration,
         player: &AnalyzedPlayer,
         name_manager: &NameManager,
@@ -242,29 +244,33 @@ impl Player {
             name: player.damage_out.name().get(name_manager).to_string(),
             total_out_damage: ShieldAndHullTextValue::new(
                 &player.damage_out.total_damage,
-                2,
+                if settings.general.more_decimals { 2 } else { 0 },
                 number_formatter,
             ),
             total_out_damage_percentage: ShieldAndHullTextValue::option(
                 &player.damage_out.damage_percentage,
-                3,
+                if settings.general.more_decimals { 3 } else { 2 },
                 number_formatter,
             ),
-            dps_out: ShieldAndHullTextValue::new(&player.damage_out.dps, 2, number_formatter),
+            dps_out: ShieldAndHullTextValue::new(
+                &player.damage_out.dps,
+                if settings.general.more_decimals { 2 } else { 0 },
+                number_formatter,
+            ),
             total_in_damage: ShieldAndHullTextValue::new(
                 &player.damage_in.total_damage,
-                2,
+                if settings.general.more_decimals { 2 } else { 0 },
                 number_formatter,
             ),
             total_in_damage_percentage: ShieldAndHullTextValue::option(
                 &player.damage_in.damage_percentage,
-                3,
+                if settings.general.more_decimals { 3 } else { 2 },
                 number_formatter,
             ),
             combat_duration: TextDuration::new(player_combat_duration),
             combat_duration_percentage: TextValue::new(
                 player_combat_duration_percentage,
-                3,
+                if settings.general.more_decimals { 3 } else { 2 },
                 number_formatter,
             ),
             active_duration: TextDuration::new(player_active_duration),

@@ -275,12 +275,19 @@ pub fn format_axis(mark: GridMark, _: &RangeInclusive<f64>) -> String {
     formatter.format(mark.value, 0)
 }
 
-pub fn format_element(bar: &Bar, _: &BarChart) -> String {
+pub fn format_element(bar: &Bar, _: &BarChart, more_decimals: bool) -> String {
     let mut formatter = NumberFormatter::new();
     if bar.name.is_empty() {
-        return format!("{}", formatter.format(bar.value, 2));
+        return format!(
+            "{}",
+            formatter.format(bar.value, if more_decimals { 2 } else { 0 })
+        );
     }
-    format!("{}\n{}", bar.name, formatter.format(bar.value, 2))
+    format!(
+        "{}\n{}",
+        bar.name,
+        formatter.format(bar.value, if more_decimals { 2 } else { 0 })
+    )
 }
 
 pub fn time_slices<'a, T: PreparedValue>(
